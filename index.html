@@ -276,12 +276,35 @@ const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
+// Key bindings: the player's saved set in localStorage always wins; defaults only fill gaps.
+const RESERVED_KEYS = new Set(['Escape']);
+const validCode = c => typeof c === 'string' && /^[A-Za-z0-9]{2,24}$/.test(c) && !RESERVED_KEYS.has(c);
 function loadBinds() {
   const saved = store.get('fpfc-binds'), out = DEFAULT_BINDS.map(d => ({ ...d }));
-  if (Array.isArray(saved)) saved.forEach((m, i) => { if (out[i] && m) for (const k in out[i]) if (typeof m[k] === 'string') out[i][k] = m[k]; });
+  if (!Array.isArray(saved)) return out;
+  // 1) Take every valid saved key (first use of a key wins if the saved data has duplicates).
+  const taken = new Set(), fromSave = out.map(() => ({}));
+  saved.forEach((m, i) => {
+    if (!out[i] || !m || typeof m !== 'object') return;
+    for (const a of Object.keys(out[i])) if (validCode(m[a]) && !taken.has(m[a])) { out[i][a] = m[a]; taken.add(m[a]); fromSave[i][a] = true; }
+  });
+  // 2) Actions without a valid saved key keep their default, unless a saved choice already uses
+  //    that key; then they get a free fallback key, so no two actions ever share one.
+  const spare = ['KeyZ', 'KeyX', 'KeyC', 'KeyB', 'KeyN', 'KeyH', 'KeyJ', 'KeyK', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'Digit1', 'Digit2', 'Digit3', 'Digit4'];
+  out.forEach((m, i) => { for (const a of Object.keys(m)) {
+    if (fromSave[i][a]) continue;
+    if (taken.has(m[a])) m[a] = spare.find(c => !taken.has(c)) || m[a];
+    taken.add(m[a]);
+  } });
   return out;
 }
 let BINDS = loadBinds();
+// Keep every open tab in sync when the bindings change in another one.
+addEventListener('storage', e => {
+  if (e.key !== 'fpfc-binds') return;
+  BINDS = loadBinds(); rebuildMaps();
+  if (!document.getElementById('settings').hidden) renderBinds();
+});
 const PACES = [['Slow', 0.55], ['Relaxed', 0.7], ['Normal', 0.85], ['Turbo', 1]];
 let PACE = (() => { const v = store.get('fpfc-pace'); return PACES.some(p => p[1] === v) ? v : 0.7; })();
 const LENS = [['1 min', 60], ['3 min', 180], ['5 min', 300]];
