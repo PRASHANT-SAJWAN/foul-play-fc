@@ -104,6 +104,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <button class="tb" data-act="item">BANANA</button>
       <button class="tb" data-act="pass">PASS</button>
       <button class="tb" data-act="shoot">SHOOT</button>
+      <button class="tb" data-act="sprint">SPRINT</button>
     </div>
   </div>
 
@@ -116,6 +117,8 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <button data-adm="banana">+2 banana</button><button data-adm="sand">Refill sand</button>
         <button data-adm="heal">Full health</button><button data-adm="gift">Crowd gift</button>
         <button data-adm="ball">Give ball</button><button data-adm="ko">K.O. target</button>
+        <button data-adm="charge">Fill charge</button><button data-adm="heat">Max bot anger</button>
+        <button data-adm="karmaup">Karma +50</button><button data-adm="karmadown">Karma −50</button>
       </div>
       <p class="adm-h">Cheats</p>
       <label class="adm-t"><input type="checkbox" id="adm-god"> Invincible</label>
@@ -153,6 +156,8 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <li><b>Caught?</b> Yellow card and a free kick. Second yellow or a bat foul: red, off for 25s.</li>
         <li><b>Sand:</b> blinds the nearest ref for 4.5s. Recharges every 22s. The other ref may still see you.</li>
         <li><b>Crowd meter:</b> goals, tackles, saves and unseen fouls fill it. Full meter = a gift from the stands.</li>
+        <li><b>Charge:</b> fills with possession and good play. Spend it to sprint; any shot at 25% or more becomes an accurate power shot.</li>
+        <li><b>Karma:</b> fouls lower it and make bots come after you. Help a downed player up to raise it. Referees let trusted players off and ignore fouls on serial offenders.</li>
       </ul>
       <div class="row"><button class="btn ghost" id="m-settings">Pace and controls</button></div>
     </div>
@@ -267,10 +272,10 @@ function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; wh
 function proj(x, y, z = 0) { const t = y / H, s = (0.7 + 0.3 * t) * K; return { x: LW / 2 + (x - W / 2) * s, y: TOP + H * K * (0.5 * t + 0.25 * t * t) - z * s, s }; }
 
 /* ---------------- input ---------------- */
-const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['pass', 'Pass / switch player'], ['shoot', 'Shoot (hold) / tackle'], ['foul', 'Foul target'], ['cycle', 'Next foul target'], ['blind', 'Throw sand at ref'], ['item', 'Drop banana']];
+const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['pass', 'Pass / switch player'], ['shoot', 'Shoot (hold) / tackle'], ['foul', 'Foul target'], ['cycle', 'Next foul target'], ['blind', 'Throw sand at ref'], ['item', 'Drop banana'], ['sprint', 'Sprint (uses charge)']];
 const DEFAULT_BINDS = [
-  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', pass: 'KeyF', shoot: 'KeyG', foul: 'KeyR', cycle: 'KeyQ', blind: 'KeyT', item: 'KeyV' },
-  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', pass: 'Period', shoot: 'Slash', foul: 'Semicolon', cycle: 'KeyL', blind: 'Quote', item: 'Comma' }
+  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', pass: 'KeyF', shoot: 'KeyG', foul: 'KeyR', cycle: 'KeyQ', blind: 'KeyT', item: 'KeyV', sprint: 'ShiftLeft' },
+  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', pass: 'Period', shoot: 'Slash', foul: 'Semicolon', cycle: 'KeyL', blind: 'Quote', item: 'Comma', sprint: 'ShiftRight' }
 ];
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -332,7 +337,7 @@ function keyLabel(c) {
 function renderLegend() {
   const el = document.getElementById('legend'); if (!el) return;
   const k = c => `<kbd>${esc(keyLabel(c))}</kbd>`;
-  const row = (n, b) => `<span><b>${n}</b>${k(b.up)}${k(b.left)}${k(b.down)}${k(b.right)} move · ${k(b.pass)} pass / switch · ${k(b.shoot)} shoot (hold) / tackle · ${k(b.foul)} foul · ${k(b.cycle)} next target · ${k(b.blind)} sand · ${k(b.item)} banana</span>`;
+  const row = (n, b) => `<span><b>${n}</b>${k(b.up)}${k(b.left)}${k(b.down)}${k(b.right)} move · ${k(b.pass)} pass / switch · ${k(b.shoot)} shoot (hold) / tackle · ${k(b.foul)} foul · ${k(b.cycle)} next target · ${k(b.blind)} sand · ${k(b.item)} banana · ${k(b.sprint)} sprint</span>`;
   el.innerHTML = row('P1', BINDS[0]) + row('P2', BINDS[1]) + `<span><b>Solo</b> either set works${MAPSOLO.shoot.includes('Space') ? ', <kbd>Space</kbd> shoots' : ''} · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute</span>`;
 }
 function assignKey(pi, a, code) {
@@ -367,7 +372,7 @@ addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 
 /* ---------------- audio ---------------- */
-let AC = null, crowdGain = null, muted = false;
+let AC = null, crowdGain = null, muted = false, NOISE = null;
 function initAudio() {
   if (AC) return;
   try {
@@ -377,7 +382,7 @@ function initAudio() {
     const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
     const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.5;
     crowdGain = AC.createGain(); crowdGain.gain.value = 0;
-    src.connect(bp).connect(crowdGain).connect(AC.destination); src.start();
+    src.connect(bp).connect(crowdGain).connect(AC.destination); src.start(); NOISE = buf;
   } catch (e) { AC = null; }
 }
 function whistle(n = 1, len = 0.32) {
@@ -390,6 +395,31 @@ function whistle(n = 1, len = 0.32) {
     g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.1, t0 + 0.02);
     g.gain.setValueAtTime(0.1, t0 + len - 0.05); g.gain.linearRampToValueAtTime(0, t0 + len);
     o.connect(g).connect(AC.destination); o.start(t0); l.start(t0); o.stop(t0 + len); l.stop(t0 + len);
+  }
+}
+function crowdSound(kind) {
+  if (!AC || muted || !NOISE) return;
+  const t0 = AC.currentTime;
+  if (kind === 'applause') {
+    for (let i = 0; i < 46; i++) {
+      const st = t0 + Math.random() * 1.6, s = AC.createBufferSource(); s.buffer = NOISE;
+      const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400 + Math.random() * 1600;
+      const g = AC.createGain(); g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.09, st + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, st + 0.05);
+      s.connect(hp).connect(g).connect(AC.destination); s.start(st, Math.random() * 1.5, 0.06);
+    }
+  } else if (kind === 'roar') {
+    const s = AC.createBufferSource(); s.buffer = NOISE; s.loop = true;
+    const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(380, t0); bp.frequency.linearRampToValueAtTime(950, t0 + 0.5); bp.frequency.linearRampToValueAtTime(600, t0 + 1.3);
+    const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.5);
+    s.connect(bp).connect(g).connect(AC.destination); s.start(t0); s.stop(t0 + 1.6);
+  } else if (kind === 'boo') {
+    const o = AC.createOscillator(), lp = AC.createBiquadFilter(), g = AC.createGain(), l = AC.createOscillator(), lg = AC.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(150, t0); o.frequency.linearRampToValueAtTime(105, t0 + 1.2);
+    l.frequency.value = 5; lg.gain.value = 6; l.connect(lg).connect(o.frequency);
+    lp.type = 'lowpass'; lp.frequency.value = 420;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3);
+    o.connect(lp).connect(g).connect(AC.destination); o.start(t0); l.start(t0); o.stop(t0 + 1.35); l.stop(t0 + 1.35);
   }
 }
 function thump(f = 120, vol = 0.22, len = 0.12) {
@@ -408,6 +438,7 @@ function makePlayer(team, i, id) {
   return { id, team, i, gk: i === 0, name: NAMES[team][i], num: NUMS[i], x: 0, y: 0, vx: 0, vy: 0, dx: 0, dy: 0, face: team === 0 ? 0 : Math.PI,
     hp: 100, stun: 0, ko: 0, sentOff: 0, yellows: 0, pop: 10, hype: 0, items: { bat: 0, flash: 0, banana: 0 }, blind: 1, blindT: 0,
     foulCd: 0, blindCd: 0, pickCd: 0, lunge: 0, lungeCd: 0, hold: 0, expect: 0, aggr: rand(0.3, 0.9), human: null, run: 0, hitT: 0, target: null,
+    charge: 20, karma: Math.round(rand(-5, 25)), sprintWant: false, sprinting: false, cleanT: 0,
     skin: pick(SKIN), hair: pick(HAIR), stats: { goals: 0, assists: 0, fouls: 0, caught: 0, tackles: 0, saves: 0 } };
 }
 const onPitch = p => p.sentOff <= 0;
@@ -424,6 +455,7 @@ function newMatch(mode) {
   ];
   S.ball = { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, lastTouch: null, lastPasser: null, passTime: -9, spin: 0 };
   S.items = []; S.bananas = []; S.parts = []; S.texts = []; S.feed = []; S.pend = []; S.score = [0, 0];
+  S.chants = []; S.cheerCd = {}; S.heat = 0; S.setPiece = null;
   S.clock = S.phase === 'menu' || mode === 'playground' ? 99999 : MATCH_LEN; S.excite = 0.2; S.userPaused = false;
   S.humans = [];
   S.admin = mode === 'playground' ? { god: false, inf: false, refs: 'normal', bots: 'normal' } : null;
@@ -455,7 +487,7 @@ function kickoff(team, msg) {
   const cands = S.players.filter(p => p.team === team && onPitch(p) && !p.gk);
   const kicker = cands.find(p => p.human) || cands.sort((a, c) => c.i - a.i)[0];
   if (kicker) { kicker.x = W / 2 - (team === 0 ? 12 : -12); kicker.y = H / 2; b.owner = kicker; b.lastTouch = kicker; }
-  S.pend = [];
+  S.pend = []; S.setPiece = null;
   pauseFor(1.3, msg, TEAM[team].name + ' to start', null);
 }
 function pauseFor(t, msg, sub, cb) { S.pause = t; S.pauseMsg = msg; S.pauseSub = sub || ''; S.pauseCb = cb; }
@@ -471,6 +503,20 @@ function addPop(p, n) {
   if (n > 0) { p.hype += n; while (p.hype >= 30) { p.hype -= 30; throwItem(p); } }
 }
 const loud = (...ps) => ps.some(p => p && p.human);
+const addCharge = (p, n) => { if (p) p.charge = clamp(p.charge + n, 0, 100); };
+const addKarma = (p, n) => { if (p) { p.karma = clamp(p.karma + n, -100, 100); if (n < 0) p.cleanT = 0; } };
+// Referee opinion: the performance (charge) meter is the main positive source; caught fouls and bad karma pull it down.
+const refOpinion = p => clamp(Math.round((p.charge - 40) + p.karma * 0.4 - 18 * p.stats.caught), -100, 100);
+let CHANT_ID = 0;
+const CHEER_COL = { roar: '#ffb36b', applause: '#7dff9b', boo: '#ff6b80' };
+function cheer(kind, x, text) {
+  if ((S.cheerCd[kind] || 0) > S.time) return;
+  S.cheerCd[kind] = S.time + 0.8;
+  S.chants.push({ id: ++CHANT_ID, kind, text, x: clamp(x + rand(-60, 60), 40, W - 40), life: 2.2 });
+  if (S.chants.length > 5) S.chants.shift();
+  S.excite += kind === 'boo' ? 0.15 : 0.3;
+  crowdSound(kind);
+}
 
 /* ---------------- actions ---------------- */
 function loseBall(p, ang) {
@@ -543,9 +589,11 @@ function shoot(p, power, aimY) {
     const iy = clamp(p.y + Math.sin(ang) * t, H / 2 - GOAL_HALF + 6, H / 2 + GOAL_HALF - 6);
     ang = Math.atan2(iy - p.y, gx - p.x);
   }
-  ang += rand(-1, 1) * (0.03 + 0.07 * power) * (1.4 - 0.4 * p.hp / 100);
-  const sp = 430 + 380 * power;
-  b.owner = null; b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp; b.vz = 60 + 180 * power * power + rand(-30, 50);
+  const boosted = p.charge >= 25;   // charged shot: spends 25 charge for far better accuracy and a little extra pace
+  if (boosted) { p.charge -= 25; floatText(p, 'POWER SHOT', '#4fd6ff'); if (power > 0.6) cheer('roar', p.x, 'WHAT A STRIKE!'); }
+  ang += rand(-1, 1) * (0.03 + 0.07 * power) * (1.4 - 0.4 * p.hp / 100) * (boosted ? 0.3 : 1);
+  const sp = (430 + 380 * power) * (boosted ? 1.12 : 1);
+  b.owner = null; b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp; b.vz = 60 + 180 * power * power + rand(-30, 50) * (boosted ? 0.4 : 1);
   b.lastTouch = p; p.pickCd = 0.4; p.face = ang; thump(90, 0.3, 0.1); S.excite += 0.1;
 }
 function inReach(p) {
@@ -556,9 +604,11 @@ function cycleTarget(p) { const l = inReach(p); if (!l.length) return; p.target 
 
 function doFoul(a, t) {
   if (a.foulCd > 0 || !t || t.ko > 0 || !onPitch(t) || dist(a, t) > reachOf(a) + 6) return false;
+  if (t.stun > 0) { helpUp(a, t); return false; }
   if (S.admin && S.admin.god && t.human) { a.foulCd = 1.0; floatText(t, 'IMMUNE', '#9fe8ff'); return false; }
   const heavy = a.items.bat > 0; if (heavy) a.items.bat--;
   a.foulCd = 1.0; a.stats.fouls++;
+  addKarma(a, heavy ? -14 : -8); S.heat = Math.min(1.5, S.heat + 0.08);
   const ang = Math.atan2(t.y - a.y, t.x - a.x), kb = heavy ? 260 : 170;
   t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb;
   const dmg = heavy ? 34 : 16;
@@ -568,11 +618,31 @@ function doFoul(a, t) {
   floatText(t, '-' + dmg, '#ff6b6b'); thump(heavy ? 70 : 110, 0.3, 0.14);
   S.shake = heavy ? 7 : 3; S.excite += heavy ? 0.35 : 0.2;
   let kind = 'foul';
-  if (t.hp <= 0) { t.ko = 6; t.stun = 6; kind = 'ko'; feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); }
+  if (t.hp <= 0) { t.ko = 6; t.stun = 6; kind = 'ko'; addKarma(a, -12); cheer('roar', t.x, 'WHAT A HIT!'); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); }
   else if (loud(a, t)) feed(`${a.name} ${heavy ? 'swung a bat at' : 'fouled'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
-  S.pend.push({ a, x: a.x, y: a.y, kind, heavy: heavy || kind === 'ko', ttl: S.refHuman ? 2.2 : 0.75, inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
+  if (heavy && kind !== 'ko') cheer('roar', t.x, 'OOOH!');
+  S.pend.push({ a, t, x: a.x, y: a.y, kind, heavy: heavy || kind === 'ko', ttl: S.refHuman ? 2.2 : 0.75, inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
   alertRefs(a.x, a.y);
   return true;
+}
+function helpUp(a, t) {
+  t.stun = 0; t.vx = t.vy = 0; a.foulCd = 0.8;
+  addKarma(a, 12); addCharge(a, 10); addPop(a, 4);
+  floatText(t, 'HELPED UP', '#7dff9b');
+  cheer('applause', a.x, a.team === t.team ? 'GOOD TEAMMATE!' : 'CLASS!');
+  if (loud(a, t)) feed(`${a.name} helped ${t.name} up. The crowd applauds.`, '#7dff9b');
+}
+function leniency(f) {
+  const a = f.a, opA = refOpinion(a);
+  if (opA >= 30 && a.charge >= 20 && Math.random() < Math.min(0.75, (opA - 20) / 90)) return 'trust';
+  if (f.t && f.t !== a) { const opT = refOpinion(f.t); if (opT <= -30 && Math.random() < Math.min(0.75, (-opT - 20) / 90)) return 'nosympathy'; }
+  return null;
+}
+function waveOff(f, why, r) {
+  const a = f.a; r.att = { x: a.x, y: a.y }; r.attT = 1;
+  if (why === 'trust') { addCharge(a, -20); feed(`The ${r.name.toLowerCase()} saw it but waved play on: ${a.name} has earned some trust`, '#9fe8ff'); }
+  else feed(`The ${r.name.toLowerCase()} ignored the foul on ${f.t.name}: no sympathy for a repeat offender`, '#9fe8ff');
+  floatText(r, 'PLAY ON', '#9fe8ff'); cheer('boo', r.x, 'REF!?');
 }
 function doBlind(a, isHuman) {
   if (a.blindCd > 0) return false;
@@ -583,6 +653,7 @@ function doBlind(a, isHuman) {
   if (!tg.length) { if (isHuman) floatText(a, 'No ref in range', '#c8c8c8'); return false; }
   const hit = flash ? tg : [tg[0]];
   if (flash) a.items.flash--; else a.blind--;
+  addKarma(a, -10);
   a.blindCd = 1.2;
   for (const r of hit) {
     r.blind = flash ? 7 : 4.5; r.att = null;
@@ -596,7 +667,7 @@ function doBlind(a, isHuman) {
 }
 function dropBanana(a) {
   if (a.items.banana <= 0) return;
-  a.items.banana--;
+  a.items.banana--; addKarma(a, -6);
   S.bananas.push({ x: clamp(a.x - Math.cos(a.face) * 16, 10, W - 10), y: clamp(a.y - Math.sin(a.face) * 16, 10, H - 10), owner: a, imm: 1, ttl: 30 });
   S.pend.push({ a, x: a.x, y: a.y, kind: 'banana', heavy: false, ttl: S.refHuman ? 2.2 : 0.4, inBox: false, mate: false });
 }
@@ -616,7 +687,7 @@ const watched = p => S.refs.some(r => sees(r, p.x, p.y));
 
 function callFoul(f, r) {
   const a = f.a;
-  whistle(1); a.stats.caught++; addPop(a, -8);
+  whistle(1); a.stats.caught++; addPop(a, -8); addCharge(a, -30); addKarma(a, -10); cheer('boo', a.x, 'BOOO!');
   let red = f.heavy;
   if (!red) { a.yellows++; if (a.yellows >= 2) red = true; }
   const what = { foul: 'foul', ko: 'knockout', blind: 'blinding the referee', banana: 'banana drop' }[f.kind];
@@ -625,7 +696,7 @@ function callFoul(f, r) {
   S.excite += 0.3;
   if (red) {
     if (S.ball.owner === a) S.ball.owner = null;
-    a.sentOff = 25; a.yellows = 0; a.stun = 0; a.ko = 0; a.target = null;
+    a.sentOff = 25; a.charge = 0; a.yellows = 0; a.stun = 0; a.ko = 0; a.target = null;
     if (a.human) switchToBest(a.human);
   }
   setPiece(1 - a.team, f.inBox ? 'penalty' : 'free', f.x, f.y, red ? 'RED CARD' : 'YELLOW CARD');
@@ -651,6 +722,7 @@ function setPiece(team, type, x, y, label) {
     }
   }
   S.pend = [];
+  S.setPiece = taker ? { team, type, taker, t: 0, wait: rand(0.9, 1.6) } : null;
   pauseFor(1.7, label, (type === 'penalty' ? 'Penalty to ' : 'Free kick to ') + TEAM[team].name, null);
 }
 function throwItem(p) {
@@ -676,9 +748,9 @@ function goal(team) {
   b.vx = b.vy = b.vz = 0; b.z = 0; b.x = team === 1 ? -14 : W + 14;
   let sub = '';
   if (sc && sc.team === team) {
-    sc.stats.goals++; addPop(sc, 25); sub = sc.name;
+    sc.stats.goals++; addPop(sc, 25); addCharge(sc, 30); if (sc.karma >= 20) cheer('applause', sc.x, 'FAIR PLAY HERO!'); sub = sc.name;
     const as = b.lastPasser;
-    if (as && as.team === team && as !== sc && S.time - b.passTime < 5) { as.stats.assists++; addPop(as, 10); sub += ' · assist ' + as.name; }
+    if (as && as.team === team && as !== sc && S.time - b.passTime < 5) { as.stats.assists++; addPop(as, 10); addCharge(as, 15); sub += ' · assist ' + as.name; }
     feed(`GOAL! ${sc.name} scores for the ${TEAM[team].name}`, TEAM[team].col);
   } else if (sc) { sub = 'Own goal by ' + sc.name; addPop(sc, 3); feed(`Own goal by ${sc.name}. The crowd loves it.`, TEAM[team].col); }
   S.excite = 1.4; whistle(1); S.shake = 6;
@@ -698,8 +770,8 @@ function showResults() {
   document.getElementById('o-sub').textContent = `Crowd favourite: ${fav.name} (${fav.pop} popularity). Dirtiest player: ${dirty.name} with ${dirty.stats.fouls} fouls, ${dirty.stats.caught} caught.`;
   if (S.refHuman) { const R = S.refHuman, tot = R.correct + R.missed + R.wrong; document.getElementById('o-sub').textContent = `Your refereeing: ${R.correct} correct calls, ${R.missed} missed, ${R.wrong} wrong. Rating ${tot ? Math.round(100 * R.correct / tot) : 100}%. ` + document.getElementById('o-sub').textContent; }
   const t = document.getElementById('o-table');
-  t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Popularity</th></tr></thead><tbody>' +
-    ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${p.name}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
+  t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Karma</th><th>Popularity</th></tr></thead><tbody>' +
+    ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${p.name}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
   document.getElementById('o-again').hidden = S.net === 'client';
   document.getElementById('o-menu').textContent = S.net ? 'Leave room' : 'Main menu';
   showOverlay('over');
@@ -748,22 +820,28 @@ function botWithBall(p, dt) {
   let vx = gx - p.x, vy = H / 2 + (p.y < H / 2 ? -40 : 40) - p.y; const l = Math.hypot(vx, vy) || 1; vx /= l; vy /= l;
   if (opp && press < 90) { const ax = p.x - opp.x, ay = p.y - opp.y, al = Math.hypot(ax, ay) || 1, w = 1.2 * (90 - press) / 90; vx += ax / al * w; vy += ay / al * w; }
   const m = Math.hypot(vx, vy) || 1; p.dx = vx / m; p.dy = vy / m;
+  p.sprintWant = p.charge > 50 && press < 110;
 }
 function botAggro(p, dt) {
   if (p.foulCd > 0) return;
+  if (p.karma > 5) {   // good-karma bots sometimes help a downed player up
+    const down = S.players.find(q => q !== p && onPitch(q) && q.stun > 0.4 && q.ko <= 0 && dist(p, q) < reachOf(p));
+    if (down && Math.random() < dt * 0.5 * (p.karma / 40)) { helpUp(p, down); return; }
+  }
   if (S.admin && S.admin.bots === 'peaceful') return;
   const near = inReach(p).filter(q => q.stun <= 0);
   if (!near.length) return;
   let target = near.find(q => S.ball.owner === q && q.team !== p.team), rate = 0;
   if (target) rate = p.aggr * 1.6;
   else {
-    target = near.find(q => q.team !== p.team);
+    target = near.filter(q => q.team !== p.team).sort((u, v) => u.karma - v.karma)[0];   // dirtiest player in reach first
     if (target) rate = p.aggr * 0.12;
     else { target = near.find(q => S.ball.owner === q && q.pop > p.pop + 15); if (target) rate = p.aggr * 0.1; }
   }
   if (!target) return;
   if (p.gk) rate *= 0.4;
   if (p.items.bat > 0) rate *= 1.5;
+  rate *= (1 + Math.max(0, -target.karma) / 40) * (1 + S.heat);   // low karma draws revenge; a dirty match heats everyone up
   const ws = S.refs.filter(r => sees(r, p.x, p.y));
   if (ws.length) {
     const flash = p.items.flash > 0, R = flash ? 260 : 160;
@@ -785,7 +863,7 @@ function gkLogic(p) {
   }
 }
 function botControl(p, dt, info) {
-  p.dx = p.dy = 0;
+  p.dx = p.dy = 0; p.sprintWant = false;
   if (S.admin && S.admin.bots === 'frozen') return;
   const b = S.ball;
   if (b.owner === p) { botWithBall(p, dt); return; }
@@ -796,6 +874,7 @@ function botControl(p, dt, info) {
   if (p === T.chaser) {
     const vx = b.owner ? b.owner.vx : b.vx, vy = b.owner ? b.owner.vy : b.vy;
     steer(p, b.x + vx * 0.25, b.y + vy * 0.25, 1, 6);
+    p.sprintWant = p.charge > 35 && dist(p, b) > 70;
     if (b.owner && b.owner.team !== p.team && dist(p, b) < 34 && p.lungeCd <= 0 && Math.random() < dt * 2) { p.lunge = 0.2; p.lungeCd = 1.2; }
     return;
   }
@@ -810,7 +889,7 @@ function readInput(h, dt) {
   if (h.remote) {
     const r = (NET && NET.inputs[h.id]) || {}, c = r.c || {}, lc = h.lc || (h.lc = { ...c });
     const e = a => (c[a] || 0) > (lc[a] || 0);
-    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), pass: e('pass'), foul: e('foul'), cycle: e('cycle'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1) };
+    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), foul: e('foul'), cycle: e('cycle'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1) };
     h.lc = { ...c }; h.charging = (c.sp || 0) > (c.sr || 0);
     return out;
   }
@@ -822,7 +901,7 @@ function localInput(h, dt) {
   let ix = (pr('right') ? 1 : 0) - (pr('left') ? 1 : 0), iy = (pr('down') ? 1 : 0) - (pr('up') ? 1 : 0);
   if (h.touch && (virt.jx || virt.jy)) { ix = virt.jx; iy = virt.jy; }
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
-  const out = { ix, iy, pass: edge('pass'), foul: edge('foul'), cycle: edge('cycle'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25 };
+  const out = { ix, iy, sprint: pr('sprint'), pass: edge('pass'), foul: edge('foul'), cycle: edge('cycle'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25 };
   const sh = pr('shoot');
   if (sh && !h.prev.shoot) { out.sp = true; h.charge = 0; }
   if (sh) { h.charge = Math.min(1, h.charge + dt * 1.4); h.charging = true; }
@@ -836,7 +915,7 @@ function humanControl(h, dt) {
   const inp = readInput(h, dt);
   if (!p || !onPitch(p)) return;
   const canAct = p.stun <= 0 && p.ko <= 0;
-  p.dx = canAct ? inp.ix : 0; p.dy = canAct ? inp.iy : 0;
+  p.dx = canAct ? inp.ix : 0; p.dy = canAct ? inp.iy : 0; p.sprintWant = canAct && !!inp.sprint;
   if (!canAct) return;
   const own = S.ball.owner === p;
   if (inp.pass) { if (own) humanPass(p); else switchToBest(h); }
@@ -846,6 +925,31 @@ function humanControl(h, dt) {
   if (inp.foul) { if (p.target) doFoul(p, p.target); else floatText(p, 'No one in reach', '#c8c8c8'); }
   if (inp.blind) doBlind(p, true);
   if (inp.item) { if (p.items.banana > 0) dropBanana(p); else floatText(p, 'No bananas', '#c8c8c8'); }
+}
+
+/* ---------------- set pieces ---------------- */
+function setPieceUpdate(dt) {
+  const sp = S.setPiece, t = sp.taker, b = S.ball;
+  sp.t += dt;
+  for (const h of S.humans) {          // read every human so stray presses don't queue up
+    const inp = readInput(h, dt);
+    if (S.players[h.pid] !== t) continue;
+    if (inp.ix || inp.iy) t.face += angDiff(t.face, Math.atan2(inp.iy, inp.ix)) * Math.min(1, dt * 10);
+    t.dx = inp.ix; t.dy = inp.iy;
+    if (inp.pass) humanPass(t);
+    else if (inp.sr) shoot(t, inp.power);
+  }
+  if (!t.human && b.owner === t && sp.t > sp.wait) {
+    const gx = t.team === 0 ? W : 0;
+    if (sp.type === 'penalty' || Math.hypot(gx - t.x, H / 2 - t.y) < 330) {
+      const gk = S.players.find(q => q.gk && q.team !== t.team && onPitch(q));
+      shoot(t, rand(0.6, 0.9), H / 2 + (gk && gk.y < H / 2 ? 1 : -1) * GOAL_HALF * 0.65 + rand(-10, 10));
+    } else if (!botPass(t, true)) shoot(t, 0.7);
+  }
+  if (b.owner === t && sp.t > 12 && !botPass(t, true)) shoot(t, 0.6);   // nobody acted: take it automatically
+  for (const p of S.players) { p.vx = p.vy = 0; p.sprinting = false; if (p !== t) p.dx = p.dy = 0; }
+  if (b.owner === t) { b.x = t.x + Math.cos(t.face) * 11; b.y = t.y + Math.sin(t.face) * 11; b.z = 0; b.vx = b.vy = 0; }
+  else { S.setPiece = null; t.dx = t.dy = 0; }
 }
 
 /* ---------------- referee mode ---------------- */
@@ -887,6 +991,7 @@ function update(dt) {
     if (q.life <= 0) S.parts.splice(i, 1);
   }
   for (let i = S.texts.length - 1; i >= 0; i--) { const t = S.texts[i]; t.life -= dt; t.z += 30 * dt; if (t.life <= 0) S.texts.splice(i, 1); }
+  for (let i = S.chants.length - 1; i >= 0; i--) { S.chants[i].life -= dt; if (S.chants[i].life <= 0) S.chants.splice(i, 1); }
   if (crowdGain && AC) crowdGain.gain.setTargetAtTime(muted ? 0 : 0.02 + Math.min(1.2, S.excite) * 0.1, AC.currentTime, 0.3);
   if ((S.userPaused && !S.net) || S.phase === 'over') return;
   for (const r of S.refs) if (r.card) { r.card.t -= dt; if (r.card.t <= 0) r.card = null; }
@@ -895,9 +1000,11 @@ function update(dt) {
     if (S.pause <= 0 && S.pauseCb) { const cb = S.pauseCb; S.pauseCb = null; cb(); }
     return;
   }
+  if (S.setPiece) { setPieceUpdate(dt); return; }
   S.clock -= dt / PACE;
   if (S.clock <= 0) { S.clock = 0; if (S.phase === 'play') { endMatch(); return; } }
 
+  S.heat = Math.max(0, S.heat - dt * 0.01);
   for (const p of S.players) {
     for (const k of ['stun', 'foulCd', 'blindCd', 'pickCd', 'lunge', 'lungeCd', 'expect', 'hitT']) p[k] = Math.max(0, p[k] - dt);
     if (p.ko > 0) { p.ko -= dt; if (p.ko <= 0) { p.hp = 55; p.stun = 0; if (loud(p)) feed(`${p.name} is back on their feet`); } }
@@ -906,6 +1013,8 @@ function update(dt) {
       if (p.sentOff <= 0) { p.x = p.team === 0 ? W * 0.3 : W * 0.7; p.y = H - 10; p.vx = p.vy = 0; feed(`${p.name} returns from the red card`); }
     }
     if (p.blind < 2) { p.blindT += dt; if (p.blindT >= 22) { p.blind++; p.blindT = 0; } }
+    if (S.ball.owner === p) addCharge(p, 5 * dt);
+    if (onPitch(p)) { p.cleanT += dt; if (p.cleanT >= 30) { p.cleanT = 0; addKarma(p, 5); if (p.human) { cheer('applause', p.x, 'RESPECT!'); feed(`The crowd applauds ${p.name}'s clean play`, '#7dff9b'); } } }
     if (S.admin && S.admin.inf && p.human) { p.items.bat = Math.max(p.items.bat, 3); p.items.banana = Math.max(p.items.banana, 2); p.blind = 2; }
   }
 
@@ -924,6 +1033,8 @@ function update(dt) {
     const down = p.stun > 0 || p.ko > 0;
     let spd = 155 * (0.72 + 0.28 * p.hp / 100);
     if (b.owner === p) spd *= 0.9;
+    p.sprinting = !!(p.sprintWant && p.charge > 0 && !down && (p.dx || p.dy));
+    if (p.sprinting) { spd *= 1.4; p.charge = Math.max(0, p.charge - 22 * dt); }
     if (p.lunge > 0 && !down) { spd = 320; p.dx = Math.cos(p.face); p.dy = Math.sin(p.face); }
     if (down) { p.vx *= Math.exp(-5 * dt); p.vy *= Math.exp(-5 * dt); }
     else {
@@ -970,7 +1081,7 @@ function update(dt) {
         if (p.team === o.team || !able(p) || p.pickCd > 0 || dist(p, b) > 15) continue;
         const rate = (p.lunge > 0 ? 6 : 1.4) * (p.gk ? 2 : 1);
         if (Math.random() < rate * dt) {
-          b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3);
+          b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3); addCharge(p, 8); addKarma(p, 2); if (p.lunge > 0) cheer('roar', p.x, 'WHAT A TACKLE!');
           if (p.lunge > 0) floatText(p, 'TACKLE', '#ffffff'); thump(140, 0.15, 0.08);
           break;
         }
@@ -996,8 +1107,8 @@ function update(dt) {
       const p = best, sp = Math.hypot(b.vx, b.vy);
       if (!p.gk && sp > 520) { b.vx *= -0.3; b.vy = rand(-150, 150); b.vz = 80; p.pickCd = 0.3; b.lastTouch = p; }
       else {
-        if (p.gk && sp > 300 && b.lastTouch && b.lastTouch.team !== p.team) { p.stats.saves++; addPop(p, 8); floatText(p, 'SAVE!', '#ffffff'); S.excite += 0.35; if (loud(p, b.lastTouch)) feed(`Big save by ${p.name}`); }
-        if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) addPop(b.lastPasser, 1);
+        if (p.gk && sp > 300 && b.lastTouch && b.lastTouch.team !== p.team) { p.stats.saves++; addPop(p, 8); addCharge(p, 15); cheer('applause', p.x, 'GREAT SAVE!'); floatText(p, 'SAVE!', '#ffffff'); S.excite += 0.35; if (loud(p, b.lastTouch)) feed(`Big save by ${p.name}`); }
+        if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { addPop(b.lastPasser, 1); addCharge(b.lastPasser, 4); }
         b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0;
       }
     }
@@ -1034,7 +1145,12 @@ function update(dt) {
     const f = S.pend[i]; f.ttl -= dt;
     if (S.refHuman && (sees(S.refs[0], f.a.x, f.a.y) || sees(S.refs[0], f.x, f.y))) f.seenH = true;
     const r = onPitch(f.a) ? S.refs.find(r => !r.human && (sees(r, f.a.x, f.a.y) || sees(r, f.x, f.y))) : null;
-    if (r) { S.pend.splice(i, 1); callFoul(f, r); return; }
+    if (r) {
+      S.pend.splice(i, 1);
+      const why = leniency(f);
+      if (why) { waveOff(f, why, r); continue; }
+      callFoul(f, r); return;
+    }
     if (f.ttl <= 0) {
       S.pend.splice(i, 1);
       if (f.seenH && S.refHuman) { S.refHuman.missed++; feed(`Missed call: ${f.a.name}'s ${FOUL_NAME[f.kind]} happened in your view`, '#ffb36b'); }
@@ -1088,6 +1204,39 @@ function drawBackdrop() {
     ctx.fillStyle = lg; ctx.fillRect(x - 260, y - 260, 520, 520);
     ctx.fillStyle = '#f9f4dc'; for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) ctx.fillRect(x - 22 + i * 12, y - 8 + j * 9, 9, 6);
   }
+  drawChants();
+}
+function drawChants() {
+  for (const c of S.chants) {
+    const age = 2.2 - c.life, P = proj(c.x, -150 - age * 30), a = Math.max(0, Math.min(1, c.life * 1.5, age * 6));
+    ctx.globalAlpha = a; ctx.font = `700 ${Math.round(34 * P.s)}px ${DISP}`; ctx.textAlign = 'center';
+    const w = ctx.measureText(c.text).width + 22 * P.s, h = 30 * P.s;
+    ctx.fillStyle = 'rgba(6,11,10,.8)'; rr(P.x - w / 2, P.y - h, w, h, 8 * P.s);
+    ctx.fillStyle = CHEER_COL[c.kind] || '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(c.text, P.x, P.y - h / 2 + 2 * P.s); ctx.textBaseline = 'alphabetic';
+  }
+  ctx.globalAlpha = 1;
+}
+function drawSetPiece() {
+  const sp = S.setPiece; if (!sp || !sp.taker || S.pause > 0) return;
+  const t = sp.taker, hm = t.human, local = !!hm && (hm.local || (!hm.remote && S.net !== 'client'));
+  const map = (hm && hm.map) || MAPSOLO;
+  if (local) {   // aim guide
+    const ax = Math.cos(t.face), ay = Math.sin(t.face), A = proj(t.x + ax * 14, t.y + ay * 14), B = proj(t.x + ax * 150, t.y + ay * 150);
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.lineDashOffset = -S.time * 30;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
+  }
+  const title = `${sp.type === 'penalty' ? 'PENALTY' : 'FREE KICK'} · ${t.name}`;
+  const sub = local ? `Aim with movement · ${keyLabel(map.pass[0])} pass · hold and release ${keyLabel(map.shoot[0])} to shoot · ${Math.max(0, Math.ceil(12 - sp.t))}s`
+                    : `Everyone holds until ${t.name} takes it`;
+  ctx.font = `600 30px ${DISP}`; const tw = Math.max(ctx.measureText(title).width, 0);
+  ctx.font = `600 15px ${UI}`; const sw = ctx.measureText(sub).width;
+  const w = Math.max(tw, sw) + 40, x = LW / 2 - w / 2, y = LH - 136;
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 58, 10);
+  ctx.strokeStyle = TEAM[sp.team].col; ctx.lineWidth = 1.5; rrs(x + 0.5, y + 0.5, w - 1, 57, 10);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = TEAM[sp.team].col; ctx.font = `600 30px ${DISP}`; ctx.fillText(title, LW / 2, y + 22);
+  ctx.fillStyle = '#eef2e6'; ctx.font = `600 15px ${UI}`; ctx.fillText(sub, LW / 2, y + 44);
+  ctx.textBaseline = 'alphabetic';
 }
 function drawPitch() {
   ctx.fillStyle = '#123a22'; path(region(-90, -18, W + 90, H + 60), true); ctx.fill();
@@ -1176,6 +1325,14 @@ function drawPlayer(p) {
   const P = proj(p.x, p.y), s = P.s, tm = TEAM[p.team];
   ctx.fillStyle = 'rgba(0,0,0,.38)'; ell(P.x, P.y, 10 * s, 3.6 * s); ctx.fill();
   if (p.human) drawGroundMarker(p.x, p.y, p.face, HUMAN_COL[p.human.idx % HUMAN_COL.length]);
+  if (p.sprinting) {   // speed lines
+    ctx.strokeStyle = 'rgba(159,246,255,.75)'; ctx.lineWidth = 1.5;
+    const bx = -Math.cos(p.face), by = -Math.sin(p.face);
+    for (let k = -1; k <= 1; k++) {
+      const a1 = proj(p.x + bx * 10 + by * k * 5, p.y + by * 10 - bx * k * 5, 14), a2 = proj(p.x + bx * 26 + by * k * 5, p.y + by * 26 - bx * k * 5, 14);
+      ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
+    }
+  }
   const down = p.stun > 0 || p.ko > 0;
   const look = { jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : tm.col, shorts: tm.shorts, socks: tm.socks, skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee' };
   ctx.save(); ctx.translate(P.x, P.y);
@@ -1211,11 +1368,12 @@ function drawTargets() {
     }
     if (!p.target) continue;
     const t = p.target, P = proj(t.x, t.y), pulse = 1 + Math.sin(S.time * 10) * 0.08, ready = p.foulCd <= 0;
-    ctx.strokeStyle = ready ? '#ff4d6d' : 'rgba(255,77,109,.4)'; ctx.lineWidth = 2.5;
+    const help = t.stun > 0;
+    ctx.strokeStyle = help ? '#7dff9b' : ready ? '#ff4d6d' : 'rgba(255,77,109,.4)'; ctx.lineWidth = 2.5;
     ell(P.x, P.y, 15 * P.s * pulse, 6 * P.s * pulse); ctx.stroke();
     const key = keyLabel(h.map.foul[0]);
-    ctx.fillStyle = ready ? '#ff8095' : 'rgba(255,128,149,.5)'; ctx.font = `700 ${10 * P.s}px ${UI}`; ctx.textAlign = 'center';
-    ctx.fillText(`FOUL [${key}]${t.team === p.team ? ' · TEAMMATE' : ''}`, P.x, P.y + 15 * P.s);
+    ctx.fillStyle = help ? '#9dffb8' : ready ? '#ff8095' : 'rgba(255,128,149,.5)'; ctx.font = `700 ${10 * P.s}px ${UI}`; ctx.textAlign = 'center';
+    ctx.fillText(help ? `HELP UP [${key}]` : `FOUL [${key}]${t.team === p.team ? ' · TEAMMATE' : ''}`, P.x, P.y + 15 * P.s);
   }
 }
 function drawRef(r) {
@@ -1274,7 +1432,7 @@ function drawHUD() {
   ph.slice(0, 2).forEach((h, i) => drawPanel(h, i === 0 ? 14 : LW - 344));
   if (S.refHuman) drawRefPanel();
   // feed
-  const fx = 14, fy0 = (ph.length || S.refHuman) ? 118 : 20, fx2 = ph.length > 1 ? LW - 344 : null;
+  const fx = 14, fy0 = ph.length ? 146 : S.refHuman ? 118 : 20, fx2 = ph.length > 1 ? LW - 344 : null;
   ctx.font = `500 15px ${UI}`; ctx.textAlign = 'left';
   S.feed.slice(0, 4).forEach((f, i) => {
     const a = Math.max(0, Math.min(1, (9 - f.t) / 1.5)); if (a <= 0) return;
@@ -1299,8 +1457,8 @@ function drawHUD() {
 function drawPanel(h, x) {
   const p = S.players[h.pid]; if (!p) return;
   const col = HUMAN_COL[h.idx % HUMAN_COL.length], y = 10, w = 330, bind = h.map || MAPSOLO;
-  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 100, 10);
-  ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; rrs(x + 0.5, y + 0.5, w - 1, 99, 10); ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 128, 10);
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; rrs(x + 0.5, y + 0.5, w - 1, 127, 10); ctx.globalAlpha = 1;
   ctx.textBaseline = 'middle';
   // header: badge, name, team, status pill
   const label = h.label || 'P' + (h.idx + 1);
@@ -1335,6 +1493,20 @@ function drawPanel(h, x) {
   ctx.fillStyle = '#1b2621'; rr(x + 52, cy, 218, 6, 3);
   ctx.fillStyle = '#ffd23f'; ctx.fillRect(x + 52, cy, 218 * Math.min(1, p.hype / 30), 6);
   ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = `700 13px ${UI}`; ctx.fillText('★ ' + p.pop, x + w - 12, cy + 3);
+  // charge: spend on sprint and power shots (tick marks the 25% power-shot threshold)
+  const qy = y + 64, cc = p.sprinting ? '#b8faff' : '#4fd6ff';
+  ctx.textAlign = 'left'; ctx.fillStyle = '#93a799'; ctx.font = `700 11px ${UI}`; ctx.fillText('CHARGE', x + 12, qy + 4);
+  ctx.fillStyle = '#1b2621'; rr(x + 60, qy, 168, 8, 4);
+  ctx.fillStyle = cc; ctx.fillRect(x + 60, qy, 168 * p.charge / 100, 8);
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(x + 60 + 168 * 0.25, qy - 2, 1.5, 12);
+  ctx.textAlign = 'right'; ctx.fillStyle = cc; ctx.font = `700 12px ${UI}`; ctx.fillText(p.charge >= 25 ? 'POWER READY' : Math.round(p.charge) + '%', x + w - 12, qy + 4);
+  // karma and referee opinion chips
+  const chip = (cx, text, c) => { ctx.font = `700 11px ${UI}`; const cw = ctx.measureText(text).width + 14; ctx.globalAlpha = 0.16; ctx.fillStyle = c; rr(cx, y + 76, cw, 15, 7.5); ctx.globalAlpha = 1; ctx.fillStyle = c; ctx.textAlign = 'left'; ctx.fillText(text, cx + 7, y + 84); return cw; };
+  const kc = p.karma >= 20 ? '#7dff9b' : p.karma <= -20 ? '#ff6b80' : '#c9d3cb', op = refOpinion(p);
+  const oc = op >= 30 ? '#7dff9b' : op <= -30 ? '#ff6b80' : '#c9d3cb';
+  const kw = chip(x + 12, `KARMA ${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}`, kc);
+  chip(x + 18 + kw, `REF ${op >= 30 ? 'TRUSTS YOU' : op <= -30 ? 'HAS YOU MARKED' : 'NEUTRAL'} ${op > 0 ? '+' : ''}${op}`, oc);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#93a799'; ctx.font = `600 11px ${UI}`; ctx.fillText(`${keyLabel((bind.sprint || [])[0])} sprint`, x + w - 12, y + 84);
   // item slots: icon, count, key that uses it; gold outline = equipped (applies automatically)
   const slots = [
     { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0, off: p.items.flash > 0 },
@@ -1343,7 +1515,7 @@ function drawPanel(h, x) {
     { icon: 'banana', n: p.items.banana, key: bind.item[0] }
   ];
   slots.forEach((sl, i) => {
-    const sx = x + 10 + i * 78, sy = y + 64, sw3 = 72, sh = 28;
+    const sx = x + 10 + i * 78, sy = y + 94, sw3 = 72, sh = 28;
     ctx.fillStyle = sl.hot ? 'rgba(255,210,63,.14)' : 'rgba(255,255,255,.05)'; rr(sx, sy, sw3, sh, 5);
     if (sl.hot) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 1.2; rrs(sx + 0.5, sy + 0.5, sw3 - 1, sh - 1, 5); }
     ctx.globalAlpha = sl.n > 0 && !sl.off ? 1 : 0.32; drawIcon(sl.icon, sx + 14, sy + 14, 1.15);
@@ -1414,7 +1586,7 @@ function draw() {
   }
   const v = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.45, LW / 2, LH / 2, LH * 0.95); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)');
   ctx.fillStyle = v; ctx.fillRect(0, 0, LW, LH);
-  drawHUD(); drawPauseMsg();
+  drawSetPiece(); drawHUD(); drawPauseMsg();
 }
 
 /* ---------------- shell ---------------- */
@@ -1586,7 +1758,7 @@ function hostData(conn, d) {
     conn.send({ t: 'welcome', uid: id });
     rosterChanged();
   } else if (d.t === 'in') {
-    if (n.roster[id]) n.inputs[id] = { ix: +d.ix || 0, iy: +d.iy || 0, c: d.c || {}, pw: +d.pw || 0.5 };
+    if (n.roster[id]) n.inputs[id] = { ix: +d.ix || 0, iy: +d.iy || 0, c: d.c || {}, pw: +d.pw || 0.5, run: d.run ? 1 : 0 };
   } else if (d.t === 'pong') {
     if (n.roster[id]) n.pings[id] = Math.round(performance.now() - (+d.ts || 0));
   } else if (d.t === 'team') {
@@ -1727,8 +1899,10 @@ function sendSnap(force) {
   if (!Object.keys(NET.conns).length) return;
   const b = S.ball;
   const s = { ph: S.phase, pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
+    spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type] : 0,
+    ch: S.chants.map(c => [c.id, c.kind, c.text, r1(c.x), r1(c.life)]),
     p: S.players.map(p => [r1(p.x), r1(p.y), r2(p.face), Math.round(p.vx), Math.round(p.vy), Math.round(p.hp), r1(p.stun), r1(p.ko), Math.ceil(p.sentOff), p.yellows, p.pop, p.hype,
-      p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT)]),
+      p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT), r1(p.charge), Math.round(p.karma), p.sprinting ? 1 : 0, p.stats.caught]),
     r: S.refs.map(r => [r1(r.x), r1(r.y), r2(r.face), r1(r.blind), r.card ? (r.card.red ? 2 : 1) : 0, r1(r.run)]),
     b: [r1(b.x), r1(b.y), r1(b.z), b.owner ? b.owner.id : -1, r1(b.spin)],
     it: S.items.map(i => [i.type, r1(i.x), r1(i.y), r1(i.z), i.landed ? 1 : 0, r1(i.age), i.for ? i.for.id : -1]),
@@ -1760,7 +1934,7 @@ function applySnap(s) {
     if (!p.snap || Math.hypot(p.tx - p.x, p.ty - p.y) > 120) { p.x = p.tx; p.y = p.ty; p.snap = true; }
     p.face = a[2]; p.vx = a[3]; p.vy = a[4]; p.hp = a[5]; p.stun = a[6]; p.ko = a[7]; p.sentOff = a[8]; p.yellows = a[9]; p.pop = a[10]; p.hype = a[11];
     p.items.bat = a[12]; p.items.flash = a[13]; p.items.banana = a[14]; p.blind = a[15]; p.blindT = a[16]; p.foulCd = a[17];
-    p.target = a[18] >= 0 ? S.players[a[18]] : null; p.human = humanTag(a[19]); p.hitT = a[20];
+    p.target = a[18] >= 0 ? S.players[a[18]] : null; p.human = humanTag(a[19]); p.hitT = a[20]; p.charge = +a[21] || 0; p.karma = +a[22] || 0; p.sprinting = !!a[23]; p.stats.caught = +a[24] || 0;
   });
   (s.r || []).forEach((a, i) => {
     const r = S.refs[i]; if (!r || !a) return;
@@ -1775,6 +1949,11 @@ function applySnap(s) {
   S.bananas = (s.bn || []).map(a => ({ x: a[0], y: a[1] }));
   S.feed = (s.fd || []).map(a => ({ text: a[0], col: a[1], t: a[2] }));
   S.texts = (s.tx || []).map(a => ({ x: a[0], y: a[1], z: a[2], text: a[3], col: a[4], life: a[5] }));
+  S.setPiece = s.spk ? { team: s.spk[0], taker: S.players[s.spk[1]], t: s.spk[2], type: s.spk[3] } : null;
+  const ch = s.ch || [];
+  if (NET.lastCh == null) NET.lastCh = Math.max(0, ...ch.map(c => c[0]));
+  for (const c of ch) if (c[0] > NET.lastCh) { NET.lastCh = c[0]; crowdSound(c[1]); }
+  S.chants = ch.map(c => ({ id: c[0], kind: c[1], text: c[2], x: c[3], life: c[4] }));
   const me = S.players.find(p => p.human && p.human.local);
   S.humans = me ? [{ idx: me.human.idx, label: 'YOU', pid: me.id, map: MAPSOLO, charging: NET.charging, charge: NET.charge, prev: {} }] : [];
   if (s.st) s.st.forEach((a, i) => { const p = S.players[i]; if (p && a) Object.assign(p.stats, { goals: a[0], assists: a[1], tackles: a[2], fouls: a[3], caught: a[4], saves: a[5] }); });
@@ -1786,6 +1965,7 @@ function clientUpdate(dt) {
   S.time += dt; S.shake = Math.max(0, S.shake - dt * 20);
   for (const f of S.feed) f.t += dt;
   for (const t of S.texts) { t.life -= dt; t.z += 30 * dt; }
+  for (const c of S.chants) c.life -= dt;
   if (crowdGain && AC) crowdGain.gain.setTargetAtTime(muted ? 0 : 0.02 + Math.min(1.2, S.excite) * 0.1, AC.currentTime, 0.3);
   const k = Math.min(1, dt * 14), sim = dt * (NET ? NET.pc : 1);
   for (const p of S.players) if (p.snap) {
@@ -1804,7 +1984,7 @@ function sendInput(dt) {
   n.charge = h.charge; n.charging = h.charging;
   for (const a of ['pass', 'foul', 'cycle', 'blind', 'item', 'sp', 'sr']) if (inp[a]) n.cnt[a]++;
   if (inp.sr) n.pw = r2(inp.power);
-  const msg = { t: 'in', ix: r2(inp.ix), iy: r2(inp.iy), c: { ...n.cnt }, pw: n.pw };
+  const msg = { t: 'in', ix: r2(inp.ix), iy: r2(inp.iy), c: { ...n.cnt }, pw: n.pw, run: inp.sprint ? 1 : 0 };
   const key = JSON.stringify(msg), now = performance.now();
   if (key !== n.sent && now - n.sentAt > 30) { n.sent = key; n.sentAt = now; try { n.conn.send(msg); } catch (e) {} }
 }
@@ -1840,6 +2020,10 @@ function admin(act) {
   if (act === 'penalty') setPiece(0, 'penalty', 0, 0, 'PENALTY');
   if (act === 'freekick') setPiece(0, 'free', W - 250, H / 2 + 70, 'FREE KICK');
   if (act === 'score') S.score = [0, 0];
+  if (act === 'charge') { p.charge = 100; floatText(p, 'CHARGE 100%', '#4fd6ff'); }
+  if (act === 'heat') { S.heat = 1.5; floatText(p, 'BOTS ANGRY', '#ff6b80'); }
+  if (act === 'karmaup') { addKarma(p, 50); floatText(p, 'KARMA +50', '#7dff9b'); }
+  if (act === 'karmadown') { addKarma(p, -50); floatText(p, 'KARMA −50', '#ff6b80'); }
 }
 function renderAdmSegs() {
   const mk = (id, key, opts) => {
@@ -1866,6 +2050,8 @@ document.getElementById('adm-toggle').addEventListener('click', e => { toggleAdm
 document.getElementById('adm-god').addEventListener('change', e => { if (S.admin) S.admin.god = e.target.checked; e.target.blur(); });
 document.getElementById('adm-inf').addEventListener('change', e => { if (S.admin) S.admin.inf = e.target.checked; e.target.blur(); });
 
+// Debug hook for testing: only exposed when the URL contains ?debug
+if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion };
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
