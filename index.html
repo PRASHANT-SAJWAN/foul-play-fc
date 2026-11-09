@@ -131,7 +131,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <div class="adm-grid">
         <button data-adm="blindrefs">Blind refs 6s</button><button data-adm="kickoff">Reset kickoff</button>
         <button data-adm="penalty">Penalty for you</button><button data-adm="freekick">Free kick for you</button>
-        <button data-adm="score">Reset score</button>
+        <button data-adm="score">Reset score</button><button data-adm="end">End match + report</button>
       </div>
       <p class="hint" style="font-size:12px">Press <kbd>`</kbd> to hide or show this panel.</p>
     </div>
@@ -186,6 +186,10 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <p class="hint">Applies from the next match. Online, the host's setting is used.</p>
       <p class="settings-h">Online</p>
       <div class="seg" id="pingopt"></div>
+      <p class="settings-h">Match files</p>
+      <div class="seg" id="saveopt"></div>
+      <div class="row"><button class="btn ghost" id="s-history">Download match history (.json)</button><button class="btn ghost" id="s-clearhist">Clear history</button></div>
+      <p class="hint" id="s-histnote"></p>
       <p class="settings-h">Controls</p>
       <p class="hint">Click a key, then press the new one. Esc cancels. If the key is already used, the two actions swap keys. Solo play accepts both columns.</p>
       <div class="tablewrap"><table id="binds"></table></div>
@@ -234,6 +238,12 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <h2 id="o-head">Draw</h2>
       <p class="lede" id="o-sub"></p>
       <div class="tablewrap"><table id="o-table"></table></div>
+      <div class="row" id="o-files">
+        <button class="btn ghost" id="o-html">Save match report (.html)</button>
+        <button class="btn ghost" id="o-json">Save raw data (.json)</button>
+        <button class="btn ghost" id="o-csv">Save player table (.csv)</button>
+      </div>
+      <p class="hint" id="o-saved" role="status"></p>
       <div class="row">
         <button class="btn" id="o-again">Play again</button>
         <button class="btn ghost" id="o-menu">Main menu</button>
@@ -315,6 +325,7 @@ let PACE = (() => { const v = store.get('fpfc-pace'); return PACES.some(p => p[1
 const LENS = [['1 min', 60], ['3 min', 180], ['5 min', 300]];
 let MATCH_LEN = (() => { const v = store.get('fpfc-len'); return LENS.some(l => l[1] === v) ? v : 180; })();
 let SHOW_PING = store.get('fpfc-ping') !== false;
+let AUTOSAVE = store.get('fpfc-autosave') === true;
 const MAP1 = {}, MAP2 = {}, MAPSOLO = {};
 let GAME_KEYS = new Set();
 function rebuildMaps() {
@@ -456,6 +467,7 @@ function newMatch(mode) {
   S.ball = { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, lastTouch: null, lastPasser: null, passTime: -9, spin: 0 };
   S.items = []; S.bananas = []; S.parts = []; S.texts = []; S.feed = []; S.pend = []; S.score = [0, 0];
   S.chants = []; S.cheerCd = {}; S.heat = 0; S.setPiece = null;
+  S.metrics = newMetrics(mode); S.lastReport = null; S.reportSaved = false;
   S.clock = S.phase === 'menu' || mode === 'playground' ? 99999 : MATCH_LEN; S.excite = 0.2; S.userPaused = false;
   S.humans = [];
   S.admin = mode === 'playground' ? { god: false, inf: false, refs: 'normal', bots: 'normal' } : null;
@@ -503,7 +515,7 @@ function addPop(p, n) {
   if (n > 0) { p.hype += n; while (p.hype >= 30) { p.hype -= 30; throwItem(p); } }
 }
 const loud = (...ps) => ps.some(p => p && p.human);
-const addCharge = (p, n) => { if (p) p.charge = clamp(p.charge + n, 0, 100); };
+const addCharge = (p, n) => { if (!p) return; const c0 = p.charge; p.charge = clamp(p.charge + n, 0, 100); const d = p.charge - c0; if (d > 0) M(p, 'chargeEarned', d); else if (d < 0) M(p, 'chargeSpent', -d); };
 const addKarma = (p, n) => { if (p) { p.karma = clamp(p.karma + n, -100, 100); if (n < 0) p.cleanT = 0; } };
 // Referee opinion: the performance (charge) meter is the main positive source; caught fouls and bad karma pull it down.
 const refOpinion = p => clamp(Math.round((p.charge - 40) + p.karma * 0.4 - 18 * p.stats.caught), -100, 100);
@@ -549,6 +561,7 @@ function passTo(p, q) {
   p.face = a; b.owner = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
   b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.vz = vz; b.lastTouch = p; b.lastPasser = p; b.passTime = S.time;
   p.pickCd = 0.35; q.expect = T + 0.8; thump(160, 0.12, 0.06);
+  M(p, 'passes'); if (vz) M(p, 'lobs');
   if (p.human && !q.human) switchHuman(p.human, q);
 }
 function laneOpen(p, q) {
@@ -590,11 +603,12 @@ function shoot(p, power, aimY) {
     ang = Math.atan2(iy - p.y, gx - p.x);
   }
   const boosted = p.charge >= 25;   // charged shot: spends 25 charge for far better accuracy and a little extra pace
-  if (boosted) { p.charge -= 25; floatText(p, 'POWER SHOT', '#4fd6ff'); if (power > 0.6) cheer('roar', p.x, 'WHAT A STRIKE!'); }
+  if (boosted) { p.charge -= 25; M(p, 'chargeSpent', 25); M(p, 'powerShots'); floatText(p, 'POWER SHOT', '#4fd6ff'); if (power > 0.6) cheer('roar', p.x, 'WHAT A STRIKE!'); }
   ang += rand(-1, 1) * (0.03 + 0.07 * power) * (1.4 - 0.4 * p.hp / 100) * (boosted ? 0.3 : 1);
   const sp = (430 + 380 * power) * (boosted ? 1.12 : 1);
   b.owner = null; b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp; b.vz = 60 + 180 * power * power + rand(-30, 50) * (boosted ? 0.4 : 1);
   b.lastTouch = p; p.pickCd = 0.4; p.face = ang; thump(90, 0.3, 0.1); S.excite += 0.1;
+  M(p, 'shots'); b.shotBy = p; b.shotT = S.time; b.shotPowered = boosted; EV('shot', p, { power: rnd(power, 2), powered: boosted });
 }
 function inReach(p) {
   const r = reachOf(p);
@@ -609,6 +623,7 @@ function doFoul(a, t) {
   const heavy = a.items.bat > 0; if (heavy) a.items.bat--;
   a.foulCd = 1.0; a.stats.fouls++;
   addKarma(a, heavy ? -14 : -8); S.heat = Math.min(1.5, S.heat + 0.08);
+  M(a, 'fouls'); if (heavy) M(a, 'foulsBat'); if (a.team === t.team) M(a, 'foulsOnTeammates'); M(t, 'fouledReceived');
   const ang = Math.atan2(t.y - a.y, t.x - a.x), kb = heavy ? 260 : 170;
   t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb;
   const dmg = heavy ? 34 : 16;
@@ -618,14 +633,16 @@ function doFoul(a, t) {
   floatText(t, '-' + dmg, '#ff6b6b'); thump(heavy ? 70 : 110, 0.3, 0.14);
   S.shake = heavy ? 7 : 3; S.excite += heavy ? 0.35 : 0.2;
   let kind = 'foul';
-  if (t.hp <= 0) { t.ko = 6; t.stun = 6; kind = 'ko'; addKarma(a, -12); cheer('roar', t.x, 'WHAT A HIT!'); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); }
+  if (t.hp <= 0) { t.ko = 6; t.stun = 6; kind = 'ko'; addKarma(a, -12); M(a, 'knockouts'); M(t, 'knockedOut'); cheer('roar', t.x, 'WHAT A HIT!'); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); }
   else if (loud(a, t)) feed(`${a.name} ${heavy ? 'swung a bat at' : 'fouled'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
   if (heavy && kind !== 'ko') cheer('roar', t.x, 'OOOH!');
+  EV('foul', a, { target: t.name, kind, bat: heavy, teammate: a.team === t.team, x: Math.round(a.x), y: Math.round(a.y) });
   S.pend.push({ a, t, x: a.x, y: a.y, kind, heavy: heavy || kind === 'ko', ttl: S.refHuman ? 2.2 : 0.75, inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
   alertRefs(a.x, a.y);
   return true;
 }
 function helpUp(a, t) {
+  M(a, 'helpUps'); M(t, 'helpedUp'); EV('helpUp', a, { target: t.name });
   t.stun = 0; t.vx = t.vy = 0; a.foulCd = 0.8;
   addKarma(a, 12); addCharge(a, 10); addPop(a, 4);
   floatText(t, 'HELPED UP', '#7dff9b');
@@ -639,7 +656,7 @@ function leniency(f) {
   return null;
 }
 function waveOff(f, why, r) {
-  const a = f.a; r.att = { x: a.x, y: a.y }; r.attT = 1;
+  const a = f.a; M(why === 'trust' ? a : f.t, why === 'trust' ? 'wavedOffTrusted' : 'ignoredFoulsOnMe'); EV('wavedOff', a, { reason: why, victim: f.t ? f.t.name : null, by: r.name }); r.att = { x: a.x, y: a.y }; r.attT = 1;
   if (why === 'trust') { addCharge(a, -20); feed(`The ${r.name.toLowerCase()} saw it but waved play on: ${a.name} has earned some trust`, '#9fe8ff'); }
   else feed(`The ${r.name.toLowerCase()} ignored the foul on ${f.t.name}: no sympathy for a repeat offender`, '#9fe8ff');
   floatText(r, 'PLAY ON', '#9fe8ff'); cheer('boo', r.x, 'REF!?');
@@ -654,6 +671,7 @@ function doBlind(a, isHuman) {
   const hit = flash ? tg : [tg[0]];
   if (flash) a.items.flash--; else a.blind--;
   addKarma(a, -10);
+  M(a, flash ? 'flashUsed' : 'sandThrows'); EV('blind', a, { flash, refs: hit.map(r => r.name) });
   a.blindCd = 1.2;
   for (const r of hit) {
     r.blind = flash ? 7 : 4.5; r.att = null;
@@ -667,7 +685,7 @@ function doBlind(a, isHuman) {
 }
 function dropBanana(a) {
   if (a.items.banana <= 0) return;
-  a.items.banana--; addKarma(a, -6);
+  a.items.banana--; addKarma(a, -6); M(a, 'bananasDropped'); EV('banana', a, {});
   S.bananas.push({ x: clamp(a.x - Math.cos(a.face) * 16, 10, W - 10), y: clamp(a.y - Math.sin(a.face) * 16, 10, H - 10), owner: a, imm: 1, ttl: 30 });
   S.pend.push({ a, x: a.x, y: a.y, kind: 'banana', heavy: false, ttl: S.refHuman ? 2.2 : 0.4, inBox: false, mate: false });
 }
@@ -690,6 +708,7 @@ function callFoul(f, r) {
   whistle(1); a.stats.caught++; addPop(a, -8); addCharge(a, -30); addKarma(a, -10); cheer('boo', a.x, 'BOOO!');
   let red = f.heavy;
   if (!red) { a.yellows++; if (a.yellows >= 2) red = true; }
+  M(a, red ? 'reds' : 'yellows'); M(a, f.kind === 'foul' || f.kind === 'ko' ? 'caughtFouls' : 'sneakyCaught'); EV('card', a, { card: red ? 'red' : 'yellow', kind: f.kind, by: r.name });
   const what = { foul: 'foul', ko: 'knockout', blind: 'blinding the referee', banana: 'banana drop' }[f.kind];
   feed(`${red ? 'RED CARD' : 'Yellow card'}: ${a.name} (${what}), seen by the ${r.name.toLowerCase()}`, red ? '#ff4d4d' : '#ffd23f');
   r.att = { x: a.x, y: a.y }; r.attT = 1.5; r.card = { red, t: 1.8 };
@@ -723,6 +742,7 @@ function setPiece(team, type, x, y, label) {
   }
   S.pend = [];
   S.setPiece = taker ? { team, type, taker, t: 0, wait: rand(0.9, 1.6) } : null;
+  if (taker) { M(taker, 'setPiecesTaken'); EV('setPiece', taker, { kick: type }); if (S.metrics) S.metrics.lastSetPiece = { team, t: S.metrics.t }; }
   pauseFor(1.7, label, (type === 'penalty' ? 'Penalty to ' : 'Free kick to ') + TEAM[team].name, null);
 }
 function throwItem(p) {
@@ -731,10 +751,12 @@ function throwItem(p) {
   const near = Math.random() < 0.4;
   const sx = clamp(tx + rand(-120, 120), -40, W + 40), sy = near ? H + 60 : -40;
   S.items.push({ type, sx, sy, tx, ty, t: 0, dur: 1.15, x: sx, y: sy, z: 30, landed: false, for: p, age: 0 });
+  M(p, 'giftsReceived'); EV('gift', p, { item: type });
   feed(`The crowd throws a ${ITEM_LABEL[type]} to ${p.name}`, '#ffd23f');
   S.excite += 0.25;
 }
 function pickup(p, it) {
+  M(p, 'itemsPicked');
   if (it.type === 'medkit') { p.hp = Math.min(100, p.hp + 45); floatText(p, '+45 HP', '#7dff9b'); }
   if (it.type === 'bat') { p.items.bat += 3; floatText(p, 'BAT ×3', '#ffcf5a'); }
   if (it.type === 'flash') { p.items.flash += 1; floatText(p, 'FLASH', '#fff6c0'); }
@@ -753,31 +775,336 @@ function goal(team) {
     if (as && as.team === team && as !== sc && S.time - b.passTime < 5) { as.stats.assists++; addPop(as, 10); addCharge(as, 15); sub += ' · assist ' + as.name; }
     feed(`GOAL! ${sc.name} scores for the ${TEAM[team].name}`, TEAM[team].col);
   } else if (sc) { sub = 'Own goal by ' + sc.name; addPop(sc, 3); feed(`Own goal by ${sc.name}. The crowd loves it.`, TEAM[team].col); }
+  if (S.metrics) {
+    if (sc && b.shotBy === sc && S.time - b.shotT < 4) M(sc, 'shotsOnTarget');
+    const asP = sc && b.lastPasser && b.lastPasser.team === team && b.lastPasser !== sc && S.time - b.passTime < 5 ? b.lastPasser : null;
+    const lsp = S.metrics.lastSetPiece; if (lsp && lsp.team === team && S.metrics.t - lsp.t < 8) S.metrics.teams[team].setPieceGoals++;
+    EV(sc && sc.team === team ? 'goal' : 'ownGoal', sc, { forTeam: TEAM[team].short, assist: asP ? asP.name : null, powered: !!(b.shotPowered && b.shotBy === sc), score: S.score.join('-') });
+  }
   S.excite = 1.4; whistle(1); S.shake = 6;
   for (let i = 0; i < 40; i++) burst(b.x, b.y, pick([TEAM[team].col, '#ffffff', '#ffd23f']), 1, 40);
   pauseFor(2.4, 'GOAL!', sub, () => kickoff(1 - team, 'KICK OFF'));
 }
 function endMatch() {
   S.phase = 'over'; whistle(3, 0.3);
-  if (S.net === 'host') sendSnap(true);
+  S.lastReport = buildReport(); saveHistory(S.lastReport);
+  if (S.net === 'host') { broadcast({ t: 'report', r: S.lastReport }); sendSnap(true); }
   showResults();
 }
 function showResults() {
-  const [a, b] = S.score;
+  const [a, b] = S.score, R = S.lastReport;
   document.getElementById('o-head').textContent = a === b ? `Draw, ${a}–${b}` : `${TEAM[a > b ? 0 : 1].name} win ${Math.max(a, b)}–${Math.min(a, b)}`;
-  const ranked = S.players.slice().sort((p, q) => q.pop - p.pop);
-  const fav = ranked[0], dirty = S.players.slice().sort((p, q) => q.stats.fouls - p.stats.fouls)[0];
-  document.getElementById('o-sub').textContent = `Crowd favourite: ${fav.name} (${fav.pop} popularity). Dirtiest player: ${dirty.name} with ${dirty.stats.fouls} fouls, ${dirty.stats.caught} caught.`;
-  if (S.refHuman) { const R = S.refHuman, tot = R.correct + R.missed + R.wrong; document.getElementById('o-sub').textContent = `Your refereeing: ${R.correct} correct calls, ${R.missed} missed, ${R.wrong} wrong. Rating ${tot ? Math.round(100 * R.correct / tot) : 100}%. ` + document.getElementById('o-sub').textContent; }
+  const rating = p => R && R.players[p.id] ? R.players[p.id].ratings.performance : null;
+  const ranked = S.players.slice().sort((p, q) => (rating(q) ?? q.pop / 10) - (rating(p) ?? p.pop / 10));
+  const fav = S.players.slice().sort((p, q) => q.pop - p.pop)[0], dirty = S.players.slice().sort((p, q) => q.stats.fouls - p.stats.fouls)[0];
+  let sub = `${R && R.playerOfTheMatch ? `Player of the match: ${R.playerOfTheMatch.name} (${R.playerOfTheMatch.rating.toFixed(1)}). ` : ''}Crowd favourite: ${fav.name} (${fav.pop} popularity). Dirtiest: ${dirty.name}, ${dirty.stats.fouls} fouls, ${dirty.stats.caught} caught.`;
+  if (S.refHuman) { const H = S.refHuman, n = H.correct + H.missed + H.wrong; sub = `Your refereeing: ${H.correct} correct calls, ${H.missed} missed, ${H.wrong} wrong. Accuracy ${n ? Math.round(100 * H.correct / n) : 100}%. ` + sub; }
+  document.getElementById('o-sub').textContent = sub;
   const t = document.getElementById('o-table');
-  t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Karma</th><th>Popularity</th></tr></thead><tbody>' +
-    ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${p.name}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
+  t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Rating</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Karma</th><th>Popularity</th></tr></thead><tbody>' +
+    ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${esc(p.name)}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${rating(p) != null ? rating(p).toFixed(1) : '–'}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
+  document.getElementById('o-files').hidden = !R;
+  document.getElementById('o-saved').textContent = R ? 'Full report: ratings, discipline, sportsmanship, balance notes and the timeline.' : '';
   document.getElementById('o-again').hidden = S.net === 'client';
   document.getElementById('o-menu').textContent = S.net ? 'Leave room' : 'Main menu';
   showOverlay('over');
+  maybeAutosave();
 }
 
-/* ---------------- AI ---------------- */
+/* ---------------- match metrics & reports ----------------
+   Every player gets a counter sheet for the whole match. At full time it becomes a report:
+   raw JSON (everything, including the event timeline), a CSV (one row per player) and a
+   standalone HTML page that is easy to read. The last 20 reports are kept in this browser. */
+const METRIC_KEYS = ['minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
+  'fouls', 'foulsBat', 'foulsOnTeammates', 'knockouts', 'sandThrows', 'flashUsed', 'bananasDropped', 'bananaVictims', 'unseen', 'wavedOffTrusted', 'yellows', 'reds',
+  'caughtFouls', 'sneakyCaught', 'sneakyUnseen', 'fouledReceived', 'knockedOut', 'slips', 'ignoredFoulsOnMe', 'helpUps', 'helpedUp', 'cleanStreaks', 'giftsReceived', 'itemsPicked', 'setPiecesTaken', 'chargeEarned', 'chargeSpent'];
+const ROLE_NAME = ['Goalkeeper', 'Defender', 'Defender', 'Midfielder', 'Forward'];
+const HISTORY_KEY = 'fpfc-history', HISTORY_MAX = 20;
+const rnd = (v, d = 1) => Math.round(v * 10 ** d) / 10 ** d;
+
+function newMetrics(mode) {
+  return { startedAt: new Date().toISOString(), mode, t: 0, events: [], lastSetPiece: null,
+    teams: [{ possession: 0, setPieceGoals: 0 }, { possession: 0, setPieceGoals: 0 }],
+    players: S.players.map(p => { const m = { karmaStart: p.karma, karmaMin: p.karma, controllers: {} }; for (const k of METRIC_KEYS) m[k] = 0; return m; }) };
+}
+function M(p, k, n = 1) { const m = S.metrics && p && S.metrics.players[p.id]; if (m) m[k] += n; }
+function EV(type, p, extra) {
+  const MX = S.metrics; if (!MX || MX.events.length >= 4000) return;
+  MX.events.push(Object.assign({ t: rnd(MX.t), type, player: p ? p.name : null, team: p ? TEAM[p.team].short : null }, extra || {}));
+}
+function trackFrame(p, dt) {   // once per active frame per player; dt in match seconds
+  const m = S.metrics && S.metrics.players[p.id]; if (!m) return;
+  if (onPitch(p)) m.minutes += dt / 60;
+  if (S.ball.owner === p) { m.possession += dt; S.metrics.teams[p.team].possession += dt; }
+  if (p.sprinting) m.sprintTime += dt;
+  if (p.human) {
+    m.humanTime += dt;
+    const h = p.human, online = S.net && NET && h.id && NET.roster[h.id];
+    m.controllers[online ? NET.roster[h.id].name : (h.label && h.label !== 'YOU' ? h.label : 'P' + (h.idx + 1))] = 1;
+  }
+  m.karmaMin = Math.min(m.karmaMin, p.karma);
+}
+
+function ratingsFor(p, m) {
+  const st = p.stats, passPct = m.passes >= 3 ? m.passesCompleted / m.passes : null;
+  const perf = 6 + st.goals + st.assists * 0.6 + m.shotsOnTarget * 0.15 + st.tackles * 0.12 + m.interceptions * 0.1 + st.saves * 0.4
+    + (passPct != null ? (passPct - 0.6) * 1.5 : 0) + Math.min(1, m.possession / 60) * 0.3 + m.helpUps * 0.15
+    - st.caught * 0.5 - m.reds * 1.5 - m.knockedOut * 0.1 - m.foulsOnTeammates * 0.2;
+  return {
+    performance: clamp(rnd(perf), 1, 10),
+    discipline: clamp(Math.round(100 - st.fouls * 6 - st.caught * 8 - m.reds * 20 - m.foulsBat * 4 - (m.sandThrows + m.flashUsed) * 5 - m.bananasDropped * 3), 0, 100),
+    sportsmanship: clamp(Math.round(50 + p.karma / 2 + m.helpUps * 5 + m.cleanStreaks * 3 - m.foulsOnTeammates * 5), 0, 100),
+    passAccuracy: passPct == null ? null : Math.round(passPct * 100)
+  };
+}
+function buildReport() {
+  const MX = S.metrics || newMetrics(S.mode);
+  const players = S.players.map(p => {
+    const m = MX.players[p.id], metrics = {};
+    for (const k of METRIC_KEYS) metrics[k] = rnd(m[k]);
+    metrics.karmaStart = m.karmaStart; metrics.karmaMin = m.karmaMin;
+    return { id: p.id, name: p.name, number: p.num, team: TEAM[p.team].name, teamShort: TEAM[p.team].short, role: ROLE_NAME[p.i],
+      controlledBy: Object.keys(m.controllers).length ? Object.keys(m.controllers) : ['bot'],
+      ratings: ratingsFor(p, m), stats: { ...p.stats }, metrics,
+      end: { hp: Math.round(p.hp), karma: Math.round(p.karma), popularity: p.pop, charge: Math.round(p.charge), refOpinion: refOpinion(p), sentOff: p.sentOff > 0 } };
+  });
+  const of = t => players.filter(r => r.teamShort === TEAM[t].short), sum = (arr, f) => arr.reduce((s, r) => s + f(r), 0);
+  const possAll = MX.teams[0].possession + MX.teams[1].possession || 1;
+  const teams = [0, 1].map(t => {
+    const ps = of(t), passes = sum(ps, r => r.metrics.passes), done = sum(ps, r => r.metrics.passesCompleted);
+    return { name: TEAM[t].name, short: TEAM[t].short, goals: S.score[t], possessionPct: Math.round(100 * MX.teams[t].possession / possAll),
+      shots: sum(ps, r => r.metrics.shots), shotsOnTarget: sum(ps, r => r.metrics.shotsOnTarget), powerShots: sum(ps, r => r.metrics.powerShots),
+      passes, passAccuracy: passes ? Math.round(100 * done / passes) : null, tackles: sum(ps, r => r.stats.tackles), interceptions: sum(ps, r => r.metrics.interceptions),
+      saves: sum(ps, r => r.stats.saves), fouls: sum(ps, r => r.stats.fouls), caught: sum(ps, r => r.metrics.caughtFouls), unseen: sum(ps, r => r.metrics.unseen),
+      yellows: sum(ps, r => r.metrics.yellows), reds: sum(ps, r => r.metrics.reds), helpUps: sum(ps, r => r.metrics.helpUps),
+      setPieceGoals: MX.teams[t].setPieceGoals, avgPerformance: rnd(sum(ps, r => r.ratings.performance) / ps.length) };
+  });
+  const all = f => sum(players, f), avg = (arr, f) => arr.length ? rnd(sum(arr, f) / arr.length) : null;
+  const humans = players.filter(r => r.controlledBy[0] !== 'bot'), bots = players.filter(r => r.controlledBy[0] === 'bot');
+  const fouls = all(r => r.stats.fouls), caught = all(r => r.metrics.caughtFouls), shots = all(r => r.metrics.shots), goals = S.score[0] + S.score[1];
+  const mostFouled = players.slice().sort((a, b) => b.metrics.fouledReceived - a.metrics.fouledReceived)[0];
+  const balance = {
+    fouls, caught, unseen: all(r => r.metrics.unseen), wavedOffTrusted: all(r => r.metrics.wavedOffTrusted), ignoredOnMarked: all(r => r.metrics.ignoredFoulsOnMe),
+    detectionRatePct: fouls ? Math.round(100 * caught / fouls) : null, batFouls: all(r => r.metrics.foulsBat), teammateFouls: all(r => r.metrics.foulsOnTeammates),
+    knockouts: all(r => r.metrics.knockouts), blinds: all(r => r.metrics.sandThrows + r.metrics.flashUsed), sneakyActs: all(r => r.metrics.sandThrows + r.metrics.flashUsed + r.metrics.bananasDropped), sneakyCaught: all(r => r.metrics.sneakyCaught), bananaSlips: all(r => r.metrics.slips),
+    shots, goals, conversionPct: shots ? Math.round(100 * goals / shots) : null, powerShots: all(r => r.metrics.powerShots),
+    helpUps: all(r => r.metrics.helpUps), giftsThrown: all(r => r.metrics.giftsReceived), itemsPicked: all(r => r.metrics.itemsPicked),
+    avgPerformanceHumans: avg(humans, r => r.ratings.performance), avgPerformanceBots: avg(bots, r => r.ratings.performance),
+    avgDistanceOutfieldM: avg(players.filter(r => r.role !== 'Goalkeeper'), r => r.metrics.distance),
+    mostFouled: mostFouled && mostFouled.metrics.fouledReceived ? { name: mostFouled.name, times: mostFouled.metrics.fouledReceived } : null
+  };
+  const [a, b] = S.score, top = players.slice().sort((x, y) => y.ratings.performance - x.ratings.performance)[0];
+  const R = {
+    schema: 'foulplayfc.match.v1',
+    meta: { game: 'Foul Play FC', startedAt: MX.startedAt, savedAt: new Date().toISOString(), mode: S.mode, online: S.net || 'offline',
+      matchLengthSec: S.mode === 'playground' ? null : MATCH_LEN, playedSec: Math.round(MX.t), pace: PACE,
+      score: { [TEAM[0].short]: a, [TEAM[1].short]: b }, result: a === b ? 'Draw' : `${TEAM[a > b ? 0 : 1].name} win` },
+    playerOfTheMatch: top ? { name: top.name, team: top.team, rating: top.ratings.performance } : null,
+    teams, players, balance,
+    referee: S.refHuman ? (() => { const H = S.refHuman, n = H.correct + H.missed + H.wrong; return { correct: H.correct, missed: H.missed, wrong: H.wrong, ratingPct: n ? Math.round(100 * H.correct / n) : 100 }; })() : null,
+    events: MX.events
+  };
+  R.insights = insightsFor(R);
+  return R;
+}
+function insightsFor(R) {
+  const B = R.balance, T = R.teams, out = [];
+  if (B.fouls) {
+    let s = `Referees caught ${B.caught} of ${B.fouls} fouls (${B.detectionRatePct}%); ${B.unseen} went unseen.`;
+    if (B.fouls >= 5 && B.detectionRatePct < 25) s += ' Fouling may be too safe: consider wider or longer referee vision cones.';
+    if (B.fouls >= 5 && B.detectionRatePct > 70) s += ' Referees may be too strict: fouling rarely pays off.';
+    out.push(s);
+  } else out.push('No fouls this match.');
+  if (B.wavedOffTrusted || B.ignoredOnMarked) out.push(`Referee opinion changed ${B.wavedOffTrusted + B.ignoredOnMarked} decisions: ${B.wavedOffTrusted} fouls waved off for trusted players, ${B.ignoredOnMarked} fouls on marked players ignored.`);
+  if (B.blinds) out.push(`Referees were blinded ${B.blinds} time${B.blinds === 1 ? '' : 's'}.`);
+  if (B.sneakyActs) out.push(`Sand, flash and bananas: ${B.sneakyActs} used, ${B.sneakyCaught} punished.${B.sneakyActs >= 4 && !B.sneakyCaught ? ' Sneaky play is never punished: consider making it easier to spot.' : ''}`);
+  if (B.shots) {
+    let s = `${B.goals} goal${B.goals === 1 ? '' : 's'} from ${B.shots} shots (${B.conversionPct}% conversion); ${B.powerShots} were power shots.`;
+    if (B.shots >= 6 && B.conversionPct > 45) s += ' Scoring may be too easy for keepers to handle.';
+    if (B.shots >= 8 && B.conversionPct < 8) s += ' Scoring may be too hard: keepers or shot spread could be eased.';
+    out.push(s);
+  }
+  out.push(`Possession split ${T[0].short} ${T[0].possessionPct}% · ${T[1].short} ${T[1].possessionPct}%.`);
+  if (B.avgPerformanceHumans != null && B.avgPerformanceBots != null) {
+    const d = rnd(B.avgPerformanceHumans - B.avgPerformanceBots);
+    out.push(`Average rating: humans ${B.avgPerformanceHumans}, bots ${B.avgPerformanceBots} (${d >= 0 ? '+' : ''}${d}).${d > 1.5 ? ' Bots may be too easy.' : d < -1.5 ? ' Bots may be too strong.' : ''}`);
+  }
+  if (B.teammateFouls) out.push(`${B.teammateFouls} foul${B.teammateFouls === 1 ? ' was' : 's were'} on teammates.`);
+  if (B.knockouts) out.push(`${B.knockouts} knockout${B.knockouts === 1 ? '' : 's'}${B.batFouls ? `, ${B.batFouls} bat fouls` : ''}.`);
+  if (B.mostFouled) out.push(`Most fouled: ${B.mostFouled.name} (${B.mostFouled.times} times).`);
+  out.push(`${B.helpUps} help-up${B.helpUps === 1 ? '' : 's'} and ${B.giftsThrown} crowd gift${B.giftsThrown === 1 ? '' : 's'} (${B.itemsPicked} items picked up).`);
+  return out;
+}
+
+function reportCSV(R) {
+  const q = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const p0 = R.players[0], sk = Object.keys(p0.stats), mk = Object.keys(p0.metrics);
+  const head = ['name', 'number', 'team', 'role', 'controlledBy', 'performance', 'discipline', 'sportsmanship', 'passAccuracyPct', ...sk.map(k => 'stats.' + k), ...mk.map(k => 'metrics.' + k), 'end.karma', 'end.popularity', 'end.refOpinion', 'end.hp'];
+  const rows = R.players.map(r => [r.name, r.number, r.team, r.role, r.controlledBy.join(' / '), r.ratings.performance, r.ratings.discipline, r.ratings.sportsmanship, r.ratings.passAccuracy,
+    ...sk.map(k => r.stats[k]), ...mk.map(k => r.metrics[k]), r.end.karma, r.end.popularity, r.end.refOpinion, r.end.hp]);
+  return [head, ...rows].map(row => row.map(q).join(',')).join('\n') + '\n';
+}
+
+function reportHTML(R) {
+  const e = esc, T = R.teams, P = R.players.slice().sort((a, b) => b.ratings.performance - a.ratings.performance);
+  const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const pct = v => v == null ? '–' : v + '%';
+  const tcls = r => r.teamShort === T[0].short ? 't0' : 't1';
+  const who = r => `<span class="dot ${tcls(r)}"></span>#${r.number} ${e(r.name)}`;
+  const ctl = r => r.controlledBy[0] === 'bot' ? '<span class="mut">bot</span>' : e(r.controlledBy.join(', '));
+  const badge = v => `<span class="rt ${v >= 7.5 ? 'hi' : v >= 6 ? 'mid' : 'lo'}">${v.toFixed(1)}</span>`;
+  const meter = v => `<span class="meter"><i style="width:${v}%"></i></span><span class="mv">${v}</span>`;
+  const sign = v => (v > 0 ? '+' : '') + v;
+  const cmp = [['Goals', 'goals'], ['Possession', 'possessionPct', '%'], ['Shots', 'shots'], ['On target', 'shotsOnTarget'], ['Power shots', 'powerShots'], ['Passes', 'passes'],
+    ['Pass accuracy', 'passAccuracy', '%'], ['Tackles', 'tackles'], ['Interceptions', 'interceptions'], ['Saves', 'saves'], ['Fouls', 'fouls'], ['Caught', 'caught'],
+    ['Unseen fouls', 'unseen'], ['Yellow cards', 'yellows'], ['Red cards', 'reds'], ['Help-ups', 'helpUps'], ['Set-piece goals', 'setPieceGoals'], ['Average rating', 'avgPerformance']]
+    .map(([lab, k, u]) => {
+      const a = T[0][k] ?? 0, b = T[1][k] ?? 0, tot = (+a) + (+b), sa = tot ? 100 * a / tot : 0, sb = tot ? 100 * b / tot : 0, f = (side, v) => T[side][k] == null ? '–' : v + (u || '');
+      return `<span class="cv">${f(0, a)}</span><span class="bar l"><i class="t0" style="width:${sa}%"></i></span><span class="lab">${lab}</span><span class="bar"><i class="t1" style="width:${sb}%"></i></span><span class="cv r">${f(1, b)}</span>`;
+    }).join('');
+  const evText = v => ({
+    goal: `Goal${v.assist ? ' · assist ' + e(v.assist) : ''}${v.powered ? ' · power shot' : ''} (${e(v.score)})`, ownGoal: `Own goal (${e(v.score)})`,
+    shot: `Shot${v.powered ? ' · power' : ''}`, save: `Save from ${e(v.shooter)}`, tackle: `Won the ball from ${e(v.from)}`, interception: `Intercepted ${e(v.from)}'s pass`,
+    foul: `${v.bat ? 'Bat foul' : v.kind === 'ko' ? 'Knockout foul' : 'Foul'} on ${e(v.target)}${v.teammate ? ' (teammate)' : ''}`,
+    card: `${v.card === 'red' ? 'Red' : 'Yellow'} card · ${e(FOUL_NAME[v.kind] || v.kind)} · ${e(v.by)}`, unseen: `Got away with a ${e(FOUL_NAME[v.kind] || v.kind)}`,
+    wavedOff: v.reason === 'trust' ? `Foul waved off by the ${e(String(v.by).toLowerCase())} (trusted player)` : `Foul on ${e(v.victim)} ignored (marked player)`,
+    blind: v.flash ? 'Flash powder at the referees' : `Sand at the ${e(String((v.refs || [])[0] || 'referee').toLowerCase())}`, banana: 'Dropped a banana',
+    slip: `Slipped on ${e(v.banana)}'s banana`, helpUp: `Helped ${e(v.target)} up`, gift: `Crowd gift: ${e(ITEM_LABEL[v.item] || v.item)}`,
+    setPiece: v.kick === 'penalty' ? 'Took a penalty' : 'Took a free kick'
+  }[v.type] || e(v.type));
+  const evCls = { goal: 'g', ownGoal: 'g', card: 'b', foul: 'w', unseen: 'w', wavedOff: 'w', blind: 'w', banana: 'w', helpUp: 'ok', save: 'ok', tackle: 'ok', interception: 'ok' };
+  const timeline = R.events.filter(v => v.type !== 'shot' || v.powered).slice(0, 400)
+    .map(v => `<tr class="${evCls[v.type] || ''}"><td>${fmtT(v.t)}</td><td class="l">${v.player ? `<span class="dot ${v.team === T[0].short ? 't0' : 't1'}"></span>${e(v.player)}` : ''}</td><td class="l">${evText(v)}</td></tr>`).join('');
+  const d = new Date(R.meta.savedAt), date = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const modeName = { '1p': 'Solo vs bots', '2pv': '2 players · versus', '2pc': '2 players · co-op', watch: 'Bots only', online: 'Online (host)', client: 'Online', playground: 'Playground', ref: 'Referee mode' }[R.meta.mode] || R.meta.mode;
+  const motm = R.playerOfTheMatch;
+  const ref = R.referee ? `<section><h2>Your refereeing</h2><div class="kpis"><div><b>${R.referee.correct}</b><span>correct calls</span></div><div><b>${R.referee.missed}</b><span>missed</span></div><div><b>${R.referee.wrong}</b><span>wrong calls</span></div><div><b>${R.referee.ratingPct}%</b><span>accuracy</span></div></div></section>` : '';
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Match report · ${e(T[0].short)} ${T[0].goals}–${T[1].goals} ${e(T[1].short)}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600&family=Barlow+Condensed:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#f3f5f1;--card:#ffffff;--ink:#14201a;--muted:#5b6c62;--line:#dfe6e0;--t0:#1d7ccc;--t1:#d94e26;--gold:#a87d00;--good:#18884a;--warn:#a87400;--bad:#c62f43;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0a120f;--card:#111c17;--ink:#eef2e6;--muted:#93a799;--line:#25392f;--t0:#3fa9ff;--t1:#ff6a3d;--gold:#ffd23f;--good:#5ef08a;--warn:#ffd23f;--bad:#ff6b80;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 'Barlow Condensed','Arial Narrow',system-ui,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:28px max(16px,env(safe-area-inset-left)) 60px;display:flex;flex-direction:column;gap:20px}
+h1,h2{font-family:Teko,'Arial Narrow',Impact,sans-serif;font-weight:600;margin:0;line-height:.9;text-wrap:balance}
+h2{font-size:30px}
+.kicker{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px 20px}
+.score h1{font-size:clamp(30px,5.5vw,58px)} .score .r{text-align:right}
+.score .n{font-family:Teko,Impact,sans-serif;font-size:clamp(60px,11vw,110px);line-height:.75;font-variant-numeric:tabular-nums}
+.c0{color:var(--t0)}.c1{color:var(--t1)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;color:var(--muted)} .meta b{color:var(--ink);font-weight:600}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card)}
+th:first-child,td:first-child,.l{text-align:left}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:baseline}
+.t0{background:var(--t0)}.t1{background:var(--t1)} .mut{color:var(--muted)}
+.rt{display:inline-block;min-width:40px;text-align:center;border-radius:5px;padding:1px 6px;font-weight:700}
+.rt.hi{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
+.rt.mid{color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.rt.lo{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,transparent)}
+.meter{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;overflow:hidden;margin-right:6px}
+.meter i{display:block;height:100%;background:var(--gold)} .mv{display:inline-block;min-width:2ch}
+.cmp{display:grid;grid-template-columns:3.6em 1fr minmax(7.5em,auto) 1fr 3.6em;gap:7px 10px;align-items:center;font-variant-numeric:tabular-nums}
+.cmp .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;display:flex} .cmp .bar.l{justify-content:flex-end}
+.cmp .bar i{display:block;height:100%} .cmp .lab{text-align:center;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.cmp .cv{font-weight:700} .cmp .cv.r{text-align:right}
+.motm{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.motm .big{font-family:Teko,Impact,sans-serif;font-size:44px;line-height:.8}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpis div{display:flex;flex-direction:column} .kpis b{font-family:Teko,Impact,sans-serif;font-size:40px;line-height:.85;font-weight:600} .kpis span{color:var(--muted)}
+ul.ins{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;max-width:78ch}
+tr.g td{color:var(--gold);font-weight:600} tr.b td{color:var(--bad)} tr.w td:last-child{color:var(--warn)} tr.ok td:last-child{color:var(--good)}
+.tl{max-height:520px;overflow:auto}
+.foot{color:var(--muted);font-size:14px;max-width:80ch}
+@media (max-width:560px){.score{grid-template-columns:1fr}.score .r{text-align:left}}
+</style></head><body><main>
+<header style="display:flex;flex-direction:column;gap:10px">
+  <div class="kicker">Foul Play FC · Match report</div>
+  <div class="score"><h1 class="c0">${e(T[0].name)}</h1><span class="n">${T[0].goals}–${T[1].goals}</span><h1 class="c1 r">${e(T[1].name)}</h1></div>
+  <div class="meta"><span><b>${e(R.meta.result)}</b></span><span><b>Mode</b> ${e(modeName)}</span><span><b>Played</b> ${fmtT(R.meta.playedSec)}${R.meta.matchLengthSec ? ' of ' + fmtT(R.meta.matchLengthSec) : ''}</span><span><b>Pace</b> ${Math.round(R.meta.pace * 100)}%</span><span><b>Saved</b> ${e(date)}</span></div>
+</header>
+${motm ? `<section class="motm"><span class="kicker">Player of the match</span><span class="big">${e(motm.name)}</span><span class="mut">${e(motm.team)}</span>${badge(motm.rating)}</section>` : ''}
+<section><h2>Team comparison</h2><div class="cmp"><span class="cv c0">${e(T[0].short)}</span><span></span><span></span><span></span><span class="cv r c1">${e(T[1].short)}</span>${cmp}</div></section>
+<section><h2>Player ratings</h2><div class="wrap"><table>
+<thead><tr><th>Player</th><th class="l">Role</th><th class="l">Played by</th><th>Rating</th><th>Goals</th><th>Assists</th><th>Shots</th><th>On target</th><th>Pass %</th><th>Tackles</th><th>Int.</th><th>Saves</th><th>Possession s</th><th>Distance m</th><th>Sprint s</th></tr></thead><tbody>
+${P.map(r => `<tr><td>${who(r)}</td><td class="l">${e(r.role)}</td><td class="l">${ctl(r)}</td><td>${badge(r.ratings.performance)}</td><td>${r.stats.goals}</td><td>${r.stats.assists}</td><td>${r.metrics.shots}</td><td>${r.metrics.shotsOnTarget}</td><td>${pct(r.ratings.passAccuracy)}</td><td>${r.stats.tackles}</td><td>${r.metrics.interceptions}</td><td>${r.stats.saves}</td><td>${Math.round(r.metrics.possession)}</td><td>${Math.round(r.metrics.distance)}</td><td>${Math.round(r.metrics.sprintTime)}</td></tr>`).join('')}
+</tbody></table></div></section>
+<section><h2>Discipline</h2><div class="wrap"><table>
+<thead><tr><th>Player</th><th>Discipline</th><th>Fouls</th><th>With bat</th><th>On teammates</th><th>Knockouts</th><th>Sand / flash</th><th>Bananas</th><th>Caught</th><th>Unseen</th><th>Waved off</th><th>Yellow</th><th>Red</th><th>Fouled</th><th>Ignored fouls on them</th></tr></thead><tbody>
+${P.slice().sort((a, b) => a.ratings.discipline - b.ratings.discipline).map(r => `<tr><td>${who(r)}</td><td>${meter(r.ratings.discipline)}</td><td>${r.stats.fouls}</td><td>${r.metrics.foulsBat}</td><td>${r.metrics.foulsOnTeammates}</td><td>${r.metrics.knockouts}</td><td>${r.metrics.sandThrows + r.metrics.flashUsed}</td><td>${r.metrics.bananasDropped}</td><td>${r.stats.caught}</td><td>${r.metrics.unseen}</td><td>${r.metrics.wavedOffTrusted}</td><td>${r.metrics.yellows}</td><td>${r.metrics.reds}</td><td>${r.metrics.fouledReceived}</td><td>${r.metrics.ignoredFoulsOnMe}</td></tr>`).join('')}
+</tbody></table></div></section>
+<section><h2>Sportsmanship and the crowd</h2><div class="wrap"><table>
+<thead><tr><th>Player</th><th>Sportsmanship</th><th>Help-ups</th><th>Helped up</th><th>Clean 30s streaks</th><th>Karma start → end</th><th>Lowest karma</th><th>Ref opinion</th><th>Popularity</th><th>Crowd gifts</th><th>Items picked</th><th>Charge earned / spent</th></tr></thead><tbody>
+${P.slice().sort((a, b) => b.ratings.sportsmanship - a.ratings.sportsmanship).map(r => `<tr><td>${who(r)}</td><td>${meter(r.ratings.sportsmanship)}</td><td>${r.metrics.helpUps}</td><td>${r.metrics.helpedUp}</td><td>${r.metrics.cleanStreaks}</td><td>${sign(Math.round(r.metrics.karmaStart))} → ${sign(r.end.karma)}</td><td>${sign(Math.round(r.metrics.karmaMin))}</td><td>${sign(r.end.refOpinion)}</td><td>${r.end.popularity}</td><td>${r.metrics.giftsReceived}</td><td>${r.metrics.itemsPicked}</td><td>${Math.round(r.metrics.chargeEarned)} / ${Math.round(r.metrics.chargeSpent)}</td></tr>`).join('')}
+</tbody></table></div></section>
+${ref}
+<section><h2>Balance notes</h2><ul class="ins">${R.insights.map(s => `<li>${e(s)}</li>`).join('')}</ul></section>
+<section><h2>Timeline</h2><div class="wrap tl"><table><thead><tr><th>Time</th><th class="l">Player</th><th class="l">Event</th></tr></thead><tbody>${timeline || '<tr><td colspan="3" class="l mut">No events recorded.</td></tr>'}</tbody></table></div></section>
+<p class="foot">Performance rating runs from 1 to 10: everyone starts at 6.0; goals, assists, shots on target, tackles, interceptions, saves, accurate passing, possession and helping players up raise it; being caught fouling, red cards, knockouts suffered and fouls on teammates lower it. Discipline (0–100) falls with every foul, card, sand throw and banana. Sportsmanship (0–100) follows karma, help-ups and clean streaks. The matching .json file holds every raw number and the full event list; the .csv has one row per player for spreadsheets.</p>
+</main></body></html>`;
+}
+
+function fileBase(R) {
+  const d = new Date(R.meta.savedAt), p2 = n => String(n).padStart(2, '0'), s = R.meta.score, k = Object.keys(s);
+  return `foulplayfc-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}-${k[0].toLowerCase()}-${s[k[0]]}-${s[k[1]]}-${k[1].toLowerCase()}`;
+}
+function downloadFile(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+function saveReport(kind) {
+  const R = S.lastReport, note = document.getElementById('o-saved');
+  if (!R) { note.textContent = 'No match data to save yet.'; return; }
+  const base = fileBase(R);
+  if (kind === 'html') downloadFile(base + '.html', reportHTML(R), 'text/html');
+  if (kind === 'json') downloadFile(base + '.json', JSON.stringify(R, null, 2), 'application/json');
+  if (kind === 'csv') downloadFile(base + '.csv', reportCSV(R), 'text/csv');
+  note.textContent = `Saved ${base}.${kind} to your downloads.`;
+}
+function loadHistory() { const h = store.get(HISTORY_KEY); return Array.isArray(h) ? h : []; }
+function saveHistory(R) {
+  if (!R) return;
+  const list = loadHistory(), { events, ...compact } = R;
+  if (list.some(m => m.meta && m.meta.savedAt === R.meta.savedAt)) return;
+  list.push(compact); while (list.length > HISTORY_MAX) list.shift();
+  store.set(HISTORY_KEY, list);
+}
+function maybeAutosave() {
+  if (!AUTOSAVE || !S.lastReport || S.reportSaved) return;
+  S.reportSaved = true;
+  setTimeout(() => { saveReport('html'); setTimeout(() => saveReport('json'), 500); }, 400);
+}
+function renderFileOpts() {
+  const el = document.getElementById('saveopt');
+  el.innerHTML = [['Save buttons at full time', false], ['Also download automatically', true]].map(([n, v]) => `<button id="save-${v}" aria-pressed="${v === AUTOSAVE}" data-v="${v}">${n}</button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { AUTOSAVE = b.dataset.v === 'true'; store.set('fpfc-autosave', AUTOSAVE); renderFileOpts(); document.getElementById(b.id).focus(); });
+  const n = loadHistory().length, clr = document.getElementById('s-clearhist');
+  document.getElementById('s-histnote').textContent = n ? `${n} match${n === 1 ? '' : 'es'} saved in this browser (keeps the last ${HISTORY_MAX}, without timelines).` : 'No matches saved in this browser yet.';
+  document.getElementById('s-history').disabled = !n; clr.disabled = !n; clr.textContent = 'Clear history'; clr.dataset.armed = '';
+}
+document.getElementById('o-html').onclick = () => saveReport('html');
+document.getElementById('o-json').onclick = () => saveReport('json');
+document.getElementById('o-csv').onclick = () => saveReport('csv');
+document.getElementById('s-history').onclick = () => {
+  const list = loadHistory(); if (!list.length) return;
+  downloadFile(`foulplayfc-history-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ schema: 'foulplayfc.history.v1', exportedAt: new Date().toISOString(), matches: list }, null, 2), 'application/json');
+};
+document.getElementById('s-clearhist').onclick = e => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Click again to clear'; return; }
+  store.set(HISTORY_KEY, []); renderFileOpts();
+};
+
+/* ---------------- AI ---------------- *//* ---------------- AI ---------------- */
 function steer(p, tx, ty, mul = 1, arrive = 24) {
   const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
   if (d < 3) { p.dx = p.dy = 0; return; }
@@ -1005,6 +1332,7 @@ function update(dt) {
   if (S.clock <= 0) { S.clock = 0; if (S.phase === 'play') { endMatch(); return; } }
 
   S.heat = Math.max(0, S.heat - dt * 0.01);
+  if (S.metrics) S.metrics.t += dt / PACE;
   for (const p of S.players) {
     for (const k of ['stun', 'foulCd', 'blindCd', 'pickCd', 'lunge', 'lungeCd', 'expect', 'hitT']) p[k] = Math.max(0, p[k] - dt);
     if (p.ko > 0) { p.ko -= dt; if (p.ko <= 0) { p.hp = 55; p.stun = 0; if (loud(p)) feed(`${p.name} is back on their feet`); } }
@@ -1014,7 +1342,8 @@ function update(dt) {
     }
     if (p.blind < 2) { p.blindT += dt; if (p.blindT >= 22) { p.blind++; p.blindT = 0; } }
     if (S.ball.owner === p) addCharge(p, 5 * dt);
-    if (onPitch(p)) { p.cleanT += dt; if (p.cleanT >= 30) { p.cleanT = 0; addKarma(p, 5); if (p.human) { cheer('applause', p.x, 'RESPECT!'); feed(`The crowd applauds ${p.name}'s clean play`, '#7dff9b'); } } }
+    trackFrame(p, dt / PACE);
+    if (onPitch(p)) { p.cleanT += dt; if (p.cleanT >= 30) { p.cleanT = 0; addKarma(p, 5); M(p, 'cleanStreaks'); if (p.human) { cheer('applause', p.x, 'RESPECT!'); feed(`The crowd applauds ${p.name}'s clean play`, '#7dff9b'); } } }
     if (S.admin && S.admin.inf && p.human) { p.items.bat = Math.max(p.items.bat, 3); p.items.banana = Math.max(p.items.banana, 2); p.blind = 2; }
   }
 
@@ -1034,7 +1363,7 @@ function update(dt) {
     let spd = 155 * (0.72 + 0.28 * p.hp / 100);
     if (b.owner === p) spd *= 0.9;
     p.sprinting = !!(p.sprintWant && p.charge > 0 && !down && (p.dx || p.dy));
-    if (p.sprinting) { spd *= 1.4; p.charge = Math.max(0, p.charge - 22 * dt); }
+    if (p.sprinting) { spd *= 1.4; const dc = Math.min(p.charge, 22 * dt); p.charge -= dc; M(p, 'chargeSpent', dc); }
     if (p.lunge > 0 && !down) { spd = 320; p.dx = Math.cos(p.face); p.dy = Math.sin(p.face); }
     if (down) { p.vx *= Math.exp(-5 * dt); p.vy *= Math.exp(-5 * dt); }
     else {
@@ -1043,7 +1372,7 @@ function update(dt) {
       if (p.dx || p.dy) p.face += angDiff(p.face, Math.atan2(p.dy, p.dx)) * Math.min(1, dt * 14);
     }
     p.x = clamp(p.x + p.vx * dt, 8, W - 8); p.y = clamp(p.y + p.vy * dt, 8, H - 8);
-    p.run += Math.hypot(p.vx, p.vy) * dt * 0.09;
+    p.run += Math.hypot(p.vx, p.vy) * dt * 0.09; M(p, 'distance', Math.hypot(p.vx, p.vy) * dt / 10);
   }
   const act = S.players.filter(onPitch);
   for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
@@ -1081,7 +1410,7 @@ function update(dt) {
         if (p.team === o.team || !able(p) || p.pickCd > 0 || dist(p, b) > 15) continue;
         const rate = (p.lunge > 0 ? 6 : 1.4) * (p.gk ? 2 : 1);
         if (Math.random() < rate * dt) {
-          b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3); addCharge(p, 8); addKarma(p, 2); if (p.lunge > 0) cheer('roar', p.x, 'WHAT A TACKLE!');
+          b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3); EV('tackle', p, { from: o.name }); addCharge(p, 8); addKarma(p, 2); if (p.lunge > 0) cheer('roar', p.x, 'WHAT A TACKLE!');
           if (p.lunge > 0) floatText(p, 'TACKLE', '#ffffff'); thump(140, 0.15, 0.08);
           break;
         }
@@ -1107,8 +1436,9 @@ function update(dt) {
       const p = best, sp = Math.hypot(b.vx, b.vy);
       if (!p.gk && sp > 520) { b.vx *= -0.3; b.vy = rand(-150, 150); b.vz = 80; p.pickCd = 0.3; b.lastTouch = p; }
       else {
-        if (p.gk && sp > 300 && b.lastTouch && b.lastTouch.team !== p.team) { p.stats.saves++; addPop(p, 8); addCharge(p, 15); cheer('applause', p.x, 'GREAT SAVE!'); floatText(p, 'SAVE!', '#ffffff'); S.excite += 0.35; if (loud(p, b.lastTouch)) feed(`Big save by ${p.name}`); }
-        if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { addPop(b.lastPasser, 1); addCharge(b.lastPasser, 4); }
+        if (p.gk && sp > 300 && b.lastTouch && b.lastTouch.team !== p.team) { p.stats.saves++; addPop(p, 8); addCharge(p, 15); cheer('applause', p.x, 'GREAT SAVE!'); if (b.shotBy && b.shotBy.team !== p.team && S.time - b.shotT < 3) M(b.shotBy, 'shotsOnTarget'); EV('save', p, { shooter: b.lastTouch.name }); floatText(p, 'SAVE!', '#ffffff'); S.excite += 0.35; if (loud(p, b.lastTouch)) feed(`Big save by ${p.name}`); }
+        if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { addPop(b.lastPasser, 1); addCharge(b.lastPasser, 4); M(b.lastPasser, 'passesCompleted'); }
+        if (b.lastPasser && b.lastPasser.team !== p.team && S.time - b.passTime < 3) { M(p, 'interceptions'); EV('interception', p, { from: b.lastPasser.name }); }
         b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0;
       }
     }
@@ -1135,6 +1465,7 @@ function update(dt) {
     const p = S.players.find(q => able(q) && dist(q, n) < 12 && (n.imm <= 0 || q !== n.owner));
     if (p) {
       p.stun = 1.5; p.vx *= 1.6; p.vy *= 1.6; loseBall(p, p.face); floatText(p, 'SLIP!', '#ffe14d');
+      M(p, 'slips'); if (n.owner !== p) M(n.owner, 'bananaVictims'); EV('slip', p, { banana: n.owner.name });
       if (n.owner.team !== p.team) addPop(n.owner, 4);
       if (loud(p, n.owner)) feed(`${p.name} slipped on ${n.owner === p ? 'their own' : n.owner.name + "'s"} banana`, '#ffe14d');
       S.excite += 0.2; S.bananas.splice(i, 1);
@@ -1155,6 +1486,7 @@ function update(dt) {
       S.pend.splice(i, 1);
       if (f.seenH && S.refHuman) { S.refHuman.missed++; feed(`Missed call: ${f.a.name}'s ${FOUL_NAME[f.kind]} happened in your view`, '#ffb36b'); }
       const gain = { foul: f.mate ? 2 : 5, ko: 8, blind: 6, banana: 2 }[f.kind];
+      M(f.a, f.kind === 'foul' || f.kind === 'ko' ? 'unseen' : 'sneakyUnseen'); EV('unseen', f.a, { kind: f.kind });
       addPop(f.a, gain); floatText(f.a, 'UNSEEN +' + gain, '#ffd23f');
       if (loud(f.a) && f.kind !== 'banana') feed(`Unseen! ${f.a.name} got away with it`, '#ffd23f');
     }
@@ -1621,7 +1953,7 @@ function renderOpts() {
   pg.innerHTML = [['Show ping', true], ['Hide ping', false]].map(([n, v]) => `<button id="ping-${v}" aria-pressed="${v === SHOW_PING}" data-v="${v}">${n}</button>`).join('');
   pg.querySelectorAll('button').forEach(b => b.onclick = () => { SHOW_PING = b.dataset.v === 'true'; store.set('fpfc-ping', SHOW_PING); renderOpts(); renderRoster(); document.getElementById(b.id).focus(); });
 }
-function openSettings(from) { settingsFrom = from; rebinding = null; renderPace(); renderOpts(); renderBinds(); showOverlay('settings'); }
+function openSettings(from) { settingsFrom = from; rebinding = null; renderPace(); renderOpts(); renderFileOpts(); renderBinds(); showOverlay('settings'); }
 function closeSettings() { rebinding = null; showOverlay(settingsFrom); }
 function showOverlay(id) { overlays.forEach(o => document.getElementById(o).hidden = o !== id); updateTouch(); }
 function updateTouch() {
@@ -1814,6 +2146,7 @@ function clientData(d) {
     n.roster = d.roster || {}; n.meta = d.meta || n.meta; n.pings = d.pg || n.pings; renderRoster();
     if (n.meta.status === 'playing' && S.net !== 'client') startClient();
   } else if (d.t === 'state') applySnap(d.s);
+  else if (d.t === 'report') { S.lastReport = d.r; saveHistory(d.r); }
   else if (d.t === 'ping') { try { n.conn.send({ t: 'pong', ts: d.ts }); } catch (e) {} }
   else if (d.t === 'full') { leaveRoom(true); onStatus(`That room is full (${MAX_PLAYERS} players).`); }
   else if (d.t === 'closed') hostGone();
@@ -2020,6 +2353,7 @@ function admin(act) {
   if (act === 'penalty') setPiece(0, 'penalty', 0, 0, 'PENALTY');
   if (act === 'freekick') setPiece(0, 'free', W - 250, H / 2 + 70, 'FREE KICK');
   if (act === 'score') S.score = [0, 0];
+  if (act === 'end') endMatch();
   if (act === 'charge') { p.charge = 100; floatText(p, 'CHARGE 100%', '#4fd6ff'); }
   if (act === 'heat') { S.heat = 1.5; floatText(p, 'BOTS ANGRY', '#ff6b80'); }
   if (act === 'karmaup') { addKarma(p, 50); floatText(p, 'KARMA +50', '#7dff9b'); }
@@ -2051,7 +2385,7 @@ document.getElementById('adm-god').addEventListener('change', e => { if (S.admin
 document.getElementById('adm-inf').addEventListener('change', e => { if (S.admin) S.admin.inf = e.target.checked; e.target.blur(); });
 
 // Debug hook for testing: only exposed when the URL contains ?debug
-if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion };
+if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV };
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
