@@ -73,6 +73,19 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 .team ul{margin:0;padding:0;list-style:none;font-size:16px}
 .team li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .team .bot{color:var(--muted)}
+#admin{position:absolute;top:8px;right:8px;width:min(236px,46%);max-height:calc(100% - 16px);display:flex;flex-direction:column;background:rgba(8,14,12,.93);border:1px solid var(--line);border-radius:8px;font-size:14px;overflow:hidden;z-index:2}
+.adm-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px}
+.adm-head span{font-family:var(--display);font-size:24px;line-height:1;color:var(--gold)}
+.adm-x{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:4px;font-family:var(--ui);font-size:13px;padding:2px 8px;cursor:pointer}
+.adm-body{overflow:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:6px}
+.adm-h{margin:6px 0 0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.adm-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.adm-grid button,.adm-seg button{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:5px 6px;font-family:var(--ui);font-size:14px;cursor:pointer}
+.adm-grid button:hover,.adm-seg button:hover{border-color:var(--gold)}
+.adm-seg{gap:4px}.adm-seg button{padding:4px 8px;font-size:13px}
+.adm-t{display:flex;gap:8px;align-items:center;cursor:pointer}
+.adm-t input{accent-color:var(--gold)}
+#admin.min .adm-body{display:none}
 @media (max-width:700px){#legend{display:none}}
 @media (prefers-reduced-motion:reduce){button.mode{transition:none}}
 </style>
@@ -94,6 +107,33 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
     </div>
   </div>
 
+  <aside id="admin" hidden aria-label="Playground admin panel">
+    <div class="adm-head"><span>Admin</span><button class="adm-x" id="adm-toggle">Hide</button></div>
+    <div class="adm-body">
+      <p class="adm-h">Give your player</p>
+      <div class="adm-grid">
+        <button data-adm="bat">+3 bat</button><button data-adm="flash">+1 flash</button>
+        <button data-adm="banana">+2 banana</button><button data-adm="sand">Refill sand</button>
+        <button data-adm="heal">Full health</button><button data-adm="gift">Crowd gift</button>
+        <button data-adm="ball">Give ball</button><button data-adm="ko">K.O. target</button>
+      </div>
+      <p class="adm-h">Cheats</p>
+      <label class="adm-t"><input type="checkbox" id="adm-god"> Invincible</label>
+      <label class="adm-t"><input type="checkbox" id="adm-inf"> Infinite bat, sand, bananas</label>
+      <p class="adm-h">Referees</p>
+      <div class="seg adm-seg" id="adm-refs"></div>
+      <p class="adm-h">Bots</p>
+      <div class="seg adm-seg" id="adm-bots"></div>
+      <p class="adm-h">Match</p>
+      <div class="adm-grid">
+        <button data-adm="blindrefs">Blind refs 6s</button><button data-adm="kickoff">Reset kickoff</button>
+        <button data-adm="penalty">Penalty for you</button><button data-adm="freekick">Free kick for you</button>
+        <button data-adm="score">Reset score</button>
+      </div>
+      <p class="hint" style="font-size:12px">Press <kbd>`</kbd> to hide or show this panel.</p>
+    </div>
+  </aside>
+
   <div id="menu" class="overlay">
     <div class="card">
       <div class="kicker">Five-a-side · two referees · no morals</div>
@@ -105,6 +145,8 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <button class="mode" id="m-2pc"><span class="t">2 players · co-op</span><span class="d">Both on the Hounds vs bots</span></button>
         <button class="mode" id="m-watch"><span class="t">Watch the bots</span><span class="d">Ten bots, two refs</span></button>
         <button class="mode" id="m-online"><span class="t">Play online</span><span class="d">Create or join a room</span></button>
+        <button class="mode" id="m-play"><span class="t">Playground</span><span class="d">Admin panel: test every ability</span></button>
+        <button class="mode" id="m-ref"><span class="t">Be the referee</span><span class="d">Spot fouls, give cards, dodge sand</span></button>
       </div>
       <ul class="rules">
         <li><b>Foul:</b> hits the nearest player in reach (red ring). Cycle to choose another.</li>
@@ -134,6 +176,11 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <p class="settings-h">Game pace</p>
       <div class="seg" id="pace"></div>
       <p class="hint">Slows players, ball, referees and bots together. The match clock still runs in real time. You can change this mid-match from the pause menu.</p>
+      <p class="settings-h">Match length</p>
+      <div class="seg" id="len"></div>
+      <p class="hint">Applies from the next match. Online, the host's setting is used.</p>
+      <p class="settings-h">Online</p>
+      <div class="seg" id="pingopt"></div>
       <p class="settings-h">Controls</p>
       <p class="hint">Click a key, then press the new one. Esc cancels. If the key is already used, the two actions swap keys. Solo play accepts both columns.</p>
       <div class="tablewrap"><table id="binds"></table></div>
@@ -209,6 +256,7 @@ const ROLES = [null, [0.2, 0.27], [0.2, 0.73], [0.44, 0.5], [0.68, 0.42]];
 const SKIN = ['#f1c9a5', '#d9a477', '#b07a50', '#7a4a2c', '#5a3520'];
 const HAIR = ['#1b120c', '#3a2416', '#6b4a2a', '#c9a050', '#0e0e0e'];
 const ITEM_LABEL = { medkit: 'med kit', bat: 'bat', flash: 'flash powder', banana: 'bunch of bananas' };
+const FOUL_NAME = { foul: 'foul', ko: 'knockout', blind: 'sand throw', banana: 'banana drop' };
 const HUMAN_COL = ['#ffd23f', '#6ff0c0', '#ff8fd8', '#9fb4ff', '#ffffff', '#ffb36b', '#b6ff6b', '#6be3ff', '#e0a3ff', '#ff7a7a'];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -236,6 +284,9 @@ function loadBinds() {
 let BINDS = loadBinds();
 const PACES = [['Slow', 0.55], ['Relaxed', 0.7], ['Normal', 0.85], ['Turbo', 1]];
 let PACE = (() => { const v = store.get('fpfc-pace'); return PACES.some(p => p[1] === v) ? v : 0.7; })();
+const LENS = [['1 min', 60], ['3 min', 180], ['5 min', 300]];
+let MATCH_LEN = (() => { const v = store.get('fpfc-len'); return LENS.some(l => l[1] === v) ? v : 180; })();
+let SHOW_PING = store.get('fpfc-ping') !== false;
 const MAP1 = {}, MAP2 = {}, MAPSOLO = {};
 let GAME_KEYS = new Set();
 function rebuildMaps() {
@@ -287,6 +338,7 @@ addEventListener('keydown', e => {
   keys.add(e.code);
   if (e.code === 'Escape' && S.phase === 'play') togglePause();
   if (e.code === 'KeyM' && !GAME_KEYS.has('KeyM')) muted = !muted;
+  if (e.code === 'Backquote' && S.mode === 'playground' && S.phase === 'play' && !GAME_KEYS.has('Backquote')) toggleAdmin();
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -349,14 +401,18 @@ function newMatch(mode) {
   ];
   S.ball = { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, lastTouch: null, lastPasser: null, passTime: -9, spin: 0 };
   S.items = []; S.bananas = []; S.parts = []; S.texts = []; S.feed = []; S.pend = []; S.score = [0, 0];
-  S.clock = S.phase === 'menu' ? 99999 : 180; S.excite = 0.2; S.userPaused = false;
+  S.clock = S.phase === 'menu' || mode === 'playground' ? 99999 : MATCH_LEN; S.excite = 0.2; S.userPaused = false;
   S.humans = [];
+  S.admin = mode === 'playground' ? { god: false, inf: false, refs: 'normal', bots: 'normal' } : null;
+  S.refHuman = null;
   const P = (t, i) => S.players[t * 5 + i];
   if (mode === '1p') S.humans = [{ idx: 0, team: 0, map: MAPSOLO, pid: P(0, 4).id, prev: {}, charge: 0, charging: false, touch: true }];
   if (mode === '2pv') S.humans = [{ idx: 0, team: 0, map: MAP1, pid: P(0, 4).id, prev: {}, charge: 0, charging: false, touch: true },
                                   { idx: 1, team: 1, map: MAP2, pid: P(1, 4).id, prev: {}, charge: 0, charging: false }];
   if (mode === '2pc') S.humans = [{ idx: 0, team: 0, map: MAP1, pid: P(0, 4).id, prev: {}, charge: 0, charging: false, touch: true },
                                   { idx: 1, team: 0, map: MAP2, pid: P(0, 3).id, prev: {}, charge: 0, charging: false }];
+  if (mode === 'playground') S.humans = [{ idx: 0, team: 0, map: MAPSOLO, pid: P(0, 4).id, prev: {}, charge: 0, charging: false, touch: true }];
+  if (mode === 'ref') { S.refHuman = { map: MAPSOLO, prev: {}, charge: 0, charging: false, touch: true, track: true, correct: 0, missed: 0, wrong: 0 }; S.refs[0].human = true; }
   for (const h of S.humans) S.players[h.pid].human = h;
   if (mode === 'online') syncHumans();
   kickoff(Math.random() < 0.5 ? 0 : 1, 'KICK OFF');
@@ -406,12 +462,24 @@ function switchToBest(h) {
 }
 function passTo(p, q) {
   const b = S.ball; if (b.owner !== p) return;
-  const tx = q.x + q.vx * 0.35, ty = q.y + q.vy * 0.35, d = Math.hypot(tx - p.x, ty - p.y), a = Math.atan2(ty - p.y, tx - p.x);
-  let sp = clamp(d * 1.5 + 140, 240, 640), vz = 0;
-  if (laneOpen(p, q) < 20) { vz = 200 + d * 0.35; sp *= 0.78; }
+  // Lead the receiver: solve for where they will be when the ball arrives (3 refinement passes).
+  let tx = q.x, ty = q.y, T = 0.5;
+  for (let it = 0; it < 3; it++) {
+    T = clamp(Math.hypot(tx - p.x, ty - p.y) / 430, 0.28, 1.15);
+    tx = clamp(q.x + q.vx * T * 0.85, 10, W - 10); ty = clamp(q.y + q.vy * T * 0.85, 10, H - 10);
+  }
+  const d = Math.hypot(tx - p.x, ty - p.y), a = Math.atan2(ty - p.y, tx - p.x), k = 1.25;
+  let sp, vz = 0;
+  if (laneOpen(p, { x: tx, y: ty }) < 20 && d > 90) {
+    // Lob: time the flight so it lands at the target (gravity 900 → airtime = vz / 450).
+    T = clamp(d / 380, 0.45, 1.2); vz = 450 * T; sp = d / T * 1.04;
+  } else {
+    // Ground pass: friction e^(-k t), so pick a speed that covers d in exactly T seconds.
+    sp = Math.min(760, d * k / (1 - Math.exp(-k * T)));
+  }
   p.face = a; b.owner = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
   b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.vz = vz; b.lastTouch = p; b.lastPasser = p; b.passTime = S.time;
-  p.pickCd = 0.35; q.expect = 1.4; thump(160, 0.12, 0.06);
+  p.pickCd = 0.35; q.expect = T + 0.8; thump(160, 0.12, 0.06);
   if (p.human && !q.human) switchHuman(p.human, q);
 }
 function laneOpen(p, q) {
@@ -424,15 +492,21 @@ function laneOpen(p, q) {
   }
   return m;
 }
-function humanPass(p) {
+function passDir(p) { return (p.dx || p.dy) ? Math.atan2(p.dy, p.dx) : p.face; }
+function pickPassTarget(p, ang) {
+  // Best teammate inside a ±60° cone of the aim direction, favouring small angle error and open lanes.
   let best = null, bs = 1e9;
   for (const q of S.players) {
     if (q === p || q.team !== p.team || !onPitch(q) || q.ko > 0) continue;
-    const d = dist(p, q), ad = Math.abs(angDiff(p.face, Math.atan2(q.y - p.y, q.x - p.x)));
-    const sc = ad * 260 + d * 0.5 + (q.gk ? 200 : 0);
-    if (ad < 1.2 && sc < bs) { bs = sc; best = q; }
+    const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy); if (d < 30) continue;
+    const ad = Math.abs(angDiff(ang, Math.atan2(dy, dx))); if (ad > 1.05) continue;
+    const sc = ad * 320 + d * 0.35 - Math.min(laneOpen(p, q), 60) * 1.2 + (q.gk ? 160 : 0) + (q.stun > 0 ? 200 : 0);
+    if (sc < bs) { bs = sc; best = q; }
   }
-  if (!best) best = S.players.filter(q => q !== p && q.team === p.team && onPitch(q) && !q.gk).sort((a, b) => dist(a, p) - dist(b, p))[0];
+  return best;
+}
+function humanPass(p) {
+  const best = pickPassTarget(p, passDir(p)) || S.players.filter(q => q !== p && q.team === p.team && onPitch(q) && !q.gk).sort((a, b) => dist(a, p) - dist(b, p))[0];
   if (best) passTo(p, best);
 }
 function shoot(p, power, aimY) {
@@ -459,6 +533,7 @@ function cycleTarget(p) { const l = inReach(p); if (!l.length) return; p.target 
 
 function doFoul(a, t) {
   if (a.foulCd > 0 || !t || t.ko > 0 || !onPitch(t) || dist(a, t) > reachOf(a) + 6) return false;
+  if (S.admin && S.admin.god && t.human) { a.foulCd = 1.0; floatText(t, 'IMMUNE', '#9fe8ff'); return false; }
   const heavy = a.items.bat > 0; if (heavy) a.items.bat--;
   a.foulCd = 1.0; a.stats.fouls++;
   const ang = Math.atan2(t.y - a.y, t.x - a.x), kb = heavy ? 260 : 170;
@@ -472,7 +547,7 @@ function doFoul(a, t) {
   let kind = 'foul';
   if (t.hp <= 0) { t.ko = 6; t.stun = 6; kind = 'ko'; feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); }
   else if (loud(a, t)) feed(`${a.name} ${heavy ? 'swung a bat at' : 'fouled'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
-  S.pend.push({ a, x: a.x, y: a.y, kind, heavy: heavy || kind === 'ko', ttl: 0.75, inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
+  S.pend.push({ a, x: a.x, y: a.y, kind, heavy: heavy || kind === 'ko', ttl: S.refHuman ? 2.2 : 0.75, inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
   alertRefs(a.x, a.y);
   return true;
 }
@@ -492,7 +567,7 @@ function doBlind(a, isHuman) {
     for (let i = 0; i < 10; i++) { const u = i / 10; S.parts.push({ x: a.x + (r.x - a.x) * u, y: a.y + (r.y - a.y) * u, z: 20 + 20 * Math.sin(u * Math.PI), vx: rand(-20, 20), vy: rand(-20, 20), vz: rand(0, 40), life: 0.5 + u * 0.3, col: flash ? '#fff6c0' : '#cfb47a', size: 2.2 }); }
   }
   if (isHuman || Math.random() < 0.5) feed(`${a.name} ${flash ? 'flash-powdered' : 'threw sand at'} the ${hit.length > 1 ? 'referees' : hit[0].name.toLowerCase()}`, '#e9d8a6');
-  S.pend.push({ a, x: a.x, y: a.y, kind: 'blind', heavy: false, ttl: 0.5, inBox: false, mate: false });
+  S.pend.push({ a, x: a.x, y: a.y, kind: 'blind', heavy: false, ttl: S.refHuman ? 2.2 : 0.5, inBox: false, mate: false });
   S.excite += 0.25; thump(300, 0.08, 0.2);
   return true;
 }
@@ -500,13 +575,15 @@ function dropBanana(a) {
   if (a.items.banana <= 0) return;
   a.items.banana--;
   S.bananas.push({ x: clamp(a.x - Math.cos(a.face) * 16, 10, W - 10), y: clamp(a.y - Math.sin(a.face) * 16, 10, H - 10), owner: a, imm: 1, ttl: 30 });
-  S.pend.push({ a, x: a.x, y: a.y, kind: 'banana', heavy: false, ttl: 0.4, inBox: false, mate: false });
+  S.pend.push({ a, x: a.x, y: a.y, kind: 'banana', heavy: false, ttl: S.refHuman ? 2.2 : 0.4, inBox: false, mate: false });
 }
 function alertRefs(x, y) {
   for (const r of S.refs) if (r.blind <= 0 && Math.hypot(r.x - x, r.y - y) < 330 && Math.random() < 0.55) { r.att = { x, y }; r.attT = 1.0; }
 }
 function sees(r, x, y) {
   if (r.blind > 0) return false;
+  if (S.admin && S.admin.refs === 'off') return false;
+  if (S.admin && S.admin.refs === 'strict') return true;
   const dx = x - r.x, dy = y - r.y, d = Math.hypot(dx, dy);
   if (d < 38) return true;
   if (d > r.range) return false;
@@ -596,6 +673,7 @@ function showResults() {
   const ranked = S.players.slice().sort((p, q) => q.pop - p.pop);
   const fav = ranked[0], dirty = S.players.slice().sort((p, q) => q.stats.fouls - p.stats.fouls)[0];
   document.getElementById('o-sub').textContent = `Crowd favourite: ${fav.name} (${fav.pop} popularity). Dirtiest player: ${dirty.name} with ${dirty.stats.fouls} fouls, ${dirty.stats.caught} caught.`;
+  if (S.refHuman) { const R = S.refHuman, tot = R.correct + R.missed + R.wrong; document.getElementById('o-sub').textContent = `Your refereeing: ${R.correct} correct calls, ${R.missed} missed, ${R.wrong} wrong. Rating ${tot ? Math.round(100 * R.correct / tot) : 100}%. ` + document.getElementById('o-sub').textContent; }
   const t = document.getElementById('o-table');
   t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Popularity</th></tr></thead><tbody>' +
     ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${p.name}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
@@ -650,6 +728,7 @@ function botWithBall(p, dt) {
 }
 function botAggro(p, dt) {
   if (p.foulCd > 0) return;
+  if (S.admin && S.admin.bots === 'peaceful') return;
   const near = inReach(p).filter(q => q.stun <= 0);
   if (!near.length) return;
   let target = near.find(q => S.ball.owner === q && q.team !== p.team), rate = 0;
@@ -669,7 +748,7 @@ function botAggro(p, dt) {
     if (canBlind && Math.random() < p.aggr * 1.6 * dt) { doBlind(p, false); return; }
     rate *= 0.04;
   }
-  if (Math.random() < rate * dt) doFoul(p, target);
+  if (Math.random() < rate * dt * (S.admin && S.admin.bots === 'savage' ? 6 : 1)) doFoul(p, target);
 }
 function gkLogic(p) {
   const gx = p.team === 0 ? 18 : W - 18, b = S.ball;
@@ -684,6 +763,7 @@ function gkLogic(p) {
 }
 function botControl(p, dt, info) {
   p.dx = p.dy = 0;
+  if (S.admin && S.admin.bots === 'frozen') return;
   const b = S.ball;
   if (b.owner === p) { botWithBall(p, dt); return; }
   botAggro(p, dt);
@@ -745,6 +825,33 @@ function humanControl(h, dt) {
   if (inp.item) { if (p.items.banana > 0) dropBanana(p); else floatText(p, 'No bananas', '#c8c8c8'); }
 }
 
+/* ---------------- referee mode ---------------- */
+function humanRef(r, dt) {
+  const h = S.refHuman, inp = localInput(h, dt), blind = r.blind > 0;
+  if (inp.pass) h.track = !h.track;
+  if (inp.foul) refCall();
+  const sp = (h.prev.shoot ? 200 : 135) * (blind ? 0.4 : 1);
+  r.x = clamp(r.x + inp.ix * sp * dt, 10, W - 10); r.y = clamp(r.y + inp.iy * sp * dt, 10, H - 10);
+  const moving = inp.ix || inp.iy; if (moving) r.run += sp * dt * 0.09;
+  const turn = (h.prev.item ? 1 : 0) - (h.prev.cycle ? 1 : 0);
+  if (turn) r.face += turn * 3.2 * dt;
+  else if (h.track) r.face += clamp(angDiff(r.face, Math.atan2(S.ball.y - r.y, S.ball.x - r.x)), -3.5 * dt, 3.5 * dt);
+  else if (moving) r.face += angDiff(r.face, Math.atan2(inp.iy, inp.ix)) * Math.min(1, dt * 10);
+}
+function refCall() {
+  const R = S.refHuman, r = S.refs[0];
+  if (r.blind > 0) { floatText(r, "Can't see!", '#d8c08a'); return; }
+  const seen = S.pend.filter(f => f.seenH);
+  if (!seen.length) {
+    R.wrong++; whistle(1); S.excite += 0.2; floatText(r, 'BOO!', '#ff9a6b');
+    feed('No foul there. The crowd boos the referee.', '#ff9a6b');
+    return;
+  }
+  const f = seen.reduce((a, b) => b.ttl > a.ttl ? b : a);
+  S.pend.splice(S.pend.indexOf(f), 1); R.correct++;
+  callFoul(f, r);
+}
+
 /* ---------------- update ---------------- */
 function update(dt) {
   S.time += dt;
@@ -776,6 +883,7 @@ function update(dt) {
       if (p.sentOff <= 0) { p.x = p.team === 0 ? W * 0.3 : W * 0.7; p.y = H - 10; p.vx = p.vy = 0; feed(`${p.name} returns from the red card`); }
     }
     if (p.blind < 2) { p.blindT += dt; if (p.blindT >= 22) { p.blind++; p.blindT = 0; } }
+    if (S.admin && S.admin.inf && p.human) { p.items.bat = Math.max(p.items.bat, 3); p.items.banana = Math.max(p.items.banana, 2); p.blind = 2; }
   }
 
   const b = S.ball, info = [];
@@ -812,6 +920,7 @@ function update(dt) {
   // referees
   for (const r of S.refs) {
     r.blind = Math.max(0, r.blind - dt); r.attT -= dt; r.scanT -= dt;
+    if (r.human && S.refHuman) { humanRef(r, dt); continue; }
     let tx, ty;
     if (r.main) { const dx = r.x - b.x, dy = r.y - b.y, d = Math.hypot(dx, dy) || 1; tx = clamp(b.x + dx / d * 150, 30, W - 30); ty = clamp(b.y + dy / d * 150, 25, H - 25); }
     else { tx = clamp(b.x, 40, W - 40); ty = H + 22; }
@@ -900,10 +1009,12 @@ function update(dt) {
   // fouls waiting to be spotted
   for (let i = S.pend.length - 1; i >= 0; i--) {
     const f = S.pend[i]; f.ttl -= dt;
-    const r = onPitch(f.a) ? S.refs.find(r => sees(r, f.a.x, f.a.y) || sees(r, f.x, f.y)) : null;
+    if (S.refHuman && (sees(S.refs[0], f.a.x, f.a.y) || sees(S.refs[0], f.x, f.y))) f.seenH = true;
+    const r = onPitch(f.a) ? S.refs.find(r => !r.human && (sees(r, f.a.x, f.a.y) || sees(r, f.x, f.y))) : null;
     if (r) { S.pend.splice(i, 1); callFoul(f, r); return; }
     if (f.ttl <= 0) {
       S.pend.splice(i, 1);
+      if (f.seenH && S.refHuman) { S.refHuman.missed++; feed(`Missed call: ${f.a.name}'s ${FOUL_NAME[f.kind]} happened in your view`, '#ffb36b'); }
       const gain = { foul: f.mate ? 2 : 5, ko: 8, blind: 6, banana: 2 }[f.kind];
       addPop(f.a, gain); floatText(f.a, 'UNSEEN +' + gain, '#ffd23f');
       if (loud(f.a) && f.kind !== 'banana') feed(`Unseen! ${f.a.name} got away with it`, '#ffd23f');
@@ -1001,7 +1112,7 @@ function drawCones() {
     const pts = [proj(r.x, r.y)];
     for (let i = 0; i <= 14; i++) { const a = r.face - r.fov / 2 + r.fov * i / 14; pts.push(proj(r.x + Math.cos(a) * r.range, r.y + Math.sin(a) * r.range)); }
     const hot = humansIn(r);
-    ctx.fillStyle = hot ? 'rgba(255,90,110,.16)' : 'rgba(255,236,140,.12)';
+    ctx.fillStyle = hot ? 'rgba(255,90,110,.16)' : r.human ? 'rgba(255,236,140,.2)' : 'rgba(255,236,140,.12)';
     ctx.strokeStyle = hot ? 'rgba(255,110,130,.55)' : 'rgba(255,236,140,.35)'; ctx.lineWidth = 1.5;
     path(pts, true); ctx.fill(); ctx.stroke();
   }
@@ -1022,9 +1133,26 @@ function drawFigure(s, phase, moving, c) {
   if (c.cover) { ctx.fillStyle = c.skin; ctx.fillRect(-5 * s, -33 * s, 10 * s, 2.6 * s); }
 }
 function drawStars(x, y, s) { ctx.fillStyle = '#ffe66d'; for (let i = 0; i < 3; i++) { const a = S.time * 4 + i * 2.09; ell(x + Math.cos(a) * 8 * s, y + Math.sin(a) * 2.6 * s, 1.8 * s, 1.8 * s); ctx.fill(); } }
+function rrs(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); ctx.stroke(); }
+function drawGroundMarker(x, y, face, col) {
+  const P = proj(x, y), s = P.s;
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.setLineDash([6 * s, 4 * s]); ctx.lineDashOffset = -S.time * 20;
+  ell(P.x, P.y, 15 * s, 6 * s); ctx.stroke(); ctx.setLineDash([]);
+  const ax = Math.cos(face), ay = Math.sin(face);
+  const tip = proj(x + ax * 26, y + ay * 26), l = proj(x + ax * 17 - ay * 6.5, y + ay * 17 + ax * 6.5), r = proj(x + ax * 17 + ay * 6.5, y + ay * 17 - ax * 6.5);
+  ctx.fillStyle = col; path([tip, l, r], true); ctx.fill(); ctx.restore();
+}
+function drawLabelPill(cx, y, s, col, label) {
+  ctx.font = `700 ${10.5 * s}px ${UI}`;
+  const tw = ctx.measureText(label).width + 10 * s;
+  ctx.fillStyle = col; rr(cx - tw / 2, y - 19 * s, tw, 13 * s, 6.5 * s);
+  ctx.beginPath(); ctx.moveTo(cx - 4 * s, y - 6.5 * s); ctx.lineTo(cx + 4 * s, y - 6.5 * s); ctx.lineTo(cx, y - 1.5 * s); ctx.fill();
+  ctx.fillStyle = '#10140a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, cx, y - 12.4 * s); ctx.textBaseline = 'alphabetic';
+}
 function drawPlayer(p) {
   const P = proj(p.x, p.y), s = P.s, tm = TEAM[p.team];
   ctx.fillStyle = 'rgba(0,0,0,.38)'; ell(P.x, P.y, 10 * s, 3.6 * s); ctx.fill();
+  if (p.human) drawGroundMarker(p.x, p.y, p.face, HUMAN_COL[p.human.idx % HUMAN_COL.length]);
   const down = p.stun > 0 || p.ko > 0;
   const look = { jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : tm.col, shorts: tm.shorts, socks: tm.socks, skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee' };
   ctx.save(); ctx.translate(P.x, P.y);
@@ -1041,15 +1169,24 @@ function drawPlayer(p) {
   if (p.items.bat > 0 && !down) { ctx.strokeStyle = '#a0682f'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 18 * s); ctx.lineTo(P.x + 13 * s, P.y - 30 * s); ctx.stroke(); }
   if (p.human) {
     const col = HUMAN_COL[p.human.idx % HUMAN_COL.length], y = P.y - (down ? 26 : 50) * s;
-    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(P.x - 5 * s, y - 6 * s); ctx.lineTo(P.x + 5 * s, y - 6 * s); ctx.lineTo(P.x, y); ctx.fill();
-    ctx.font = `700 ${10 * s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText(p.human.label || 'P' + (p.human.idx + 1), P.x, y - 9 * s);
+    drawLabelPill(P.x, y, s, col, p.human.label || 'P' + (p.human.idx + 1));
     if (p.human.charging && S.ball.owner === p) { const w = 26 * s; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(P.x - w / 2, y - 26 * s, w, 4 * s); ctx.fillStyle = col; ctx.fillRect(P.x - w / 2, y - 26 * s, w * p.human.charge, 4 * s); }
   }
 }
 function drawTargets() {
   for (const h of S.humans) {
     if (h.remote) continue;
-    const p = S.players[h.pid]; if (!p || !p.target || !able(p)) continue;
+    const p = S.players[h.pid]; if (!p || !able(p)) continue;
+    if (S.ball.owner === p) {
+      const q = pickPassTarget(p, passDir(p));
+      if (q) {
+        const A = proj(p.x, p.y), Q = proj(q.x, q.y);
+        ctx.save(); ctx.strokeStyle = HUMAN_COL[h.idx % HUMAN_COL.length]; ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.5; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(Q.x, Q.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.globalAlpha = 0.95; ctx.lineWidth = 2; ell(Q.x, Q.y, 12 * Q.s, 4.8 * Q.s); ctx.stroke(); ctx.restore();
+      }
+    }
+    if (!p.target) continue;
     const t = p.target, P = proj(t.x, t.y), pulse = 1 + Math.sin(S.time * 10) * 0.08, ready = p.foulCd <= 0;
     ctx.strokeStyle = ready ? '#ff4d6d' : 'rgba(255,77,109,.4)'; ctx.lineWidth = 2.5;
     ell(P.x, P.y, 15 * P.s * pulse, 6 * P.s * pulse); ctx.stroke();
@@ -1061,10 +1198,12 @@ function drawTargets() {
 function drawRef(r) {
   const P = proj(r.x, r.y), s = P.s;
   ctx.fillStyle = 'rgba(0,0,0,.38)'; ell(P.x, P.y, 10 * s, 3.6 * s); ctx.fill();
+  if (r.human) drawGroundMarker(r.x, r.y, r.face, '#ffd23f');
   ctx.save(); ctx.translate(P.x, P.y);
   drawFigure(s, r.run, 0.8, { jersey: '#161616', shorts: '#161616', socks: '#161616', arms: '#ffd23f', skin: '#d9a477', hair: '#2a2a2a', num: null, armsUp: !!r.card, cover: r.blind > 0 });
   ctx.restore();
   if (r.card) { ctx.fillStyle = r.card.red ? '#ff3b3b' : '#ffd23f'; ctx.fillRect(P.x - 9 * s, P.y - 46 * s, 6 * s, 8 * s); }
+  if (r.human && r.blind <= 0) drawLabelPill(P.x, P.y - 50 * s, s, '#ffd23f', 'YOU · REF');
   if (r.blind > 0) {
     drawStars(P.x, P.y - 38 * s, s);
     ctx.fillStyle = 'rgba(230,220,180,.85)'; ctx.font = `600 ${10 * s}px ${UI}`; ctx.textAlign = 'center';
@@ -1106,12 +1245,13 @@ function drawHUD() {
   ctx.fillText(S.score[0], cx - 72, 41); ctx.fillText(S.score[1], cx + 72, 41);
   const c = Math.max(0, Math.ceil(S.clock));
   ctx.font = `600 30px ${DISP}`; ctx.fillStyle = S.clock < 20 && S.phase === 'play' ? '#ff6b6b' : '#ffd23f';
-  ctx.fillText(S.phase === 'menu' ? 'LIVE' : `${Math.floor(c / 60)}:${String(c % 60).padStart(2, '0')}`, cx, 39);
+  ctx.fillText(S.phase === 'menu' ? 'LIVE' : S.mode === 'playground' ? '∞' : `${Math.floor(c / 60)}:${String(c % 60).padStart(2, '0')}`, cx, 39);
   // human panels
   const ph = S.humans.filter(h => !h.remote);
-  ph.slice(0, 2).forEach((h, i) => drawPanel(h, i === 0 ? 14 : LW - 314));
+  ph.slice(0, 2).forEach((h, i) => drawPanel(h, i === 0 ? 14 : LW - 344));
+  if (S.refHuman) drawRefPanel();
   // feed
-  const fx = 14, fy0 = ph.length ? 100 : 20, fx2 = ph.length > 1 ? LW - 314 : null;
+  const fx = 14, fy0 = (ph.length || S.refHuman) ? 118 : 20, fx2 = ph.length > 1 ? LW - 344 : null;
   ctx.font = `500 15px ${UI}`; ctx.textAlign = 'left';
   S.feed.slice(0, 4).forEach((f, i) => {
     const a = Math.max(0, Math.min(1, (9 - f.t) / 1.5)); if (a <= 0) return;
@@ -1120,40 +1260,97 @@ function drawHUD() {
     ctx.fillStyle = f.col; ctx.fillText(f.text, fx + 8, y + 9.5, w - 14); ctx.globalAlpha = 1;
   });
   if (S.net && NET) { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 15px ${UI}`; ctx.textAlign = 'right'; ctx.fillText('Room ' + NET.code + (S.net === 'host' ? ' · you are host' : ''), LW - 16, 26); }
+  if (S.net && NET && SHOW_PING) {
+    const host = NET.meta && NET.meta.host;
+    ctx.font = `600 13px ${UI}`; ctx.textAlign = 'right';
+    rosterList().filter(r => r.uid !== host).slice(0, 9).forEach((r, i) => {
+      const ms = NET.pings[r.uid];
+      ctx.fillStyle = ms == null ? '#93a799' : ms < 80 ? '#7dff9b' : ms < 150 ? '#ffd23f' : '#ff6b80';
+      ctx.fillText(`${r.name}${r.uid === NET.uid ? ' (you)' : ''}  ${ms == null ? '…' : ms + ' ms'}`, LW - 16, 46 + i * 16);
+    });
+  }
   if (S.mode === 'watch' && S.phase === 'play') { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 15px ${UI}`; ctx.textAlign = 'right'; ctx.fillText('Esc for menu', LW - 16, 26); }
   if (muted) { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 14px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('MUTED (M)', cx, 74); }
   ctx.textBaseline = 'alphabetic';
 }
 function drawPanel(h, x) {
   const p = S.players[h.pid]; if (!p) return;
-  const col = HUMAN_COL[h.idx % HUMAN_COL.length], y = 10, w = 300;
-  ctx.fillStyle = 'rgba(6,11,10,.88)'; rr(x, y, w, 82, 8);
-  ctx.fillStyle = col; rr(x + 10, y + 9, 34, 18, 4);
-  ctx.fillStyle = '#10140a'; ctx.font = `700 15px ${UI}`; ctx.textAlign = 'center'; ctx.fillText(h.label || 'P' + (h.idx + 1), x + 27, y + 19);
-  ctx.textAlign = 'left'; ctx.fillStyle = '#eef2e6'; ctx.font = `600 18px ${UI}`;
-  ctx.fillText(`#${p.num} ${p.name}`, x + 52, y + 19);
-  const nameW = ctx.measureText(`#${p.num} ${p.name}`).width;
-  ctx.fillStyle = TEAM[p.team].col; ctx.font = `500 13px ${UI}`; ctx.fillText(TEAM[p.team].short, x + 60 + nameW, y + 19);
-  const seen = watched(p);
-  ctx.textAlign = 'right'; ctx.font = `700 13px ${UI}`; ctx.fillStyle = !onPitch(p) ? '#ff4d4d' : seen ? '#ff6b80' : '#7dff9b';
-  ctx.fillText(!onPitch(p) ? `SENT OFF ${Math.ceil(p.sentOff)}s` : seen ? 'REF WATCHING' : 'UNSEEN', x + w - 10, y + 19);
-  // bars
-  ctx.textAlign = 'left'; ctx.font = `600 12px ${UI}`; ctx.fillStyle = '#93a799';
-  ctx.fillText('HP', x + 10, y + 40); ctx.fillText('CROWD', x + 10, y + 56);
-  ctx.fillStyle = '#1d2a24'; ctx.fillRect(x + 54, y + 35, 150, 8); ctx.fillRect(x + 54, y + 51, 150, 8);
-  ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(x + 54, y + 35, 150 * p.hp / 100, 8);
-  ctx.fillStyle = '#ffd23f'; ctx.fillRect(x + 54, y + 51, 150 * p.hype / 30, 8);
-  ctx.fillStyle = '#eef2e6'; ctx.font = `600 13px ${UI}`;
-  ctx.fillText(Math.ceil(p.hp), x + 210, y + 40); ctx.fillText('★ ' + p.pop, x + 210, y + 56);
-  // inventory
-  const inv = [['sand', p.blind + (p.blind < 2 ? '' : '')], ['flash', p.items.flash], ['bat', p.items.bat], ['banana', p.items.banana]];
-  inv.forEach(([t, n], i) => {
-    const ix = x + 18 + i * 52, iy = y + 72;
-    ctx.globalAlpha = (+n) > 0 ? 1 : 0.3; drawIcon(t, ix, iy, 1.1);
-    ctx.fillStyle = '#eef2e6'; ctx.font = `600 13px ${UI}`; ctx.textAlign = 'left'; ctx.fillText('×' + n, ix + 9, iy + 1); ctx.globalAlpha = 1;
+  const col = HUMAN_COL[h.idx % HUMAN_COL.length], y = 10, w = 330, bind = h.map || MAPSOLO;
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 100, 10);
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; rrs(x + 0.5, y + 0.5, w - 1, 99, 10); ctx.globalAlpha = 1;
+  ctx.textBaseline = 'middle';
+  // header: badge, name, team, status pill
+  const label = h.label || 'P' + (h.idx + 1);
+  ctx.font = `700 14px ${UI}`; const bw = ctx.measureText(label).width + 14;
+  ctx.fillStyle = col; rr(x + 10, y + 9, bw, 18, 4);
+  ctx.fillStyle = '#10140a'; ctx.textAlign = 'center'; ctx.fillText(label, x + 10 + bw / 2, y + 18.5);
+  const nm = `#${p.num} ${p.name}`;
+  ctx.textAlign = 'left'; ctx.fillStyle = '#eef2e6'; ctx.font = `600 18px ${UI}`; ctx.fillText(nm, x + 18 + bw, y + 18.5);
+  const nmw = ctx.measureText(nm).width;
+  ctx.fillStyle = TEAM[p.team].col; ctx.font = `600 12px ${UI}`; ctx.fillText(TEAM[p.team].short, x + 26 + bw + nmw, y + 19);
+  const seen = onPitch(p) && watched(p);
+  const st = !onPitch(p) ? `SENT OFF ${Math.ceil(p.sentOff)}s` : p.ko > 0 ? `K.O. ${Math.ceil(p.ko)}s` : seen ? 'REF WATCHING' : 'UNSEEN';
+  const sc = !onPitch(p) || p.ko > 0 ? '#ff4d4d' : seen ? '#ff6b80' : '#7dff9b';
+  ctx.font = `700 11px ${UI}`; const sw = ctx.measureText(st).width + 14;
+  ctx.globalAlpha = 0.18; ctx.fillStyle = sc; rr(x + w - 10 - sw, y + 10, sw, 17, 8.5); ctx.globalAlpha = 1;
+  ctx.fillStyle = sc; ctx.textAlign = 'center'; ctx.fillText(st, x + w - 10 - sw / 2, y + 18.5);
+  // health: segmented bar, red "ghost" shows damage just taken, flashes when low
+  h.ghost = h.ghost == null ? p.hp : Math.max(p.hp, h.ghost - 0.5);
+  const bx = x + 40, by = y + 34, bw2 = 230, bh = 12;
+  ctx.textAlign = 'left'; ctx.fillStyle = '#93a799'; ctx.font = `700 11px ${UI}`; ctx.fillText('HP', x + 12, by + 6.5);
+  ctx.fillStyle = '#1b2621'; rr(bx, by, bw2, bh, 3);
+  ctx.fillStyle = 'rgba(255,107,107,.55)'; ctx.fillRect(bx, by, bw2 * h.ghost / 100, bh);
+  const hc = p.hp > 60 ? '#5ef08a' : p.hp > 30 ? '#ffd23f' : '#ff4d6d';
+  ctx.fillStyle = hc; ctx.fillRect(bx, by, bw2 * p.hp / 100, bh);
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(bx, by, bw2 * p.hp / 100, 3);
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; for (let i = 1; i < 10; i++) ctx.fillRect(bx + bw2 * i / 10 - 0.5, by, 1, bh);
+  if (p.hp <= 30 && Math.floor(S.time * 4) % 2) { ctx.strokeStyle = '#ff4d6d'; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 1.5, by - 1.5, bw2 + 3, bh + 3); }
+  ctx.fillStyle = '#eef2e6'; ctx.font = `700 15px ${UI}`; ctx.textAlign = 'right'; ctx.fillText(Math.ceil(p.hp) + '/100', x + w - 12, by + 6.5);
+  // crowd meter
+  const cy = y + 52;
+  ctx.textAlign = 'left'; ctx.fillStyle = '#93a799'; ctx.font = `700 11px ${UI}`; ctx.fillText('CROWD', x + 12, cy + 3);
+  ctx.fillStyle = '#1b2621'; rr(x + 52, cy, 218, 6, 3);
+  ctx.fillStyle = '#ffd23f'; ctx.fillRect(x + 52, cy, 218 * Math.min(1, p.hype / 30), 6);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = `700 13px ${UI}`; ctx.fillText('★ ' + p.pop, x + w - 12, cy + 3);
+  // item slots: icon, count, key that uses it; gold outline = equipped (applies automatically)
+  const slots = [
+    { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0, off: p.items.flash > 0 },
+    { icon: 'flash', n: p.items.flash, key: bind.blind[0], hot: p.items.flash > 0 },
+    { icon: 'bat', n: p.items.bat, key: bind.foul[0], hot: p.items.bat > 0 },
+    { icon: 'banana', n: p.items.banana, key: bind.item[0] }
+  ];
+  slots.forEach((sl, i) => {
+    const sx = x + 10 + i * 78, sy = y + 64, sw3 = 72, sh = 28;
+    ctx.fillStyle = sl.hot ? 'rgba(255,210,63,.14)' : 'rgba(255,255,255,.05)'; rr(sx, sy, sw3, sh, 5);
+    if (sl.hot) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 1.2; rrs(sx + 0.5, sy + 0.5, sw3 - 1, sh - 1, 5); }
+    ctx.globalAlpha = sl.n > 0 && !sl.off ? 1 : 0.32; drawIcon(sl.icon, sx + 14, sy + 14, 1.15);
+    ctx.fillStyle = '#eef2e6'; ctx.font = `700 14px ${UI}`; ctx.textAlign = 'left'; ctx.fillText('×' + sl.n, sx + 25, sy + 14.5); ctx.globalAlpha = 1;
+    const kl = keyLabel(sl.key); ctx.font = `700 11px ${UI}`; const kw = Math.max(16, ctx.measureText(kl).width + 8);
+    ctx.strokeStyle = 'rgba(238,242,230,.35)'; ctx.lineWidth = 1; ctx.strokeRect(sx + sw3 - kw - 5 + 0.5, sy + 7.5, kw, 14);
+    ctx.fillStyle = '#c9d3cb'; ctx.textAlign = 'center'; ctx.fillText(kl, sx + sw3 - 5 - kw / 2, sy + 15);
+    if (sl.prog) { ctx.fillStyle = '#d8c08a'; ctx.fillRect(sx + 4, sy + sh - 3, (sw3 - 8) * sl.prog, 2); }
   });
-  if (p.blind < 2) { ctx.fillStyle = '#d8c08a'; ctx.fillRect(x + 10, y + 79, 30 * p.blindT / 22, 2); }
-  for (let k = 0; k < p.yellows; k++) { ctx.fillStyle = '#ffd23f'; ctx.fillRect(x + w - 20 - k * 10, y + 63, 7, 11); }
+  ctx.textBaseline = 'alphabetic';
+}
+function drawRefPanel() {
+  const R = S.refHuman, r = S.refs[0], x = 14, y = 10, w = 330, b = BINDS[0], k = keyLabel;
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 100, 10);
+  ctx.strokeStyle = '#ffd23f'; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; rrs(x + 0.5, y + 0.5, w - 1, 99, 10); ctx.globalAlpha = 1;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffd23f'; rr(x + 10, y + 9, 40, 18, 4);
+  ctx.fillStyle = '#10140a'; ctx.font = `700 14px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('REF', x + 30, y + 18.5);
+  ctx.textAlign = 'left'; ctx.fillStyle = '#eef2e6'; ctx.font = `600 18px ${UI}`; ctx.fillText('You are the referee', x + 58, y + 18.5);
+  ctx.textAlign = 'right'; ctx.font = `700 12px ${UI}`; ctx.fillStyle = r.blind > 0 ? '#d8c08a' : R.track ? '#7dff9b' : '#9fb4ff';
+  ctx.fillText(r.blind > 0 ? `BLINDED ${r.blind.toFixed(1)}s` : R.track ? 'TRACKING BALL' : 'FREE LOOK', x + w - 10, y + 18.5);
+  const tot = R.correct + R.missed + R.wrong, rating = tot ? Math.round(100 * R.correct / tot) : 100;
+  [['CORRECT', R.correct, '#7dff9b'], ['MISSED', R.missed, '#ffb36b'], ['WRONG', R.wrong, '#ff6b80'], ['RATING', rating + '%', '#ffd23f']].forEach(([l, v, c], i) => {
+    const sx = x + 12 + i * 79; ctx.textAlign = 'left';
+    ctx.fillStyle = '#93a799'; ctx.font = `700 11px ${UI}`; ctx.fillText(l, sx, y + 40);
+    ctx.fillStyle = c; ctx.font = `600 30px ${DISP}`; ctx.fillText(String(v), sx, y + 62);
+  });
+  ctx.fillStyle = '#93a799'; ctx.font = `500 13px ${UI}`; ctx.textAlign = 'left';
+  ctx.fillText(`${k(b.foul)} call foul · ${k(b.pass)} track ball on/off · ${k(b.cycle)} / ${k(b.item)} turn · hold ${k(b.shoot)} sprint`, x + 12, y + 87, w - 24);
+  ctx.textBaseline = 'alphabetic';
 }
 function drawPauseMsg() {
   if (S.pause <= 0 || !S.pauseMsg) return;
@@ -1184,6 +1381,14 @@ function draw() {
   for (const t of S.texts) { const P = proj(t.x, t.y, t.z); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
   ctx.globalAlpha = 1;
   ctx.restore();
+  if (S.refHuman && S.refs[0].blind > 0) {
+    const a = Math.min(1, S.refs[0].blind) * 0.86;
+    ctx.fillStyle = `rgba(48,36,14,${a})`; ctx.fillRect(0, 0, LW, LH);
+    ctx.fillStyle = `rgba(216,192,138,${a * 0.6})`;
+    for (let i = 0; i < 160; i++) { const sx = (Math.sin(i * 12.9898 + S.time * 3) * 43758.5453 % 1 + 1) % 1, sy = (Math.sin(i * 78.233 + S.time * 2) * 12345.678 % 1 + 1) % 1; ctx.fillRect(sx * LW, sy * LH, 3, 3); }
+    ctx.globalAlpha = a; ctx.fillStyle = '#f3e3b8'; ctx.textAlign = 'center'; ctx.font = `700 54px ${DISP}`; ctx.fillText('SAND IN YOUR EYES', LW / 2, LH / 2);
+    ctx.font = `600 20px ${UI}`; ctx.fillText(`You can't see fouls for ${S.refs[0].blind.toFixed(1)}s`, LW / 2, LH / 2 + 30); ctx.globalAlpha = 1;
+  }
   const v = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.45, LW / 2, LH / 2, LH * 0.95); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)');
   ctx.fillStyle = v; ctx.fillRect(0, 0, LW, LH);
   drawHUD(); drawPauseMsg();
@@ -1213,20 +1418,30 @@ function renderBinds() {
     const nb = document.getElementById(`bind-${b.dataset.p}-${b.dataset.a}`); if (nb) nb.focus();
   });
 }
-function openSettings(from) { settingsFrom = from; rebinding = null; renderPace(); renderBinds(); showOverlay('settings'); }
+function renderOpts() {
+  const len = document.getElementById('len');
+  len.innerHTML = LENS.map(([n, v]) => `<button id="len-${v}" aria-pressed="${v === MATCH_LEN}" data-v="${v}">${n}</button>`).join('');
+  len.querySelectorAll('button').forEach(b => b.onclick = () => { MATCH_LEN = +b.dataset.v; store.set('fpfc-len', MATCH_LEN); renderOpts(); document.getElementById(b.id).focus(); });
+  const pg = document.getElementById('pingopt');
+  pg.innerHTML = [['Show ping', true], ['Hide ping', false]].map(([n, v]) => `<button id="ping-${v}" aria-pressed="${v === SHOW_PING}" data-v="${v}">${n}</button>`).join('');
+  pg.querySelectorAll('button').forEach(b => b.onclick = () => { SHOW_PING = b.dataset.v === 'true'; store.set('fpfc-ping', SHOW_PING); renderOpts(); renderRoster(); document.getElementById(b.id).focus(); });
+}
+function openSettings(from) { settingsFrom = from; rebinding = null; renderPace(); renderOpts(); renderBinds(); showOverlay('settings'); }
 function closeSettings() { rebinding = null; showOverlay(settingsFrom); }
 function showOverlay(id) { overlays.forEach(o => document.getElementById(o).hidden = o !== id); updateTouch(); }
 function updateTouch() {
   const coarse = matchMedia('(pointer: coarse)').matches;
-  document.getElementById('touch').hidden = !(coarse && S.phase === 'play' && (S.humans.length || S.net) && !S.userPaused);
+  document.getElementById('touch').hidden = !(coarse && S.phase === 'play' && (S.humans.length || S.net || S.refHuman) && !S.userPaused);
 }
-function start(mode) { initAudio(); if (AC && AC.state === 'suspended') AC.resume(); S.phase = 'play'; newMatch(mode); whistle(1); showOverlay(null); }
-function toMenu() { leaveRoom(); S.net = null; S.phase = 'menu'; newMatch('watch'); showOverlay('menu'); }
+function start(mode) { initAudio(); if (AC && AC.state === 'suspended') AC.resume(); S.phase = 'play'; newMatch(mode); setupAdmin(mode === 'playground'); whistle(1); showOverlay(null); }
+function toMenu() { leaveRoom(); S.net = null; S.phase = 'menu'; newMatch('watch'); setupAdmin(false); showOverlay('menu'); }
 function togglePause() { S.userPaused = !S.userPaused; document.getElementById('p-restart').hidden = S.net === 'client'; document.getElementById('p-menu').textContent = S.net ? 'Leave room' : 'Main menu'; showOverlay(S.userPaused ? 'paused' : null); }
 document.getElementById('m-1p').onclick = () => start('1p');
 document.getElementById('m-2pv').onclick = () => start('2pv');
 document.getElementById('m-2pc').onclick = () => start('2pc');
 document.getElementById('m-watch').onclick = () => start('watch');
+document.getElementById('m-play').onclick = () => start('playground');
+document.getElementById('m-ref').onclick = () => start('ref');
 document.getElementById('p-resume').onclick = togglePause;
 document.getElementById('p-restart').onclick = () => start(S.mode);
 document.getElementById('p-menu').onclick = toMenu;
@@ -1287,7 +1502,7 @@ function randomCode() { return Array.from({ length: 5 }, () => CODE_CH[Math.floo
 function myName() { const n = ($('on-name').value || '').trim().slice(0, 14) || 'Player'; store.set('fpfc-name', n); return n; }
 function newNet(code, isHost, peer) {
   return { code, isHost, peer, uid: peer.id, conn: null, conns: {}, roster: {}, inputs: {}, meta: { host: isHost ? peer.id : '', status: 'lobby' },
-    lastSnap: 0, pc: 1, cnt: { pass: 0, foul: 0, cycle: 0, blind: 0, item: 0, sp: 0, sr: 0 }, pw: 0.5, sent: '', sentAt: 0, prev: {}, charge: 0, charging: false, lastPm: '' };
+    lastSnap: 0, pc: 1, pings: {}, pingTimer: 0, cnt: { pass: 0, foul: 0, cycle: 0, blind: 0, item: 0, sp: 0, sr: 0 }, pw: 0.5, sent: '', sentAt: 0, prev: {}, charge: 0, charging: false, lastPm: '' };
 }
 function netError(e) {
   console.error(e);
@@ -1324,6 +1539,7 @@ async function createRoom() {
     NET = newNet(code, true, peer);
     NET.roster[peer.id] = { name, team: 0, joined: Date.now() };
     peer.on('connection', hostAccept);
+    NET.pingTimer = setInterval(hostPing, 1000);
     peer.on('error', e => console.warn('peer', e.type, e));
     peer.on('disconnected', () => { if (NET && NET.peer === peer && !peer.destroyed) peer.reconnect(); });
     showLobby();
@@ -1348,17 +1564,24 @@ function hostData(conn, d) {
     rosterChanged();
   } else if (d.t === 'in') {
     if (n.roster[id]) n.inputs[id] = { ix: +d.ix || 0, iy: +d.iy || 0, c: d.c || {}, pw: +d.pw || 0.5 };
+  } else if (d.t === 'pong') {
+    if (n.roster[id]) n.pings[id] = Math.round(performance.now() - (+d.ts || 0));
   } else if (d.t === 'team') {
     const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.team = r.team === 1 ? 0 : 1; rosterChanged(); }
   }
 }
 function hostDrop(conn) {
   const n = NET; if (!n || !n.conns[conn.peer]) return;
-  delete n.conns[conn.peer]; delete n.roster[conn.peer]; delete n.inputs[conn.peer];
+  delete n.conns[conn.peer]; delete n.roster[conn.peer]; delete n.inputs[conn.peer]; delete n.pings[conn.peer];
   rosterChanged();
 }
 function broadcast(m) { if (!NET) return; for (const c of Object.values(NET.conns)) if (c.open) { try { c.send(m); } catch (e) {} } }
-function rosterChanged() { if (!NET) return; renderRoster(); if (S.net === 'host') syncHumans(); broadcast({ t: 'roster', roster: NET.roster, meta: NET.meta }); }
+function rosterChanged() { if (!NET) return; renderRoster(); if (S.net === 'host') syncHumans(); broadcast({ t: 'roster', roster: NET.roster, meta: NET.meta, pg: NET.pings }); }
+function hostPing() {
+  if (!NET || !NET.isHost) return;
+  broadcast({ t: 'ping', ts: performance.now() });
+  if (NET.meta.status === 'lobby') { renderRoster(); broadcast({ t: 'roster', roster: NET.roster, meta: NET.meta, pg: NET.pings }); }
+}
 function startOnline() {
   if (!NET || !NET.isHost) return;
   NET.meta.status = 'playing';
@@ -1393,9 +1616,10 @@ async function joinRoom() {
 function clientData(d) {
   const n = NET; if (!n || !d) return;
   if (d.t === 'roster') {
-    n.roster = d.roster || {}; n.meta = d.meta || n.meta; renderRoster();
+    n.roster = d.roster || {}; n.meta = d.meta || n.meta; n.pings = d.pg || n.pings; renderRoster();
     if (n.meta.status === 'playing' && S.net !== 'client') startClient();
   } else if (d.t === 'state') applySnap(d.s);
+  else if (d.t === 'ping') { try { n.conn.send({ t: 'pong', ts: d.ts }); } catch (e) {} }
   else if (d.t === 'full') { leaveRoom(true); onStatus(`That room is full (${MAX_PLAYERS} players).`); }
   else if (d.t === 'closed') hostGone();
 }
@@ -1417,6 +1641,7 @@ function startClient() {
 function leaveRoom(silent) {
   if (!NET) return;
   const n = NET; NET = null;
+  clearInterval(n.pingTimer);
   try {
     if (n.isHost) {
       for (const c of Object.values(n.conns)) { try { c.send({ t: 'closed' }); } catch (e) {} }
@@ -1439,7 +1664,7 @@ function renderRoster() {
   const list = rosterList(), host = NET.meta && NET.meta.host;
   for (const t of [0, 1]) {
     const mine = list.filter(r => r.team === t);
-    const rows = mine.map((r, i) => `<li style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]}">${esc(r.name)}${r.uid === host ? ' · host' : ''}${r.uid === NET.uid ? ' (you)' : ''}${i >= 4 ? ' · watching' : ''}</li>`);
+    const rows = mine.map((r, i) => `<li style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]}">${esc(r.name)}${r.uid === host ? ' · host' : ''}${r.uid === NET.uid ? ' (you)' : ''}${i >= 4 ? ' · watching' : ''}${SHOW_PING && NET.pings[r.uid] != null ? ' · ' + NET.pings[r.uid] + ' ms' : ''}</li>`);
     $('on-t' + t).innerHTML = rows.join('') + '<li class="bot">Bot</li>'.repeat(Math.max(0, 4 - mine.length)) + '<li class="bot">Bot · goalkeeper</li>';
   }
   $('on-swap').disabled = NET.meta.status !== 'lobby';
@@ -1478,7 +1703,7 @@ function sendSnap(force) {
   const now = performance.now(); if (!force && now - NET.lastSnap < 50) return; NET.lastSnap = now;
   if (!Object.keys(NET.conns).length) return;
   const b = S.ball;
-  const s = { ph: S.phase, pc: PACE, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
+  const s = { ph: S.phase, pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
     p: S.players.map(p => [r1(p.x), r1(p.y), r2(p.face), Math.round(p.vx), Math.round(p.vy), Math.round(p.hp), r1(p.stun), r1(p.ko), Math.ceil(p.sentOff), p.yellows, p.pop, p.hype,
       p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT)]),
     r: S.refs.map(r => [r1(r.x), r1(r.y), r2(r.face), r1(r.blind), r.card ? (r.card.red ? 2 : 1) : 0, r1(r.run)]),
@@ -1501,7 +1726,7 @@ function humanTag(uid) {
 }
 function applySnap(s) {
   if (!s || !NET) return;
-  NET.pc = +s.pc || 1;
+  NET.pc = +s.pc || 1; NET.pings = s.pg || {};
   S.score = s.sc || [0, 0]; S.clock = +s.cl || 0; S.pause = +s.pz || 0; S.pauseSub = s.ps || ''; S.excite = +s.ex || 0;
   const pm = s.pm || '';
   if (pm !== NET.lastPm) { NET.lastPm = pm; if (pm && S.pause > 0) { whistle(1); if (pm === 'GOAL!') S.shake = 6; } }
@@ -1574,6 +1799,49 @@ $('on-copy').onclick = () => {
   if (navigator.clipboard) navigator.clipboard.writeText(code).then(() => onStatus('Code copied.'), () => onStatus('Copy failed. The code is ' + code + '.'));
   else onStatus('The code is ' + code + '.');
 };
+
+/* ---------------- playground admin panel ---------------- */
+function admin(act) {
+  const h = S.humans[0], p = h && S.players[h.pid]; if (!p || !S.admin) return;
+  const b = S.ball;
+  if (act === 'bat') { p.items.bat += 3; floatText(p, 'BAT ×3', '#ffcf5a'); }
+  if (act === 'flash') { p.items.flash += 1; floatText(p, 'FLASH', '#fff6c0'); }
+  if (act === 'banana') { p.items.banana += 2; floatText(p, 'BANANA ×2', '#ffe14d'); }
+  if (act === 'sand') { p.blind = 2; p.blindT = 0; floatText(p, 'SAND ×2', '#d8c08a'); }
+  if (act === 'heal') { p.hp = 100; p.stun = 0; p.ko = 0; floatText(p, 'FULL HP', '#7dff9b'); }
+  if (act === 'gift') throwItem(p);
+  if (act === 'ball') { if (b.owner && b.owner !== p) b.owner.pickCd = 0.8; b.owner = p; b.lastTouch = p; p.hold = 0; }
+  if (act === 'ko') { const t = p.target; if (t) { t.hp = 0; t.ko = 6; t.stun = 6; loseBall(t, 0); floatText(t, 'K.O.', '#ff6b6b'); } else floatText(p, 'No one in reach', '#c8c8c8'); }
+  if (act === 'blindrefs') for (const r of S.refs) r.blind = 6;
+  if (act === 'kickoff') kickoff(0, 'KICK OFF');
+  if (act === 'penalty') setPiece(0, 'penalty', 0, 0, 'PENALTY');
+  if (act === 'freekick') setPiece(0, 'free', W - 250, H / 2 + 70, 'FREE KICK');
+  if (act === 'score') S.score = [0, 0];
+}
+function renderAdmSegs() {
+  const mk = (id, key, opts) => {
+    const el = document.getElementById(id);
+    el.innerHTML = opts.map(([n, v]) => `<button aria-pressed="${!!(S.admin && S.admin[key] === v)}" data-v="${v}">${n}</button>`).join('');
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { if (S.admin) S.admin[key] = b.dataset.v; renderAdmSegs(); });
+  };
+  mk('adm-refs', 'refs', [['Normal', 'normal'], ['Off', 'off'], ['See all', 'strict']]);
+  mk('adm-bots', 'bots', [['Normal', 'normal'], ['Frozen', 'frozen'], ['Peaceful', 'peaceful'], ['Savage', 'savage']]);
+}
+function setupAdmin(on) {
+  const el = document.getElementById('admin');
+  el.hidden = !on; el.classList.remove('min'); document.getElementById('adm-toggle').textContent = 'Hide';
+  if (!on) return;
+  document.getElementById('adm-god').checked = false; document.getElementById('adm-inf').checked = false;
+  renderAdmSegs();
+}
+function toggleAdmin() {
+  const el = document.getElementById('admin'); el.classList.toggle('min');
+  document.getElementById('adm-toggle').textContent = el.classList.contains('min') ? 'Show' : 'Hide';
+}
+document.querySelectorAll('[data-adm]').forEach(b => b.addEventListener('click', () => { admin(b.dataset.adm); b.blur(); }));
+document.getElementById('adm-toggle').addEventListener('click', e => { toggleAdmin(); e.currentTarget.blur(); });
+document.getElementById('adm-god').addEventListener('change', e => { if (S.admin) S.admin.god = e.target.checked; e.target.blur(); });
+document.getElementById('adm-inf').addEventListener('change', e => { if (S.admin) S.admin.inf = e.target.checked; e.target.blur(); });
 
 let last = performance.now();
 function loop(now) {
