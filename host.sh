@@ -21,7 +21,7 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   fi
 fi
 
-python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$DIR" >/dev/null 2>&1 &
+python3 "$DIR/server.py" --port "$PORT" &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
 sleep 0.5
@@ -30,7 +30,7 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
   exit 1
 fi
 
-echo "Serving the game at http://localhost:$PORT"
+echo "Serving the game at http://localhost:$PORT (finished matches are saved to data-metric/)"
 echo "Opening a Cloudflare quick tunnel (no account needed)…"
 
 URL_RE='https://[a-z0-9-]+\.trycloudflare\.com'

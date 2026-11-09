@@ -36,7 +36,7 @@ To play: everyone opens that link. The host chooses **Play online → Create roo
 
 ## Optional: share straight from your computer (Cloudflare tunnel)
 
-`host.sh` serves this folder locally and opens a free, temporary Cloudflare **quick tunnel**: a public `https://….trycloudflare.com` link to the game on your Mac.
+`host.sh` runs `server.py` (so matches are saved to `data-metric/` on your Mac) and opens a free, temporary Cloudflare **quick tunnel**: a public `https://….trycloudflare.com` link to the game on your Mac.
 It's handy for testing changes with friends before pushing to GitHub. Rooms work the same way.
 
 ```sh
@@ -45,13 +45,22 @@ It's handy for testing changes with friends before pushing to GitHub. Rooms work
 
 The link changes on every run and stops working when you press Ctrl+C.
 
-## Run locally
+## Run locally (saves every match to `data-metric/`)
 
 ```sh
-python3 -m http.server 8080
+python3 server.py            # then open http://localhost:8080
 ```
 
-Open http://localhost:8080. To try online play alone, create a room in one browser window and join it from another.
+`server.py` serves the game and, at full time, writes all the match metrics into `data-metric/` in this folder:
+a `.json` (raw: every metric, rating and the event timeline), an `.html` report and a `.csv` per match, plus
+`index.html` (every match), `index.json` and `all-players.csv` (every player row from every match).
+See `data-metric/README.md`. Match files stay out of git.
+
+On GitHub Pages (or any other static host) the game can't write to your disk, so the full-time screen offers
+**Save match report / raw data / player table** download buttons instead, plus an optional auto-download
+under **Pace and controls → Match files**.
+
+To try online play alone, create a room in one browser window and join it from another.
 
 ## Known limits
 

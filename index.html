@@ -38,7 +38,7 @@ button.mode .d{color:var(--muted);font-size:14px}
 .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 18px;font-size:15px;color:var(--muted);margin:0;padding:0;list-style:none}
 .rules b{color:var(--ink);font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap}
-.btn{background:var(--gold);color:#1a1405;border:0;border-radius:6px;padding:9px 18px;font-family:var(--ui);font-weight:700;font-size:17px;cursor:pointer}
+.btn{background:var(--gold);color:#1a1405;border:0;border-radius:6px;padding:9px 18px;font-family:var(--ui);font-weight:700;font-size:17px;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .tablewrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:15px;font-variant-numeric:tabular-nums}
@@ -242,6 +242,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <button class="btn ghost" id="o-html">Save match report (.html)</button>
         <button class="btn ghost" id="o-json">Save raw data (.json)</button>
         <button class="btn ghost" id="o-csv">Save player table (.csv)</button>
+        <a class="btn ghost" id="o-index" href="data-metric/index.html" target="_blank" rel="noopener" hidden>Open all saved matches</a>
       </div>
       <p class="hint" id="o-saved" role="status"></p>
       <div class="row">
@@ -790,6 +791,7 @@ function endMatch() {
   S.lastReport = buildReport(); saveHistory(S.lastReport);
   if (S.net === 'host') { broadcast({ t: 'report', r: S.lastReport }); sendSnap(true); }
   showResults();
+  saveToProject(S.lastReport);
 }
 function showResults() {
   const [a, b] = S.score, R = S.lastReport;
@@ -804,7 +806,8 @@ function showResults() {
   t.innerHTML = '<thead><tr><th>Player</th><th>Team</th><th>Rating</th><th>Goals</th><th>Assists</th><th>Tackles</th><th>Fouls</th><th>Caught</th><th>Karma</th><th>Popularity</th></tr></thead><tbody>' +
     ranked.map(p => `<tr><td>${p.human ? '★ ' : ''}#${p.num} ${esc(p.name)}</td><td><span class="dot" style="background:${TEAM[p.team].col}"></span>${TEAM[p.team].short}</td><td>${rating(p) != null ? rating(p).toFixed(1) : '–'}</td><td>${p.stats.goals}</td><td>${p.stats.assists}</td><td>${p.stats.tackles}</td><td>${p.stats.fouls}</td><td>${p.stats.caught}</td><td>${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}</td><td>${p.pop}</td></tr>`).join('') + '</tbody>';
   document.getElementById('o-files').hidden = !R;
-  document.getElementById('o-saved').textContent = R ? 'Full report: ratings, discipline, sportsmanship, balance notes and the timeline.' : '';
+  document.getElementById('o-saved').textContent = !R ? '' : LOCAL_SAVE && S.net !== 'client' ? 'Saving all match metrics to data-metric/…'
+    : 'This copy is not running on server.py, so it cannot write into the project folder. Download the files here instead.';
   document.getElementById('o-again').hidden = S.net === 'client';
   document.getElementById('o-menu').textContent = S.net ? 'Leave room' : 'Main menu';
   showOverlay('over');
@@ -1053,7 +1056,7 @@ ${ref}
 
 function fileBase(R) {
   const d = new Date(R.meta.savedAt), p2 = n => String(n).padStart(2, '0'), s = R.meta.score, k = Object.keys(s);
-  return `foulplayfc-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}-${k[0].toLowerCase()}-${s[k[0]]}-${s[k[1]]}-${k[1].toLowerCase()}`;
+  return `foulplayfc-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}-${k[0].toLowerCase()}-${s[k[0]]}-${s[k[1]]}-${k[1].toLowerCase()}`;
 }
 function downloadFile(name, text, type) {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -1070,6 +1073,34 @@ function saveReport(kind) {
   if (kind === 'csv') downloadFile(base + '.csv', reportCSV(R), 'text/csv');
   note.textContent = `Saved ${base}.${kind} to your downloads.`;
 }
+// When the game is served by server.py, finished matches are written into the project's data-metric/ folder.
+let LOCAL_SAVE = null;
+async function detectLocalSave() {
+  try { const r = await fetch('api/health', { cache: 'no-store' }); const j = await r.json(); LOCAL_SAVE = !!(j && j.saves); }
+  catch (e) { LOCAL_SAVE = false; }
+  const link = document.getElementById('o-index'); if (link) link.hidden = !LOCAL_SAVE;
+  return LOCAL_SAVE;
+}
+async function saveToProject(R) {
+  if (!R || S.net === 'client') return;
+  if (LOCAL_SAVE === null) await detectLocalSave();
+  if (!LOCAL_SAVE) return;
+  const note = document.getElementById('o-saved'), base = fileBase(R);
+  note.textContent = 'Saving all match metrics to data-metric/…';
+  try {
+    const res = await fetch('api/metrics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      base, files: { json: JSON.stringify(R, null, 2), html: reportHTML(R), csv: reportCSV(R) },
+      summary: { savedAt: R.meta.savedAt, mode: R.meta.mode, scoreline: `${R.teams[0].short} ${R.teams[0].goals}–${R.teams[1].goals} ${R.teams[1].short}`,
+        playedSec: R.meta.playedSec, playerOfTheMatch: R.playerOfTheMatch, fouls: R.balance.fouls, detectionRatePct: R.balance.detectionRatePct } }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || 'HTTP ' + res.status);
+    S.reportSaved = true;
+    note.textContent = `Saved to data-metric/${base} (.json, .html, .csv). Every match is listed in data-metric/index.html.`;
+  } catch (e) {
+    note.textContent = `Could not save to data-metric (${e.message}). Use the buttons above to download the files instead.`;
+  }
+}
+detectLocalSave();
 function loadHistory() { const h = store.get(HISTORY_KEY); return Array.isArray(h) ? h : []; }
 function saveHistory(R) {
   if (!R) return;
@@ -1080,6 +1111,7 @@ function saveHistory(R) {
 }
 function maybeAutosave() {
   if (!AUTOSAVE || !S.lastReport || S.reportSaved) return;
+  if (LOCAL_SAVE && S.net !== 'client') return;   // server.py already writes the files into data-metric/
   S.reportSaved = true;
   setTimeout(() => { saveReport('html'); setTimeout(() => saveReport('json'), 500); }, 400);
 }
@@ -1088,7 +1120,7 @@ function renderFileOpts() {
   el.innerHTML = [['Save buttons at full time', false], ['Also download automatically', true]].map(([n, v]) => `<button id="save-${v}" aria-pressed="${v === AUTOSAVE}" data-v="${v}">${n}</button>`).join('');
   el.querySelectorAll('button').forEach(b => b.onclick = () => { AUTOSAVE = b.dataset.v === 'true'; store.set('fpfc-autosave', AUTOSAVE); renderFileOpts(); document.getElementById(b.id).focus(); });
   const n = loadHistory().length, clr = document.getElementById('s-clearhist');
-  document.getElementById('s-histnote').textContent = n ? `${n} match${n === 1 ? '' : 'es'} saved in this browser (keeps the last ${HISTORY_MAX}, without timelines).` : 'No matches saved in this browser yet.';
+  document.getElementById('s-histnote').textContent = (LOCAL_SAVE ? 'Running on server.py: every match is saved to data-metric/ in the project folder automatically. ' : 'Not running on server.py: use the save buttons at full time. ') + (n ? `${n} match${n === 1 ? '' : 'es'} saved in this browser (keeps the last ${HISTORY_MAX}, without timelines).` : 'No matches saved in this browser yet.');
   document.getElementById('s-history').disabled = !n; clr.disabled = !n; clr.textContent = 'Clear history'; clr.dataset.armed = '';
 }
 document.getElementById('o-html').onclick = () => saveReport('html');

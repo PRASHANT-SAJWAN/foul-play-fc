@@ -1,0 +1,3 @@
+# Match metrics written by server.py stay on this machine
+data-metric/*
+!data-metric/README.md
