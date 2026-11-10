@@ -303,8 +303,8 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <label class="settings-h" for="on-name">Your name</label>
         <input class="field" id="on-name" maxlength="14" autocomplete="nickname" placeholder="e.g. Prash">
         <div class="row"><button class="btn" id="on-create">Create room</button></div>
-        <label class="settings-h" for="on-code">Or join with a code</label>
-        <div class="row"><input class="field" id="on-code" maxlength="5" placeholder="ABCDE" style="text-transform:uppercase;width:9em"><button class="btn ghost" id="on-join">Join room</button></div>
+        <label class="settings-h" for="on-code">Or join with a room code or invite link</label>
+        <div class="row"><input class="field" id="on-code" maxlength="300" placeholder="ABCDE or https://…/?room=ABCDE" autocomplete="off" style="flex:1;min-width:12em"><button class="btn ghost" id="on-join">Join room</button></div>
       </div>
       <div id="on-lobby" class="card" style="gap:10px" hidden>
         <div class="row" style="align-items:end;justify-content:space-between">
@@ -316,6 +316,11 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
           <div class="team"><h3 style="color:var(--hounds)">Harbor Hounds</h3><ul id="on-t0"></ul></div>
           <div class="team"><h3 style="color:var(--vipers)">Ember Vipers</h3><ul id="on-t1"></ul></div>
         </div>
+        <div id="on-invite" class="card" style="gap:6px" hidden>
+          <div class="settings-h">Backup link for friends who can't connect directly</div>
+          <div class="row"><input class="field" id="on-invite-url" readonly style="flex:1;min-width:0"><button class="btn ghost sm" id="on-invite-copy">Copy link</button></div>
+        </div>
+        <p class="hint" id="on-invite-note" hidden></p>
         <div class="row">
           <button class="btn" id="on-start">Start match</button>
           <button class="btn ghost" id="on-swap">Switch team</button>
@@ -1223,9 +1228,9 @@ function saveReport(kind) {
   note.textContent = `Saved ${base}.${kind} to your downloads.`;
 }
 // When the game is served by server.py, finished matches are written into the project's data-metric/ folder.
-let LOCAL_SAVE = null;
+let LOCAL_SAVE = null, RELAY_HERE = false, TUNNEL_URL = null;
 async function detectLocalSave() {
-  try { const r = await fetch('api/health', { cache: 'no-store' }); const j = await r.json(); LOCAL_SAVE = !!(j && j.saves); }
+  try { const r = await fetch('api/health', { cache: 'no-store' }); const j = await r.json(); LOCAL_SAVE = !!(j && j.saves); RELAY_HERE = !!(j && j.relay); TUNNEL_URL = (j && j.tunnel) || null; }
   catch (e) { LOCAL_SAVE = false; }
   const link = document.getElementById('o-index'); if (link) link.hidden = !LOCAL_SAVE;
   return LOCAL_SAVE;
@@ -2376,7 +2381,7 @@ function guideSections() {
         <li><b>Solo vs bots:</b> you lead the Harbor Hounds.</li>
         <li><b>2 players:</b> on one keyboard, as rivals or as teammates.</li>
         <li><b>Watch the bots:</b> ten bots and two referees.</li>
-        <li><b>Play online:</b> create a room and share the 5-letter code. Friends open the same game link and join with it. The host's browser runs the match, so the host keeps that tab open and visible.</li>
+        <li><b>Play online:</b> create a room and share the 5-letter code. Friends open the same game link and join with it. The host's browser runs the match, so the host keeps that tab open and visible. If a friend's network blocks direct connections, a host running the game on their computer with a Cloudflare link gets a <b>backup link</b> in the lobby; friends who open it join the same room.</li>
         <li><b>Playground:</b> free play with an admin panel to hand out items, switch referees and bots between modes, set up penalties and end the match for a report. Press <kbd>\`</kbd> to hide the panel.</li>
         <li><b>Be the referee:</b> you control the main referee. Press ${k('foul')} when you see a foul happen. ${k('pass')} turns ball tracking on and off, ${k('cycle')} and ${k('item')} turn your view, and holding ${k('shoot')} sprints. Correct, missed and wrong calls make up your rating.</li>
       </ul>`],
@@ -2523,25 +2528,108 @@ function showLobby() {
   renderRoster();
 }
 
+/* ----- link relay: server.py forwards messages for players who can't connect directly ----- */
+function makeEmitter(o) {
+  const h = {};
+  o.on = (e, f) => { (h[e] = h[e] || []).push(f); return o; };
+  o.off = (e, f) => { h[e] = (h[e] || []).filter(x => x !== f); return o; };
+  o.once = (e, f) => { const g = (...a) => { o.off(e, g); f(...a); }; return o.on(e, g); };
+  o.emit = (e, ...a) => (h[e] || []).slice().forEach(f => { try { f(...a); } catch (err) { console.error(err); } });
+  return o;
+}
+function relayUrl(base, role, code) {
+  const u = new URL('/ws', base); u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+  u.searchParams.set('role', role); u.searchParams.set('room', code); return u.href;
+}
+// Host side: one WebSocket to the local server.py; each relayed player appears as a connection
+// with the same shape as a PeerJS DataConnection, so the rest of the host code treats both alike.
+function openRelayHub(code) {
+  return new Promise(res => {
+    let ws; try { ws = new WebSocket(relayUrl(location.href, 'host', code)); } catch (e) { res(null); return; }
+    const hub = { ws, conns: {}, closed: false };
+    const t = setTimeout(() => { try { ws.close(); } catch (e) {} res(null); }, 4000);
+    ws.onopen = () => { clearTimeout(t); res(hub); };
+    ws.onerror = () => { clearTimeout(t); res(null); };
+    ws.onmessage = ev => {
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.t === '_open') {
+        const id = m.id, c = makeEmitter({ peer: 'relay-' + id, open: true, relay: true,
+          send: d => { if (c.open && ws.readyState === 1) ws.send(JSON.stringify({ t: '_to', id, d })); },
+          close: () => { if (!c.open) return; c.open = false; delete hub.conns[id]; if (ws.readyState === 1) ws.send(JSON.stringify({ t: '_kick', id })); c.emit('close'); } });
+        hub.conns[id] = c; hostAccept(c);
+      } else if (m.t === '_msg') { const c = hub.conns[m.id]; if (c) c.emit('data', m.d); }
+      else if (m.t === '_close') { const c = hub.conns[m.id]; if (c) { c.open = false; delete hub.conns[m.id]; c.emit('close'); } }
+    };
+    ws.onclose = () => { hub.closed = true; for (const c of Object.values(hub.conns)) { c.open = false; c.emit('close'); } hub.conns = {}; if (NET && NET.hub === hub) updateInvite(); };
+  });
+}
+// Guest side: a WebSocket to the host's server.py (usually through its Cloudflare link).
+function relayConnect(base, code) {
+  return new Promise((res, rej) => {
+    let ws; try { ws = new WebSocket(relayUrl(base, 'guest', code)); } catch (e) { rej(new Error('RELAY')); return; }
+    const conn = makeEmitter({ open: false, relay: true, send: d => { if (ws.readyState === 1) ws.send(JSON.stringify(d)); }, close: () => { try { ws.close(); } catch (e) {} } });
+    const t = setTimeout(() => { try { ws.close(); } catch (e) {} rej(new Error('RELAY')); }, 10000);
+    ws.onopen = () => { clearTimeout(t); conn.open = true; res(conn); };
+    ws.onmessage = ev => { let d; try { d = JSON.parse(ev.data); } catch (e) { return; } conn.emit('data', d); };
+    ws.onerror = () => { clearTimeout(t); if (!conn.open) rej(new Error('RELAY')); };
+    ws.onclose = () => { clearTimeout(t); const was = conn.open; conn.open = false; if (was) conn.emit('close'); else rej(new Error('RELAY')); };
+  });
+}
+// "ABCDE" or an invite link such as https://xyz.trycloudflare.com/?room=ABCDE
+function parseInvite(raw) {
+  const s = String(raw || '').trim();
+  if (/^[A-Za-z0-9]{5}$/.test(s)) return { code: s.toUpperCase(), base: null };
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : 'https://' + s), code = (u.searchParams.get('room') || '').toUpperCase();
+    if (/^[A-Z0-9]{5}$/.test(code)) return { code, base: u.origin + '/' };
+  } catch (e) {}
+  return null;
+}
+function inviteLink() { return TUNNEL_URL && NET ? `${TUNNEL_URL.replace(/\/$/, '')}/?room=${NET.code}` : ''; }
+function updateInvite() {
+  const box = $('on-invite'), note = $('on-invite-note');
+  if (!NET || !NET.isHost) { box.hidden = true; note.hidden = true; return; }
+  const hubOk = NET.hub && !NET.hub.closed;
+  if (hubOk && TUNNEL_URL) { $('on-invite-url').value = inviteLink(); box.hidden = false; note.hidden = true; return; }
+  box.hidden = true; note.hidden = false;
+  note.textContent = hubOk
+    ? 'Friends whose network blocks direct connections can still join through a Cloudflare link. To get one, restart with start-mac.command or start-windows.bat and answer Y, or run: python3 server.py --tunnel'
+    : 'Tip: friends whose network blocks direct connections need a backup link. Host from your computer with start-mac.command or start-windows.bat (answer Y) to get one.';
+}
+
 /* ----- host ----- */
 async function createRoom() {
   try {
-    onStatus('Opening a room…'); await loadPeerJs();
+    onStatus('Opening a room…');
+    if (LOCAL_SAVE === null) await detectLocalSave();
     const name = myName();
-    let peer = null, code = '';
-    for (let i = 0; i < 5 && !peer; i++) {
-      code = randomCode();
-      try { peer = await openPeer(PEER_PREFIX + code); } catch (e) { if (e.type !== 'unavailable-id') throw e; }
-    }
-    if (!peer) throw new Error('Could not reserve a room code. Try again.');
+    let peer = null, code = '', peerErr = null;
+    try {
+      await loadPeerJs();
+      for (let i = 0; i < 5 && !peer; i++) {
+        code = randomCode();
+        try { peer = await openPeer(PEER_PREFIX + code); } catch (e) { if (e.type !== 'unavailable-id') throw e; }
+      }
+      if (!peer) throw new Error('Could not reserve a room code. Try again.');
+    } catch (e) { peerErr = e; }
+    if (!peer && !RELAY_HERE) throw peerErr;
+    if (!peer) { code = randomCode(); peer = { id: 'host-' + code, destroy() {}, on() {}, destroyed: false }; }   // link-only room
     NET = newNet(code, true, peer);
     NET.roster[peer.id] = { name, team: 0, joined: Date.now() };
-    peer.on('connection', hostAccept);
+    if (!peerErr) {
+      peer.on('connection', hostAccept);
+      peer.on('error', e => console.warn('peer', e.type, e));
+      peer.on('disconnected', () => { if (NET && NET.peer === peer && !peer.destroyed) peer.reconnect(); });
+    }
     NET.pingTimer = setInterval(hostPing, 1000);
-    peer.on('error', e => console.warn('peer', e.type, e));
-    peer.on('disconnected', () => { if (NET && NET.peer === peer && !peer.destroyed) peer.reconnect(); });
-    showLobby();
-    onStatus('You are the host: the match runs in this tab, so keep it open and visible. Friends join on the same game link with the code above.');
+    if (RELAY_HERE) {
+      NET.hub = await openRelayHub(code);
+      NET.tunnelPoll = setInterval(async () => { if (!NET || !NET.isHost) return; if (!TUNNEL_URL) await detectLocalSave(); updateInvite(); }, 3000);
+    }
+    showLobby(); updateInvite();
+    onStatus(peerErr
+      ? 'Direct connections are unavailable right now, so this room is link-only: friends join with the backup link below.'
+      : 'You are the host: the match runs in this tab, so keep it open and visible. Friends join on the same game link with the code above.');
   } catch (e) { netError(e); }
 }
 function hostAccept(conn) {
@@ -2590,29 +2678,50 @@ function startOnline() {
 
 /* ----- player joining someone else's room ----- */
 async function joinRoom() {
-  const code = ($('on-code').value || '').trim().toUpperCase();
-  if (code.length !== 5) { onStatus('Room codes have 5 characters.'); return; }
+  const inv = parseInvite($('on-code').value);
+  if (!inv) { onStatus('Enter the 5-letter room code, or paste the invite link the host sent you.'); return; }
+  const { code } = inv, name = myName();
+  if (LOCAL_SAVE === null) await detectLocalSave();
+  // A pasted invite link means the host shared their backup link: connect through it.
+  if (inv.base) { await joinViaRelay(inv.base, code, name, null); return; }
   let peer = null;
   try {
     onStatus('Looking for room ' + code + '…'); await loadPeerJs();
-    const name = myName();
     peer = await openPeer();
     const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' });
     await new Promise((res, rej) => {
-      const t = setTimeout(() => rej(new Error('TIMEOUT')), 15000);
+      const t = setTimeout(() => rej(new Error('TIMEOUT')), RELAY_HERE ? 8000 : 15000);
       conn.once('open', () => { clearTimeout(t); res(); });
       peer.once('error', e => { clearTimeout(t); rej(e); });
     });
-    NET = newNet(code, false, peer); NET.conn = conn;
-    conn.on('data', clientData);
-    conn.on('close', hostGone);
-    peer.on('error', e => console.warn('peer', e.type, e));
-    conn.send({ t: 'hello', name });
-    showLobby(); onStatus('Joined. Waiting for the host to start…');
-  } catch (e) { if (peer) peer.destroy(); netError(e); }
+    finishJoin(code, name, conn, peer, 'direct');
+  } catch (e) {
+    if (peer) peer.destroy();
+    if (RELAY_HERE) { await joinViaRelay(location.href, code, name, e); return; }   // this page came from the host's link
+    netError(e);
+    if (e && (e.message === 'TIMEOUT' || e.type === 'network')) onStatus($('on-status').textContent + ' If the host shares their backup link, paste it above and join again.');
+  }
+}
+async function joinViaRelay(base, code, name, directErr) {
+  try {
+    onStatus(directErr ? 'A direct connection didn\'t work. Connecting through the host\'s link…' : 'Connecting through the host\'s link…');
+    const conn = await relayConnect(base, code);
+    finishJoin(code, name, conn, { id: 'pending-relay', destroy() {} }, 'link');
+  } catch (e) {
+    onStatus(directErr ? 'Could not connect directly or through the link. Check the room code and that the host still has the game open.' : 'Could not connect through that link. It may have expired: ask the host for a fresh one, or check the room code.');
+  }
+}
+function finishJoin(code, name, conn, peer, via) {
+  NET = newNet(code, false, peer); NET.conn = conn; NET.via = via;
+  conn.on('data', clientData);
+  conn.on('close', hostGone);
+  if (peer.on) peer.on('error', e => console.warn('peer', e.type, e));
+  conn.send({ t: 'hello', name });
+  showLobby(); onStatus(via === 'link' ? 'Joined through the host\'s link. Waiting for the host to start…' : 'Joined. Waiting for the host to start…');
 }
 function clientData(d) {
   const n = NET; if (!n || !d) return;
+  if (d.t === 'welcome') { if (d.uid) n.uid = d.uid; renderRoster(); return; }
   if (d.t === 'roster') {
     n.roster = d.roster || {}; n.meta = d.meta || n.meta; n.pings = d.pg || n.pings; renderRoster();
     if (n.meta.status === 'playing' && S.net !== 'client') startClient();
@@ -2640,14 +2749,15 @@ function startClient() {
 function leaveRoom(silent) {
   if (!NET) return;
   const n = NET; NET = null;
-  clearInterval(n.pingTimer);
+  clearInterval(n.pingTimer); clearInterval(n.tunnelPoll);
+  if (n.hub) setTimeout(() => { try { n.hub.ws.close(); } catch (e) {} }, 250);
   try {
     if (n.isHost) {
       for (const c of Object.values(n.conns)) { try { c.send({ t: 'closed' }); } catch (e) {} }
       setTimeout(() => n.peer.destroy(), 200);
     } else { try { n.conn.close(); } catch (e) {} n.peer.destroy(); }
   } catch (e) {}
-  $('on-setup').hidden = false; $('on-lobby').hidden = true;
+  $('on-setup').hidden = false; $('on-lobby').hidden = true; $('on-invite').hidden = true; $('on-invite-note').hidden = true;
   if (!silent) onStatus('');
 }
 addEventListener('pagehide', () => leaveRoom(true));
@@ -2663,7 +2773,7 @@ function renderRoster() {
   const list = rosterList(), host = NET.meta && NET.meta.host;
   for (const t of [0, 1]) {
     const mine = list.filter(r => r.team === t);
-    const rows = mine.map((r, i) => `<li style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]}">${esc(r.name)}${r.uid === host ? ' · host' : ''}${r.uid === NET.uid ? ' (you)' : ''}${i >= TEAM_SIZE - 1 ? ' · watching' : ''}${SHOW_PING && NET.pings[r.uid] != null ? ' · ' + NET.pings[r.uid] + ' ms' : ''}</li>`);
+    const rows = mine.map((r, i) => `<li style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]}">${esc(r.name)}${r.uid === host ? ' · host' : ''}${r.uid === NET.uid ? ' (you)' : ''}${r.uid.startsWith('relay-') ? ' · via link' : ''}${i >= TEAM_SIZE - 1 ? ' · watching' : ''}${SHOW_PING && NET.pings[r.uid] != null ? ' · ' + NET.pings[r.uid] + ' ms' : ''}</li>`);
     $('on-t' + t).innerHTML = rows.join('') + '<li class="bot">Bot</li>'.repeat(Math.max(0, TEAM_SIZE - 1 - mine.length)) + '<li class="bot">Bot · goalkeeper</li>';
   }
   $('on-swap').disabled = NET.meta.status !== 'lobby';
@@ -2805,6 +2915,16 @@ $('on-swap').onclick = swapTeam;
 $('on-start').onclick = startOnline;
 $('on-leave').onclick = () => { leaveRoom(); onStatus('You left the room.'); };
 $('on-back').onclick = () => { leaveRoom(); onStatus(''); showOverlay('menu'); };
+$('on-invite-copy').onclick = () => {
+  const url = inviteLink(); if (!url) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => onStatus('Backup link copied. Send it with the room code to anyone who can\'t join directly.'), () => { $('on-invite-url').select(); onStatus('Select the link and copy it.'); });
+  else { $('on-invite-url').select(); onStatus('Select the link and copy it.'); }
+};
+// Opened from an invite link (…/?room=ABCDE): go straight to the online screen with the code filled in.
+{
+  const q = new URLSearchParams(location.search).get('room');
+  if (q && /^[A-Za-z0-9]{5}$/.test(q)) setTimeout(() => { openOnline(); $('on-code').value = q.toUpperCase(); onStatus(`You're invited to room ${q.toUpperCase()}. Enter your name and choose Join room.`); }, 0);
+}
 $('on-copy').onclick = () => {
   if (!NET) return; const code = NET.code;
   if (navigator.clipboard) navigator.clipboard.writeText(code).then(() => onStatus('Code copied.'), () => onStatus('Copy failed. The code is ' + code + '.'));
@@ -2860,7 +2980,7 @@ document.getElementById('adm-god').addEventListener('change', e => { if (S.admin
 document.getElementById('adm-inf').addEventListener('change', e => { if (S.admin) S.admin.inf = e.target.checked; e.target.blur(); });
 
 // Debug hook for testing: only exposed when the URL contains ?debug
-if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV };
+if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET };
 if (store.get('fpfc-gfx') !== '2d') setGraphics(true);
 let last = performance.now();
 function loop(now) {

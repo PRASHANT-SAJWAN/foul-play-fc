@@ -24,6 +24,18 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Room codes** use [PeerJS](https://peerjs.com). The room code becomes the host's peer ID on the free public PeerJS server (`0.peerjs.com`). That server only introduces browsers to each other; game traffic then goes directly between browsers over WebRTC.
 - **Nothing is stored anywhere.** When the host closes the tab, the room is gone and players return to the lobby.
 
+### When a friend can't connect directly: the backup link
+
+Some networks block direct browser-to-browser connections. For those players, the host can run the game on their computer with a Cloudflare link (`start-mac.command` / `start-windows.bat`, answer **Y**, or `python3 server.py --tunnel`).
+
+- The host's lobby then shows a **backup link** like `https://….trycloudflare.com/?room=ABCDE`.
+- Friends who open it (or paste it into the code box, even on GitHub Pages) join **the same room** as everyone else. Their messages go through the host's `server.py` and the Cloudflare tunnel instead of a direct connection.
+- Players who join directly and players who join through the link play together; the lobby marks relayed players with "via link".
+- A guest who opens the host's link and enters the code tries a direct connection first and switches to the link automatically if it fails.
+- If the PeerJS matchmaking server is unreachable, a host on `server.py` can still open a link-only room.
+
+The match still runs in the host's browser either way. Relayed players have a little more lag (their traffic passes through Cloudflare).
+
 ## Host it on GitHub Pages
 
 1. Create an empty **public** repository on GitHub, e.g. `foul-play-fc`.
@@ -76,5 +88,5 @@ To try online play alone, create a room in one browser window and join it from a
 
 - **The host has an advantage** (no lag) and could cheat, because the referees run in their browser.
 - **The host's tab must stay open and visible.** Browsers slow down background tabs, which freezes the match.
-- **Some networks block direct connections** (strict corporate firewalls, some mobile carriers). Joining then times out with a message. Fixing that needs a TURN relay server (e.g. Cloudflare Calls TURN or a self-hosted coturn), which would require a small backend to issue credentials.
+- **Some networks block direct connections** (strict corporate firewalls, some mobile carriers). PeerJS's public relay usually rescues them; if not, use the backup link above.
 - **The public PeerJS server** is free and shared, with no uptime guarantee. If it's down, rooms can't be created or joined until it's back. You can run your own with `npx peerjs --port 9000` and point the game at it.

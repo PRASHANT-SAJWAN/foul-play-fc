@@ -27,6 +27,10 @@ Binds to 127.0.0.1 so only this computer can reach it, unless you add --tunnel,
 which gives friends a temporary https://...trycloudflare.com link to it.
 """
 import argparse
+import base64
+import hashlib
+import socket
+import struct
 import csv
 import html
 import io
@@ -41,6 +45,7 @@ import time
 import webbrowser
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, 'data-metric')
@@ -50,6 +55,95 @@ EXTS = ('json', 'html', 'csv')
 LOCK = threading.Lock()
 IS_WIN, IS_MAC = os.name == 'nt', sys.platform == 'darwin'
 URL_RE = re.compile(r'https://[a-z0-9-]+\.trycloudflare\.com')
+PUBLIC_URL = None   # set once the Cloudflare tunnel reports its address
+
+# ---------------- link relay ----------------
+# Players who can't reach the host directly (WebRTC) connect here instead, usually through the
+# Cloudflare tunnel. The host's browser keeps one WebSocket to this server and the server
+# forwards messages between it and each relayed player. The match still runs in the host's browser.
+WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+WS_MAX = 4 * 1024 * 1024
+ROOM_RE = re.compile(r'^[A-Z0-9]{5}$')
+RELAY = {}   # room code -> {'host': WSConn, 'guests': {id: WSConn}, 'next': int}
+RELAY_LOCK = threading.Lock()
+
+
+class WSConn:
+    """Minimal RFC 6455 WebSocket over an accepted HTTP connection (text frames only)."""
+
+    def __init__(self, sock, rfile, wfile):
+        self.sock, self.r, self.w, self.lock, self.alive = sock, rfile, wfile, threading.Lock(), True
+
+    def _frame(self, opcode, data):
+        n = len(data)
+        head = bytes([0x80 | opcode]) + (bytes([n]) if n < 126 else bytes([126]) + struct.pack('>H', n) if n < 65536 else bytes([127]) + struct.pack('>Q', n))
+        with self.lock:
+            if not self.alive:
+                return
+            try:
+                self.w.write(head + data)
+                self.w.flush()
+            except OSError:
+                self.alive = False
+
+    def send(self, text):
+        self._frame(0x1, text.encode('utf-8'))
+
+    def close(self):
+        with self.lock:
+            if not self.alive:
+                return
+            self.alive = False
+            try:
+                self.w.write(b'\x88\x00')
+                self.w.flush()
+            except OSError:
+                pass
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+
+    def _read(self, n):
+        data = self.r.read(n)
+        if data is None or len(data) < n:
+            raise EOFError
+        return data
+
+    def recv(self):
+        """Next text message, or None once the connection is closed."""
+        buf = bytearray()
+        try:
+            while True:
+                b0, b1 = self._read(2)
+                fin, op, masked, n = b0 & 0x80, b0 & 0x0F, b1 & 0x80, b1 & 0x7F
+                if n == 126:
+                    n = struct.unpack('>H', self._read(2))[0]
+                elif n == 127:
+                    n = struct.unpack('>Q', self._read(8))[0]
+                if n > WS_MAX:
+                    return None
+                mask = self._read(4) if masked else None
+                data = self._read(n) if n else b''
+                if mask and n:
+                    key = (mask * (n // 4 + 1))[:n]
+                    data = (int.from_bytes(data, 'big') ^ int.from_bytes(key, 'big')).to_bytes(n, 'big')
+                if op == 0x8:
+                    return None
+                if op == 0x9:
+                    self._frame(0xA, data)
+                    continue
+                if op == 0xA:
+                    continue
+                buf += data
+                if len(buf) > WS_MAX:
+                    return None
+                if fin:
+                    return bytes(buf).decode('utf-8', 'replace')
+        except (EOFError, OSError, ValueError):
+            return None
+        finally:
+            pass
 
 # Some Windows consoles can't print every character; never crash on output, and show messages immediately.
 for _stream in (sys.stdout, sys.stderr):
@@ -168,9 +262,99 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def handle_ws(self):
+        q = parse_qs(urlparse(self.path).query)
+        role, code, key = (q.get('role') or [''])[0], (q.get('room') or [''])[0].upper(), self.headers.get('Sec-WebSocket-Key')
+        if role not in ('host', 'guest') or not ROOM_RE.match(code) or not key:
+            return self.send_json(400, {'error': 'Bad relay request.'})
+        with RELAY_LOCK:
+            room = RELAY.get(code)
+            live = bool(room and room['host'].alive)
+        if role == 'host' and live:
+            return self.send_json(409, {'error': 'That room is already open on this link.'})
+        if role == 'guest' and not live:
+            return self.send_json(404, {'error': 'No room with that code on this link.'})
+        accept = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
+        self.wfile.write(('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n'
+                          f'Sec-WebSocket-Accept: {accept}\r\n\r\n').encode())
+        self.wfile.flush()
+        self.close_connection = True
+        ws = WSConn(self.connection, self.rfile, self.wfile)
+        if role == 'host':
+            self.relay_host(code, ws)
+        else:
+            self.relay_guest(code, ws)
+
+    def relay_host(self, code, ws):
+        with RELAY_LOCK:
+            RELAY[code] = {'host': ws, 'guests': {}, 'next': 1}
+        print(f'  relay: room {code} is open to players who join through the link', flush=True)
+        try:
+            while True:
+                text = ws.recv()
+                if text is None:
+                    break
+                try:
+                    m = json.loads(text)
+                except ValueError:
+                    continue
+                with RELAY_LOCK:
+                    guests = dict(RELAY.get(code, {}).get('guests', {}))
+                t = m.get('t') if isinstance(m, dict) else None
+                if t == '_to':
+                    g = guests.get(m.get('id'))
+                    if g:
+                        g.send(json.dumps(m.get('d'), separators=(',', ':')))
+                elif t == '_kick':
+                    g = guests.get(m.get('id'))
+                    if g:
+                        g.close()
+        finally:
+            with RELAY_LOCK:
+                room = RELAY.pop(code, None) if RELAY.get(code, {}).get('host') is ws else None
+            if room:
+                for g in room['guests'].values():
+                    g.close()
+            ws.close()
+            print(f'  relay: room {code} closed', flush=True)
+
+    def relay_guest(self, code, ws):
+        with RELAY_LOCK:
+            room = RELAY.get(code)
+            if not room:
+                ws.close()
+                return
+            gid = room['next']
+            room['next'] += 1
+            room['guests'][gid] = ws
+            host = room['host']
+        host.send(json.dumps({'t': '_open', 'id': gid}))
+        print(f'  relay: a player joined room {code} through the link', flush=True)
+        try:
+            while True:
+                text = ws.recv()
+                if text is None:
+                    break
+                if len(text) > 64 * 1024:
+                    continue
+                try:
+                    d = json.loads(text)
+                except ValueError:
+                    continue
+                host.send(json.dumps({'t': '_msg', 'id': gid, 'd': d}, separators=(',', ':')))
+        finally:
+            with RELAY_LOCK:
+                r = RELAY.get(code)
+                if r:
+                    r['guests'].pop(gid, None)
+            host.send(json.dumps({'t': '_close', 'id': gid}))
+            ws.close()
+
     def do_GET(self):
         if self.path.split('?')[0] == '/api/health':
-            return self.send_json(200, {'ok': True, 'saves': True, 'dir': 'data-metric'})
+            return self.send_json(200, {'ok': True, 'saves': True, 'dir': 'data-metric', 'relay': True, 'tunnel': PUBLIC_URL})
+        if self.path.split('?')[0] == '/ws' and 'websocket' in self.headers.get('Upgrade', '').lower():
+            return self.handle_ws()
         return super().do_GET()
 
     def do_POST(self):
@@ -266,7 +450,9 @@ def start_tunnel(port):
         for line in proc.stdout:
             m = URL_RE.search(line)
             if m and not shown:
+                global PUBLIC_URL
                 shown, url = True, m.group(0)
+                PUBLIC_URL = url
                 copied = copy_to_clipboard(url)
                 print(f"""
   Public game link: {url}{'   (copied to the clipboard)' if copied else ''}
