@@ -11,15 +11,18 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Players:** each has health, a rechargeable **stamina** bar (sprinting and shot power), and a **mood** (in the zone, tilted, meltdown). Hard fouls can **injure**, which caps stamina until a med kit heals it.
 - **Party features:** crowd opinion meter with chants and banners, taunt wheel, 10 power-ups and throwables, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.
 - **Your character:** a character creator with a 3D preview; your look is shared with everyone in the online lobby, or as a skin code.
+- **Anomalies:** at random intervals, crowd fights, UFO abductions (players or the referee), pirates, pitch invasions, heatwaves and ice ages. Set how often with the anomaly meter (Off to Chaos) and pick which can happen in **Pace and controls → Game**, or change the meter from the pause menu.
 - **Roles & abilities:** a preview catalog of planned RPG roles (not playable yet). The full design is in [docs/feature-catalog.md](docs/feature-catalog.md).
 
 ### Default keys (player 1)
 
-| Move | Short pass | Long pass | Shoot | Sprint | Punch | Jump kick | Throw sand | Throwables | Next target | Taunt |
-|---|---|---|---|---|---|---|---|---|---|---|
-| W A S D | L | J | Space | Left Shift | Q | E | K | I | U | T (hold) |
+| Move | Short pass / short tackle | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| W A S D | L | J | Space | Left Shift | R | Q | E | K | I | U | T (hold) |
 
-Change them in **Pace and controls → Controls**; changes are saved in the browser. Anyone who had custom keys before this version starts on the new defaults (the old ones are kept as a backup in `fpfc-binds-v1`).
+In the air, press Space again to volley or head the ball, or L / J for a headed pass. A carried referee keeps watching wherever the carrier faces.
+
+Change them in **Pace and controls → Controls**; changes are saved in the browser. Custom keys from the previous version are kept, and the old jump-kick key becomes the lift-referee key.
 
 ## How online play works
 

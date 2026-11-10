@@ -442,7 +442,7 @@ export function createRenderer3D(canvas, G) {
       if (!R || R.key !== key) { if (R) scene.remove(R.g); R = playerRigs[i] = makeRig(L); R.key = key; }   // rebuilt when the look or skin changes
       R.g.visible = p.sentOff <= 0;
       if (!R.g.visible) return;
-      const down = p.stun > 0 || p.ko > 0;
+      const down = p.stun > 0 || p.ko > 0 || p.slide > 0;
       pose(R, p.x, p.y, p.face, p.run, Math.min(1, Math.hypot(p.vx, p.vy) / 120), down, p.sprinting ? 0.32 : 0);
       if (p.dive > 0 || p.diveDown > 0 || p.diveState) {   // goalkeeper dive: roll sideways, arms stretched
         const s = p.diveDir || p.diveState || 1;
@@ -450,7 +450,10 @@ export function createRenderer3D(canvas, G) {
         R.armL.rotation.set(-2.9, 0, 0.2); R.armR.rotation.set(-2.9, 0, -0.2); R.legL.rotation.x = 0.3; R.legR.rotation.x = -0.2;
       }
       applyAnim(R, p.anim, time);
-      R.g.position.y += liftOf(S.an, 'p', i);
+      R.g.position.y += liftOf(S.an, 'p', i) + (p.z || 0);
+      if (p.slide > 0) { R.body.rotation.set(-1.25, 0, 0); R.body.position.y = 4; R.legL.rotation.x = -1.4; R.legR.rotation.x = -0.6; }
+      else if (p.z > 0 && !down) { R.legL.rotation.x = -0.9; R.legR.rotation.x = 0.4; R.armL.rotation.set(-2.4, 0, 0.4); R.armR.rotation.set(-2.4, 0, -0.4); }
+      if (p.carry != null && !down) { R.armL.rotation.set(-3.0, 0, 0.35); R.armR.rotation.set(-3.0, 0, -0.35); }
       R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 40.5 : 36.8;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       R.bat.visible = p.items && p.items.bat > 0 && !down;
@@ -464,7 +467,9 @@ export function createRenderer3D(canvas, G) {
     S.refs.forEach((r, i) => {
       const R = refRigs[i];
       pose(R, r.x, r.y, r.face, r.run, r.blind > 0 ? 0.3 : 0.8, false, 0);
-      R.g.position.y += liftOf(S.an, 'r', i);
+      R.g.position.y += liftOf(S.an, 'r', i) + (r.z || 0);
+      if (r.carriedBy != null) { R.body.rotation.set(0, 0, Math.PI / 2); R.body.position.y = 12; R.armL.rotation.set(-1.2 + Math.sin(time * 9) * 0.5, 0, 0.3); R.armR.rotation.set(-1.2 - Math.sin(time * 9) * 0.5, 0, -0.3); R.legL.rotation.x = Math.sin(time * 11) * 0.6; R.legR.rotation.x = -Math.sin(time * 11) * 0.6; }
+      else if (r.z > 0) { R.body.rotation.set(time * 9, 0, 0); R.body.position.y = 22; }
       R.card.visible = !!r.card;
       if (r.card) { R.card.material.color.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.card.material.emissive.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.armR.rotation.set(-2.9, 0, -0.15); }
       if (r.blind > 0) { R.armL.rotation.set(-2.5, 0, 0.55); R.armR.rotation.set(-2.5, 0, -0.55); }
