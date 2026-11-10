@@ -422,7 +422,8 @@ export function createRenderer3D(canvas, G) {
   const liftOf = (A, kind, i) => { const u = A && A.ufo; return u && u.ph === 'beam' && u.tk === kind && u.ti === i ? u.lift * 70 : 0; };
 
   /* ---------- per-frame ---------- */
-  let last = null, lastWx = null;
+  let last = null, lastWx = null, fkB = 0, lastFk = null;
+  const fkPos = new THREE.Vector3(), fkLook = new THREE.Vector3(), camLook = new THREE.Vector3();
   function render(time) {
     const S = G.S, dt = last == null ? 0.016 : clamp(time - last, 0, 0.1); last = time;
     const b = S.ball;
@@ -430,9 +431,19 @@ export function createRenderer3D(canvas, G) {
     // camera: broadcast angle from the near side, with the focused player in the middle of the screen
     const V0 = G.view(), cf = V0.camfx || {};
     const f = G.cam(), fx = f.x - W / 2, fz = f.y - H / 2, sh = S.shake || 0;
-    if (cf.orbit) { const a = cf.orbit.a; camera.position.set(fx + Math.sin(a) * 600, 420, fz + Math.cos(a) * 600); camera.lookAt(fx, 20, fz); }
-    else { camera.position.set(fx + (Math.random() - 0.5) * sh, 540 + (Math.random() - 0.5) * sh, fz + 660); camera.lookAt(fx, 12, fz); }
-    const fov = 42 - (cf.zoom || 0); if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    if (cf.orbit) { const a = cf.orbit.a; camera.position.set(fx + Math.sin(a) * 600, 420, fz + Math.cos(a) * 600); camLook.set(fx, 20, fz); }
+    else { camera.position.set(fx + (Math.random() - 0.5) * sh, 540 + (Math.random() - 0.5) * sh, fz + 660); camLook.set(fx, 12, fz); }
+    // set pieces: swing round behind the ball, facing the goal
+    const fk = cf.orbit ? null : V0.fkcam; if (fk) lastFk = fk;
+    fkB += ((fk ? 1 : 0) - fkB) * Math.min(1, dt * 2.4);
+    const fkE = fkB * fkB * (3 - 2 * fkB);
+    if (fkE > 0.001 && lastFk) {
+      const L = lastFk, ax = L.tx - L.x, ay = L.ty - L.y, al = Math.hypot(ax, ay) || 1, ux = ax / al, uy = ay / al;
+      fkPos.set(L.x - ux * 200 - uy * 46 - W / 2, 105, L.y - uy * 200 + ux * 46 - H / 2); fkLook.set(L.x + ux * Math.min(320, al) - W / 2, 22, L.y + uy * Math.min(320, al) - H / 2);
+      camera.position.lerp(fkPos, fkE); camLook.lerp(fkLook, fkE);
+    }
+    camera.lookAt(camLook);
+    const fov = 42 - (cf.zoom || 0) + 12 * fkE; if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     sun.position.set(fx - 380, 820, fz + 430); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld();   // shadows follow the camera
 
     // players

@@ -12,6 +12,8 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Party features:** crowd opinion meter with chants and banners, taunt wheel, 10 power-ups and throwables, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.
 - **Your character:** a character creator with a 3D preview; your look is shared with everyone in the online lobby, or as a skin code.
 - **Anomalies:** at random intervals, crowd fights, UFO abductions (players or the referee), pirates, pitch invasions, heatwaves and ice ages. Set how often with the anomaly meter (Off to Chaos) and pick which can happen in **Pace and controls → Game**, or change the meter from the pause menu.
+- **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
+- **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
 - **Roles & abilities:** a preview catalog of planned RPG roles (not playable yet). The full design is in [docs/feature-catalog.md](docs/feature-catalog.md).
 
 ### Default keys (player 1)

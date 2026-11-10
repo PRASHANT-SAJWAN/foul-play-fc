@@ -814,7 +814,7 @@ function cheer(kind, x, text) {
 /* ---------------- actions ---------------- */
 function loseBall(p, ang) {
   const b = S.ball; if (b.owner !== p) return;
-  b.owner = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
+  b.owner = null; b.curve = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
 }
 function switchHuman(h, q) { if (!q || q.human) return; const cur = S.players[h.pid]; if (cur) cur.human = null; h.pid = q.id; q.human = h; }
 function switchToBest(h) {
@@ -836,7 +836,7 @@ function passTo(p, q, mode = 'auto') {
   let sp, vz = 0;
   if (air) { T = clamp(d / 380, 0.45, 1.6); vz = GRAV() / 2 * T; sp = d / T * 1.04; }   // airtime under gravity g is vz / (g/2)
   else sp = Math.min(780, d * k / (1 - Math.exp(-k * T)));                      // ground friction e^(-k t): arrive in T seconds
-  p.face = a; b.owner = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
+  p.face = a; b.owner = null; b.curve = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
   b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.vz = vz; b.lastTouch = p; b.lastPasser = p; b.passTime = S.time;
   p.pickCd = 0.35; thump(air ? 120 : 160, 0.12, 0.06);
   M(p, 'passes'); if (air) { M(p, 'lobs'); if (mode === 'air') M(p, 'longPasses'); }
@@ -913,6 +913,8 @@ function shoot(p, power, aimY) {
   S.ball.trail = boosted || rocket ? (rocket ? '#ff7a2f' : (p.trailCol || '#4fd6ff')) : null;
   if (boosted || rocket) fxEvent('power', p);
   b.owner = null; b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp; b.vz = 60 + 180 * power * power + rand(-30, 50) * (boosted ? 0.4 : 1);
+  const lat = -Math.sin(ang) * p.vx + Math.cos(ang) * p.vy, cm = clamp(-lat * 0.9, -90, 90);
+  b.curve = Math.abs(cm) > 25 ? { ax: -Math.sin(ang) * cm, ay: Math.cos(ang) * cm, t: 1.2 } : null;
   b.lastTouch = p; p.pickCd = 0.4; p.face = ang; thump(90, 0.3, 0.1); S.excite += 0.1;
   M(p, 'shots'); b.shotBy = p; b.shotT = S.time; b.shotPowered = boosted; EV('shot', p, { power: rnd(power, 2), powered: boosted });
 }
@@ -1167,31 +1169,6 @@ function callFoul(f, r) {
   }
   setPiece(1 - a.team, f.inBox ? 'penalty' : 'free', f.x, f.y, red ? 'RED CARD' : 'YELLOW CARD');
 }
-function setPiece(team, type, x, y, label) {
-  const b = S.ball, dir = team === 0 ? 1 : -1;
-  if (type === 'penalty') { x = team === 0 ? W - PEN_X : PEN_X; y = H / 2; }
-  x = clamp(x, 30, W - 30); y = clamp(y, 20, H - 20);
-  b.x = x; b.y = y; b.z = 0; b.vx = b.vy = b.vz = 0; b.owner = null;
-  const cands = S.players.filter(p => p.team === team && onPitch(p) && p.ko <= 0 && !p.gk);
-  const taker = cands.find(p => p.human) || cands.sort((p, q) => dist(p, b) - dist(q, b))[0];
-  if (taker) {
-    taker.x = x - dir * 14; taker.y = y; taker.stun = 0; taker.face = dir > 0 ? 0 : Math.PI; taker.vx = taker.vy = 0;
-    b.owner = taker; b.lastTouch = taker; taker.hold = 0;
-  }
-  for (const p of S.players) {
-    if (!onPitch(p) || p === taker) continue;
-    const d = dist(p, b);
-    if (p.team !== team && d < 80) { const a = Math.atan2(p.y - b.y, p.x - b.x); p.x = clamp(b.x + Math.cos(a) * 80, 8, W - 8); p.y = clamp(b.y + Math.sin(a) * 80, 8, H - 8); }
-    if (type === 'penalty') {
-      if (p.gk && p.team !== team) { p.x = team === 0 ? W - 14 : 14; p.y = H / 2; }
-      else if (inBox(p.x, p.y, 1 - team)) p.x = team === 0 ? W - BOX_D - 20 : BOX_D + 20;
-    }
-  }
-  S.pend = [];
-  S.setPiece = taker ? { team, type, taker, t: 0, wait: rand(0.9, 1.6) } : null;
-  if (taker) { M(taker, 'setPiecesTaken'); EV('setPiece', taker, { kick: type }); if (S.metrics) S.metrics.lastSetPiece = { team, t: S.metrics.t }; }
-  pauseFor(1.7, label, (type === 'penalty' ? 'Penalty to ' : 'Free kick to ') + TEAM[team].name, null);
-}
 function throwItem(p, force) {
   // The crowd favours the team it supports: some gifts go to them instead.
   if (!force && S.crowd && Math.random() < 0.35) {
@@ -1285,7 +1262,7 @@ function showResults() {
    Every player gets a counter sheet for the whole match. At full time it becomes a report:
    raw JSON (everything, including the event timeline), a CSV (one row per player) and a
    standalone HTML page that is easy to read. The last 20 reports are kept in this browser. */
-const METRIC_KEYS = ['jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
+const METRIC_KEYS = ['blocks', 'jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
   'fouls', 'foulsBat', 'foulsOnTeammates', 'knockouts', 'sandThrows', 'flashUsed', 'bananasDropped', 'bananaVictims', 'unseen', 'wavedOffTrusted', 'yellows', 'reds',
   'caughtFouls', 'sneakyCaught', 'sneakyUnseen', 'fouledReceived', 'knockedOut', 'slips', 'ignoredFoulsOnMe', 'helpUps', 'helpedUp', 'cleanStreaks', 'giftsReceived', 'itemsPicked', 'setPiecesTaken', 'chargeEarned', 'chargeSpent', 'longPasses', 'dives', 'jumpKicks', 'injuries', 'injuriesCaused', 'staminaUsed', 'taunts', 'powerups', 'bountiesCollected'];
 const HISTORY_KEY = 'fpfc-history', HISTORY_MAX = 20;
@@ -2379,6 +2356,275 @@ function drawAnomMeter(cx, y) {   // under the crowd bar: time to the next anoma
   ctx.textBaseline = 'alphabetic';
 }
 
+/* ---------------- free kicks and penalties ----------------
+   15 seconds to set up (penalties 10, shoot-out 6): everyone can move within the rules, bots build a wall,
+   and the taker aims at a point on the goal. The shot curls around the wall on its own (aim assist);
+   holding shoot sets the power, and releasing inside the green band hits the target. */
+const FK_DIST = () => W * 0.0872;   // 9.15 m on a 105 m pitch
+const AIR_K = 0.15;                 // air drag on the ball
+const fkGoalX = t => t.team === 0 ? W : 0;
+function setPiece(team, type, x, y, label) {
+  const b = S.ball, dir = team === 0 ? 1 : -1, gx = team === 0 ? W : 0, pen = type === 'penalty';
+  if (pen) { x = gx - dir * PEN_X; y = H / 2; }
+  x = clamp(x, 30, W - 30); y = clamp(y, 20, H - 20);
+  b.x = x; b.y = y; b.z = 0; b.vx = b.vy = b.vz = 0; b.owner = null; b.curve = null; b.trail = null;
+  const cands = S.players.filter(p => p.team === team && onPitch(p) && p.ko <= 0 && !p.gk);
+  const taker = cands.find(p => p.human) || cands.sort((p, q) => dist(p, b) - dist(q, b))[0];
+  for (const p of S.players) {   // everyone lands, stops sliding and lets go of the referee
+    p.z = 0; p.vz = 0; p.airAct = null; p.slide = 0; p.slideRec = 0; p.lunge = 0;
+    if (p.carry != null) { const r = S.refs[p.carry]; if (r) { r.carriedBy = null; r.z = 0; } p.carry = null; }
+  }
+  for (const r of S.refs) { r.fly = null; r.z = 0; r.downT = 0; if (!r.human && !(r.gone > 0)) { r.x = clamp(x + dir * FK_DIST() * 0.55, 25, W - 25); r.y = clamp(y + (y < H / 2 ? 1 : -1) * 150, 25, H - 25); r.face = Math.atan2(y - r.y, x - r.x); } }
+  if (!taker) { S.setPiece = null; return; }
+  taker.stun = 0; taker.vx = taker.vy = 0; taker.hold = 0;
+  b.owner = taker; b.lastTouch = taker;
+  const d = Math.hypot(gx - x, H / 2 - y), shootout = !!S.shoot;
+  const sp = S.setPiece = { team, type, taker, t: 0, prep: pen ? (shootout ? 6 : 10) : 15, minT: pen ? 1.2 : 3, wait: pen ? rand(2, 3.5) : rand(5, 8.5),
+    aim: { y: H / 2 + rand(-0.4, 0.4) * GOAL_HALF, z: 12 }, wall: [], gkSide: -(Math.sign(y - H / 2) || 1), offX: x, whistled: false };
+  // the wall: bots from the defending team, more of them the closer the kick is to goal
+  if (!pen && d < W * 0.45) {
+    const defs = S.players.filter(p => p.team !== team && onPitch(p) && !p.gk && !p.human && p.ko <= 0).sort((p, q) => dist(p, b) - dist(q, b));
+    const outfield = S.players.filter(p => p.team !== team && !p.gk && onPitch(p)).length;
+    let n = d < W * 0.22 ? 4 : d < W * 0.33 ? 3 : 2;
+    n = Math.min(n, TEAM_SIZE <= 3 ? 2 : 4, Math.max(1, defs.length - (outfield >= 3 ? 1 : 0)), defs.length);
+    sp.wall = defs.slice(0, n).map(p => ({ pid: p.id, x: p.x, y: p.y }));
+  }
+  sp.offX = pen ? null : fkOffside(sp);
+  fkWallSpots(sp);
+  for (const p of S.players) if (onPitch(p) && p !== taker) fkLegal(p, sp, true);   // start everyone somewhere legal
+  fkPlaceTaker(sp);
+  S.pend = [];
+  M(taker, 'setPiecesTaken'); EV('setPiece', taker, { kick: type }); if (S.metrics) S.metrics.lastSetPiece = { team, t: S.metrics.t };
+  pauseFor(1.2, label, (pen ? 'Penalty to ' : 'Free kick to ') + TEAM[team].name, null);
+}
+function fkWallSpots(sp) {
+  const b = S.ball, t = sp.taker, gx = fkGoalX(t), near = H / 2 + (Math.sign(b.y - H / 2) || 1) * GOAL_HALF * 0.45;
+  const a = Math.atan2(near - b.y, gx - b.x), r = FK_DIST() + 4, cx = b.x + Math.cos(a) * r, cy = b.y + Math.sin(a) * r, nx = -Math.sin(a), ny = Math.cos(a), n = sp.wall.length;
+  sp.wall.forEach((s, i) => { const o = (i - (n - 1) / 2) * 15; s.x = clamp(cx + nx * o, 8, W - 8); s.y = clamp(cy + ny * o, 8, H - 8); });
+}
+function fkOffside(sp) {   // the attacking team must stay level with or behind the second-last defender (or the ball)
+  const t = sp.taker, dir = t.team === 0 ? 1 : -1, b = S.ball;
+  const defs = S.players.filter(p => p.team !== t.team && onPitch(p)).map(p => p.x * dir).sort((a, c) => c - a);
+  const second = defs.length >= 2 ? defs[1] : (t.team === 0 ? W : 0) * dir;
+  return Math.max(second, b.x * dir) * dir;
+}
+function fkLegal(p, sp, snap) {   // keep a player where the laws allow during the set-up
+  const t = sp.taker, b = S.ball, dir = t.team === 0 ? 1 : -1, gx = fkGoalX(t), att = p.team === t.team, R = FK_DIST();
+  if (sp.type === 'penalty') {
+    if (p.gk && !att) { p.x = gx - dir * 6; p.y = clamp(p.y, H / 2 - GOAL_HALF + 6, H / 2 + GOAL_HALF - 6); return; }
+    if (p.gk) return;
+    const edge = gx - dir * (BOX_D + 8); if (p.x * dir > edge * dir) p.x = edge;   // outside the box, behind the ball
+  } else if (!att) {
+    if (p.gk) return;
+  } else if (p !== t) {
+    const off = sp.offX != null ? sp.offX : b.x; if (p.x * dir > off * dir) p.x = off;
+  }
+  const d = dist(p, b), min = att && sp.type !== 'penalty' ? 22 : R;   // defenders 9.15 m from the ball; team-mates just not on it
+  if (d < min) { const a = d > 0.1 ? Math.atan2(p.y - b.y, p.x - b.x) : (att ? Math.PI : 0) + (dir > 0 ? 0 : Math.PI); p.x = b.x + Math.cos(a) * min; p.y = b.y + Math.sin(a) * min; if (!snap) { p.vx *= 0.3; p.vy *= 0.3; } }
+  p.x = clamp(p.x, 8, W - 8); p.y = clamp(p.y, 8, H - 8);
+}
+function fkPlaceTaker(sp) {
+  const t = sp.taker, b = S.ball, gx = fkGoalX(t), a = Math.atan2(sp.aim.y - b.y, gx - b.x);
+  t.x = b.x - Math.cos(a) * 14; t.y = b.y - Math.sin(a) * 14; t.face = a; t.vx = t.vy = 0; t.z = 0;
+  if (b.owner === t) { b.x = b.x; b.z = 0; b.vx = b.vy = b.vz = 0; }
+}
+function fkTarget(p, sp) {   // where bots go during the set-up
+  const t = sp.taker, b = S.ball, dir = t.team === 0 ? 1 : -1, gx = fkGoalX(t), att = p.team === t.team;
+  const w = sp.wall.find(s => s.pid === p.id); if (w) return w;
+  if (p.gk) return att ? { x: p.x, y: p.y } : sp.type === 'penalty' ? { x: gx - dir * 6, y: H / 2 } : { x: gx - dir * 16, y: H / 2 + sp.gkSide * GOAL_HALF * 0.3 };
+  const lane = ((p.i * 37) % 5) / 4 - 0.5;   // a fixed spread per player, so nobody jitters
+  if (sp.type === 'penalty') return { x: gx - dir * (BOX_D + 26 + (att ? 0 : 12)), y: H / 2 + lane * BOX_HALF * 1.5 };
+  if (att) { const depth = Math.min(BOX_D * 0.75, Math.abs(gx - b.x) - 40); return { x: gx - dir * Math.max(GA_D + 20, depth - (p.i % 2) * 70), y: H / 2 + lane * BOX_HALF * 0.9 }; }
+  const m = S.players.filter(q => q.team === t.team && q !== t && onPitch(q) && !q.gk).sort((q, r) => dist(q, p) - dist(r, p))[0];
+  return m ? { x: m.x + dir * 20, y: m.y + (H / 2 - m.y) * 0.1 } : { x: gx - dir * BOX_D * 0.6, y: H / 2 + lane * 200 };
+}
+function fkIdealPower(sp) {
+  const b = S.ball, gx = fkGoalX(sp.taker), d = Math.hypot(gx - b.x, sp.aim.y - b.y);
+  return clamp(0.4 + d / 1500, 0.45, 0.92);
+}
+// Solve a shot that reaches the aim point on the goal, bending around anyone standing in the way.
+function fkPlan(sp, power, err) {
+  const b = S.ball, t = sp.taker, dir = t.team === 0 ? 1 : -1, gx = fkGoalX(t);
+  const ty = sp.aim.y + (err ? err.dy : 0), tz = Math.max(0, sp.aim.z + (err ? err.dz : 0)), tx = gx + dir * 6;
+  const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+  const speed = (420 + 460 * power) * (t.i === TEAM_SIZE - 1 ? 1.08 : 1), T = clamp(d / speed, 0.25, 2.6);
+  let A = 0;
+  if (sp.type !== 'penalty') {
+    let lo = 1e9, hi = -1e9, sAt = 0;
+    for (const q of S.players) {
+      if (q.team === t.team || q.gk || !onPitch(q)) continue;
+      const qx = q.x - b.x, qy = q.y - b.y, s = qx * ux + qy * uy, o = qx * nx + qy * ny;
+      if (s < 60 || s > d - 40 || Math.abs(o) > 45) continue;
+      lo = Math.min(lo, o - 9); hi = Math.max(hi, o + 9); sAt = Math.max(sAt, s);
+    }
+    if (hi > lo && lo < 0 && hi > 0) {   // the straight line is blocked: curl it round the nearer end of the wall
+      const tS = sAt / d * T, f = 0.5 * tS * (T - tS), go = Math.abs(hi) < Math.abs(lo) ? hi + 4 : lo - 4;
+      A = clamp(-go / Math.max(0.01, f), -1100, 1100);
+    }
+  }
+  const ax = nx * A, ay = ny * A, k = AIR_K, e = 1 - Math.exp(-k * T);
+  const vx = (dx - ax * T / k) * k / e + ax / k, vy = (dy - ay * T / k) * k / e + ay / k;
+  const vz = (tz - (b.z || 0) + 0.5 * GRAV() * T * T) / T;
+  return { vx, vy, vz, ax, ay, T };
+}
+function fkPathPoints(sp, P, n = 26) {
+  const b = S.ball, k = AIR_K, pts = [];
+  for (let i = 1; i <= n; i++) {
+    const t = P.T * i / n, e = (1 - Math.exp(-k * t)) / k;
+    pts.push({ x: b.x + (P.vx - P.ax / k) * e + P.ax * t / k, y: b.y + (P.vy - P.ay / k) * e + P.ay * t / k, z: Math.max(0, P.vz * t - 0.5 * GRAV() * t * t) });
+  }
+  return pts;
+}
+function fkShoot(t, sp, power) {
+  const b = S.ball; if (b.owner !== t) return;
+  const ideal = fkIdealPower(sp), boosted = t.charge >= 25, band = boosted ? 0.14 : 0.08;
+  if (boosted) { t.charge -= 25; M(t, 'chargeSpent', 25); M(t, 'powerShots'); }
+  power = clamp(power, 0.2, 1);
+  const dp = power - ideal, ex = Math.max(0, Math.abs(dp) - band);
+  const wob = (3 + (100 - t.stamina) * 0.06) * (t.mood <= MOOD_TILT ? 1.6 : t.mood >= MOOD_ZONE ? 0.7 : 1) * crowdPressure(t.team);
+  const P = fkPlan(sp, power, { dy: rand(-1, 1) * (ex * 260 + wob), dz: Math.sign(dp) * ex * 240 + rand(-1, 1) * wob * 0.5 });
+  const rocket = t.fx && t.fx.rocket > 0; if (rocket) t.fx.rocket--;
+  const m = rocket ? 1.15 : 1;
+  b.owner = null; b.z = 0.5; b.vx = P.vx * m; b.vy = P.vy * m; b.vz = P.vz; b.curve = { ax: P.ax, ay: P.ay, t: P.T + 0.4 };
+  b.lastTouch = t; b.shotBy = t; b.shotT = S.time; b.shotPowered = boosted; b.trail = boosted || rocket ? (rocket ? '#ff7a2f' : (t.trailCol || '#4fd6ff')) : null;
+  t.pickCd = 0.5; t.stamina = Math.max(0, t.stamina - (8 + 14 * power)); a0Anim(t, 'shoot', 0.35); thump(85, 0.3, 0.12); S.excite += 0.3;
+  M(t, 'shots'); EV('shot', t, { power: rnd(power, 2), powered: boosted, setPiece: sp.type, curve: Math.round(Math.hypot(P.ax, P.ay)) });
+  const curl = Math.hypot(P.ax, P.ay) > 200;
+  if (ex === 0) floatText(t, curl ? 'WHAT A CURLER!' : 'PERFECT STRIKE', '#7dff9b'); else floatText(t, dp > 0 ? 'TOO MUCH POWER' : 'NOT ENOUGH POWER', '#ffb36b');
+  if (boosted || rocket) fxEvent('power', t);
+  for (const s of sp.wall) { const q = S.players[s.pid]; if (q && !q.human && able(q) && Math.random() < 0.8) jump(q); }   // the wall jumps
+}
+function setPieceUpdate(dt) {
+  const sp = S.setPiece, t = sp.taker, b = S.ball;
+  sp.t += dt / PACE;   // the set-up clock runs in real seconds whatever the pace
+  if (!t || !onPitch(t)) { S.setPiece = null; return; }
+  const dir = t.team === 0 ? 1 : -1, gx = fkGoalX(t), pen = sp.type === 'penalty';
+  if (!sp.whistled && sp.t >= sp.minT) { sp.whistled = true; whistle(1); }
+  sp.offX = pen ? null : fkOffside(sp);
+  fkWallSpots(sp);
+  let shot = null;
+  for (const h of S.humans) {          // read every human so stray presses don't queue up
+    const inp = readInput(h, dt), p = S.players[h.pid]; if (!p) continue;
+    if (p === t) {
+      // aim: in the 3D front view left/right moves across the goal and up/down sets the height
+      if (GFX3D || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
+      else { sp.aim.y += inp.iy * 150 * dt; sp.aim.z += inp.ix * dir * 55 * dt; }
+      sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
+      if (inp.switch) switchToBest(h);
+      if (sp.t < sp.minT) { if (inp.sr || inp.pass || inp.lpass) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
+      if (inp.pass) humanPass(t, 'ground');
+      else if (inp.lpass) humanLongPass(t);
+      else if (inp.sr) shot = inp.power;
+    } else {
+      p.dx = inp.ix; p.dy = inp.iy; p.sprintWant = !!inp.sprint;
+      if (inp.switch) switchToBest(h);
+    }
+  }
+  if (!t.human && b.owner === t && sp.t > sp.wait) {   // bot taker
+    const d = Math.hypot(gx - b.x, H / 2 - b.y);
+    if (pen || d < W * 0.33 || (d < W * 0.45 && Math.random() < 0.5)) {
+      const gk = S.players.find(q => q.gk && q.team !== t.team && onPitch(q)), side = gk && gk.y < H / 2 ? 1 : -1;
+      sp.aim.y = H / 2 + side * (GOAL_HALF - rand(8, 16)); sp.aim.z = rand(5, GOAL_H - 10); fkPlaceTaker(sp);
+      shot = clamp(fkIdealPower(sp) + rand(-0.09, 0.09), 0.3, 1);
+    } else if (!botPass(t, true)) shot = fkIdealPower(sp);
+  }
+  if (b.owner === t && shot == null && sp.t >= sp.prep) shot = fkIdealPower(sp) - 0.04;   // time's up: taken for you
+  // everyone else moves into position
+  for (const p of S.players) {
+    if (!onPitch(p) || p === t) continue;
+    if (!p.human) { const g = fkTarget(p, sp); steer(p, g.x, g.y, 1, 10); p.sprintWant = Math.hypot(g.x - p.x, g.y - p.y) > 140; }
+    const spd = 150 * (0.72 + 0.28 * p.hp / 100) * (p.sprintWant && p.stamina > 2 ? 1.35 : 1), k = Math.min(1, dt * 9);
+    p.vx += (p.dx * spd - p.vx) * k; p.vy += (p.dy * spd - p.vy) * k;
+    if (p.dx || p.dy) p.face += angDiff(p.face, Math.atan2(p.dy, p.dx)) * Math.min(1, dt * 12);
+    else if (!p.human) p.face += angDiff(p.face, Math.atan2(b.y - p.y, b.x - p.x)) * Math.min(1, dt * 6);
+    p.x += p.vx * dt; p.y += p.vy * dt; p.run += Math.hypot(p.vx, p.vy) * dt * 0.09;
+    p.sprinting = false; p.stamina = Math.min(p.staminaMax, p.stamina + 14 * dt);
+    fkLegal(p, sp, false);
+  }
+  const act = S.players.filter(p => onPitch(p) && p !== t);
+  for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
+    const a = act[i], c = act[j], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy);
+    if (d > 0 && d < 14) { const o = (14 - d) / 2, ux = dx / d, uy = dy / d; a.x -= ux * o; a.y -= uy * o; c.x += ux * o; c.y += uy * o; }
+  }
+  for (const r of S.refs) if (!r.human && !(r.gone > 0)) { r.face += angDiff(r.face, Math.atan2(b.y - r.y, b.x - r.x)) * Math.min(1, dt * 4); r.blind = Math.max(0, r.blind - dt); }
+  if (b.owner === t) fkPlaceTaker(sp);
+  if (shot != null && b.owner === t) fkShoot(t, sp, shot);
+  if (b.owner !== t) { S.setPiece = null; t.dx = t.dy = 0; }
+}
+
+/* ---------- ball extras: woodwork and bodies in the way ---------- */
+function woodwork(b, side) {   // side 0: left goal line, 1: right. True if the ball hit a post or the bar and bounced back out.
+  const gl = side ? W : 0, s = side ? -1 : 1;
+  const ring = what => { thump(320, 0.25, 0.12); cheer('roar', b.x, what === 'POST' ? 'OFF THE POST!' : 'OFF THE BAR!'); floatText(b, what === 'POST' ? 'POST!' : 'CROSSBAR!', '#ffffff'); S.excite += 0.4; S.shake = Math.max(S.shake, 3); if (b.lastTouch) crowdEvent(b.lastTouch.team, { drama: 6, fun: 2 }); EV('woodwork', b.lastTouch || null, { what }); };
+  for (const py of [H / 2 - GOAL_HALF, H / 2 + GOAL_HALF]) {
+    if (Math.abs(b.y - py) < 5 && b.z < GOAL_H + 2) { b.x = gl + s * 3; b.vx = s * Math.abs(b.vx) * 0.55; b.vy += (Math.sign(b.y - py) || 1) * Math.abs(b.vx) * 0.6; b.curve = null; ring('POST'); return true; }
+  }
+  if (Math.abs(b.y - H / 2) < GOAL_HALF && b.z >= GOAL_H - 3 && b.z < GOAL_H + 5) { b.x = gl + s * 3; b.vx = s * Math.abs(b.vx) * 0.5; b.vz = b.z < GOAL_H ? -80 : Math.abs(b.vz) * 0.4 + 60; b.curve = null; ring('BAR'); return true; }
+  return false;
+}
+function bodyBlock(b) {   // a hard shot or clearance that hits someone's body or head is blocked
+  const bsp = Math.hypot(b.vx, b.vy);
+  if (b.owner || b.z <= 0 || bsp < 300) return;
+  const shot = b.shotBy && b.shotBy === b.lastTouch && S.time - (b.shotT || 0) < 2;
+  if (!shot && bsp < 480) return;
+  for (const p of S.players) {
+    if (!onPitch(p) || p.ko > 0 || p.pickCd > 0 || p.gk) continue;
+    const bz = b.z - (p.z || 0), d = dist(p, b); if (bz < 16 || bz > 48 || d > 13) continue;
+    const nx = (b.x - p.x) / (d || 1), ny = (b.y - p.y) / (d || 1), vn = b.vx * nx + b.vy * ny; if (vn >= 0) continue;
+    b.vx = (b.vx - 1.6 * vn * nx) * 0.42 + rand(-60, 60); b.vy = (b.vy - 1.6 * vn * ny) * 0.42 + rand(-60, 60); b.vz = Math.abs(b.vz) * 0.3 + 50;
+    b.curve = null; b.trail = null; b.lastTouch = p; b.shotBy = null; p.pickCd = 0.35;
+    floatText(p, bz > 34 ? 'HEADED AWAY' : 'BLOCKED!', '#ffffff'); thump(130, 0.15, 0.1); S.excite += 0.15;
+    if (bsp > 650) p.stun = Math.max(p.stun, 0.5);
+    crowdEvent(p.team, { perf: 2 }); M(p, 'blocks'); EV('block', p);
+    return;
+  }
+}
+
+/* ---------- set-piece drawing ---------- */
+function fkLocalTakerHuman() { const sp = S.setPiece; if (!sp || !sp.taker) return null; return S.humans.find(h => !h.remote && S.players[h.pid] === sp.taker) || null; }
+function drawSetPieceWorld() {   // on the pitch: the 9.15 m circle, the offside line, the aim point and the predicted flight
+  const sp = S.setPiece; if (!sp || !sp.taker) return;
+  const b = S.ball, t = sp.taker, gx = fkGoalX(t), R = FK_DIST();
+  ctx.save(); ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.lineDashOffset = -S.time * 20;
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; const ring = []; for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2; ring.push(proj(b.x + Math.cos(a) * R, b.y + Math.sin(a) * R)); } path(ring); ctx.stroke();
+  if (sp.offX != null) { ctx.strokeStyle = TEAM[t.team].col; ctx.globalAlpha = 0.7; const L = []; for (let i = 0; i <= 12; i++) L.push(proj(sp.offX, H * i / 12)); path(L); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.restore();
+  const h = fkLocalTakerHuman(); if (!h || b.owner !== t) return;
+  const P = fkPlan(sp, fkIdealPower(sp)), pts = fkPathPoints(sp, P);
+  pts.forEach((q, i) => { const Q = proj(q.x, q.y, q.z + 4); ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.5 * i / pts.length})`; ell(Q.x, Q.y, 2.2 * Math.max(0.6, Q.s), 2.2 * Math.max(0.6, Q.s)); ctx.fill(); });
+  const A = proj(gx, sp.aim.y, sp.aim.z), s = Math.max(0.8, A.s);
+  ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2.2; ell(A.x, A.y, 9 * s, 9 * s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(A.x - 14 * s, A.y); ctx.lineTo(A.x - 4 * s, A.y); ctx.moveTo(A.x + 4 * s, A.y); ctx.lineTo(A.x + 14 * s, A.y); ctx.moveTo(A.x, A.y - 14 * s); ctx.lineTo(A.x, A.y - 4 * s); ctx.moveTo(A.x, A.y + 4 * s); ctx.lineTo(A.x, A.y + 14 * s); ctx.stroke();
+}
+function drawSetPiece() {
+  const sp = S.setPiece; if (!sp || !sp.taker || S.pause > 0) return;
+  const t = sp.taker, hm = t.human, h = fkLocalTakerHuman(), local = !!h;
+  const map = (h && h.map) || MAPSOLO, pen = sp.type === 'penalty', left = Math.max(0, Math.ceil(sp.prep - sp.t));
+  const title = `${pen ? 'PENALTY' : 'FREE KICK'} · ${t.name} · ${left}s`;
+  const iAmPlaying = S.humans.some(x => !x.remote && S.players[x.pid] && S.players[x.pid] !== t);
+  const sub = local ? (sp.t < sp.minT ? `Aim with movement (left/right across the goal, up/down for height) · wait for the whistle`
+                                       : `Hold ${keyLabel(map.shoot[0])} and release in the green · ${keyLabel(map.pass[0])} pass · ${keyLabel(map.lpass[0])} long ball · the shot curls round the wall`)
+    : iAmPlaying ? (pen ? 'Stay outside the box and behind the ball until it is kicked' : `Get into position: defenders stay outside the circle, attackers stay behind the ${TEAM[t.team].short} line`)
+    : `Everyone sets up while ${t.name} lines it up`;
+  ctx.font = `600 30px ${DISP}`; const tw = ctx.measureText(title).width;
+  ctx.font = `600 15px ${UI}`; const sw = ctx.measureText(sub).width;
+  const w = Math.max(tw, sw) + 40, x = LW / 2 - w / 2, y = 124;
+  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 58, 10);
+  ctx.strokeStyle = TEAM[sp.team].col; ctx.lineWidth = 1.5; rrs(x + 0.5, y + 0.5, w - 1, 57, 10);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = TEAM[sp.team].col; ctx.font = `600 30px ${DISP}`; ctx.fillText(title, LW / 2, y + 22);
+  ctx.fillStyle = '#eef2e6'; ctx.font = `600 15px ${UI}`; ctx.fillText(sub, LW / 2, y + 44);
+  if (local) {   // power bar with the sweet spot
+    const bw = 320, bx = LW / 2 - bw / 2, by = y + 66, ideal = fkIdealPower(sp), band = t.charge >= 25 ? 0.14 : 0.08;
+    ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(bx - 6, by - 4, bw + 12, 26, 6);
+    ctx.fillStyle = '#1b2621'; ctx.fillRect(bx, by, bw, 10);
+    ctx.fillStyle = 'rgba(125,255,155,.75)'; ctx.fillRect(bx + bw * clamp(ideal - band, 0, 1), by, bw * (Math.min(1, ideal + band) - Math.max(0, ideal - band)), 10);
+    const c = h.charging ? h.charge : 0; ctx.fillStyle = '#ffd23f'; ctx.fillRect(bx + bw * c - 2, by - 3, 4, 16);
+    ctx.font = `700 11px ${UI}`; ctx.fillStyle = '#c9d3cb'; ctx.fillText(t.charge >= 25 ? 'POWER · CHARGED: WIDER SWEET SPOT' : 'POWER', LW / 2, by + 17);
+  }
+  ctx.textBaseline = 'alphabetic';
+}
+
 /* ---------------- AI ---------------- */
 function steer(p, tx, ty, mul = 1, arrive = 24) {
   const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
@@ -2574,31 +2820,6 @@ function humanControl(h, dt) {
 }
 
 /* ---------------- set pieces ---------------- */
-function setPieceUpdate(dt) {
-  const sp = S.setPiece, t = sp.taker, b = S.ball;
-  sp.t += dt;
-  for (const h of S.humans) {          // read every human so stray presses don't queue up
-    const inp = readInput(h, dt);
-    if (S.players[h.pid] !== t) continue;
-    if (inp.ix || inp.iy) t.face += angDiff(t.face, Math.atan2(inp.iy, inp.ix)) * Math.min(1, dt * 10);
-    t.dx = inp.ix; t.dy = inp.iy;
-    if (inp.pass) humanPass(t, 'ground');
-    else if (inp.lpass) humanLongPass(t);
-    else if (inp.sr) shoot(t, inp.power);
-  }
-  if (!t.human && b.owner === t && sp.t > sp.wait) {
-    const gx = t.team === 0 ? W : 0;
-    if (sp.type === 'penalty' || Math.hypot(gx - t.x, H / 2 - t.y) < SHOOT_RANGE + 30) {
-      const gk = S.players.find(q => q.gk && q.team !== t.team && onPitch(q));
-      shoot(t, rand(0.6, 0.9), H / 2 + (gk && gk.y < H / 2 ? 1 : -1) * GOAL_HALF * 0.65 + rand(-10, 10));
-    } else if (!botPass(t, true)) shoot(t, 0.7);
-  }
-  if (b.owner === t && sp.t > 12 && !botPass(t, true)) shoot(t, 0.6);   // nobody acted: take it automatically
-  for (const p of S.players) { p.vx = p.vy = 0; p.sprinting = false; if (p !== t) p.dx = p.dy = 0; }
-  if (b.owner === t) { b.x = t.x + Math.cos(t.face) * 11; b.y = t.y + Math.sin(t.face) * 11; b.z = 0; b.vx = b.vy = 0; }
-  else { S.setPiece = null; t.dx = t.dy = 0; }
-}
-
 /* ---------------- referee mode ---------------- */
 function humanRef(r, dt) {
   const h = S.refHuman, inp = localInput(h, dt), blind = r.blind > 0;
@@ -2707,7 +2928,10 @@ function update(dt) {
     else if (p.slideRec > 0) { p.dx = p.dy = 0; }
     if (down) { p.vx *= Math.exp(-5 * dt); p.vy *= Math.exp(-5 * dt); }
     else {
-      const k = Math.min(1, dt * (p.lunge > 0 || p.slide > 0 ? 20 : p.z > 0 ? 1.5 : wk === 'ice' ? 2 : 9));
+      const want = Math.hypot(p.dx, p.dy) * spd, cur = Math.hypot(p.vx, p.vy);
+      const turn = cur > 60 && want > 0 ? (p.vx * p.dx + p.vy * p.dy) / (cur * Math.hypot(p.dx, p.dy)) : 1;   // cosine of the turn
+      const grip = (want > cur ? 7.5 : 11) * (turn < 0 ? 0.55 : turn < 0.5 ? 0.8 : 1) * (p.sprinting ? 0.85 : 1);   // slower to speed up than to stop; sharp turns at pace take longer
+      const k = Math.min(1, dt * (p.lunge > 0 || p.slide > 0 ? 20 : p.z > 0 ? 1.5 : wk === 'ice' ? 2 : grip));
       p.vx += (p.dx * spd - p.vx) * k; p.vy += (p.dy * spd - p.vy) * k;
       if (p.dx || p.dy) p.face += angDiff(p.face, Math.atan2(p.dy, p.dx)) * Math.min(1, dt * 14);
     }
@@ -2749,7 +2973,8 @@ function update(dt) {
     const o = b.owner;
     if (!onPitch(o) || o.stun > 0 || o.ko > 0 || o.carry != null) loseBall(o, o.face);
     else {
-      b.x = clamp(o.x + Math.cos(o.face) * 11, 2, W - 2); b.y = clamp(o.y + Math.sin(o.face) * 11, 2, H - 2); b.z = 0; b.vx = o.vx; b.vy = o.vy;
+      const tch = 11 + (o.sprinting ? 5 : 0) + Math.max(0, Math.sin(o.run * 1.6)) * 3.5 * Math.min(1, Math.hypot(o.vx, o.vy) / 120);
+      b.x = clamp(o.x + Math.cos(o.face) * tch, 2, W - 2); b.y = clamp(o.y + Math.sin(o.face) * tch, 2, H - 2); b.z = 0; b.vx = o.vx; b.vy = o.vy;
       b.spin += Math.hypot(o.vx, o.vy) * dt * 0.2;
       for (const p of S.players) {
         if (p.team === o.team || !canBall(p) || p.slide > 0 || p.z > 10 || p.pickCd > 0 || dist(p, b) > 15) continue;
@@ -2762,12 +2987,16 @@ function update(dt) {
       }
     }
   } else {
+    if (b.curve && b.z > 0 && b.curve.t > 0) { b.curve.t -= dt; b.vx += b.curve.ax * dt; b.vy += b.curve.ay * dt; }   // spin bends the flight
     b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.vz -= GRAV() * dt;
     b.spin += Math.hypot(b.vx, b.vy) * dt * 0.2;
-    if (b.z <= 0) { b.z = 0; if (b.vz < -120) b.vz = -b.vz * 0.45; else b.vz = 0; }
-    const fr = b.z > 0 ? 0.15 : wxKind() === 'ice' ? 0.4 : 1.25; b.vx *= Math.exp(-fr * dt); b.vy *= Math.exp(-fr * dt);
+    if (b.z <= 0) { b.z = 0; b.curve = null; if (b.vz < -90) { b.vz = -b.vz * 0.52; b.vx *= 0.86; b.vy *= 0.86; } else b.vz = 0; }   // bounce: loses height and pace
+    const ice = wxKind() === 'ice', fr = b.z > 0 ? AIR_K : ice ? 0.4 : 1.1; b.vx *= Math.exp(-fr * dt); b.vy *= Math.exp(-fr * dt);
+    if (b.z <= 0) { const v0 = Math.hypot(b.vx, b.vy), roll = (ice ? 4 : 16) * dt; if (v0 <= roll) b.vx = b.vy = 0; else { b.vx -= b.vx / v0 * roll; b.vy -= b.vy / v0 * roll; } }   // rolling resistance brings it to a stop
+    bodyBlock(b);
     if (b.y < 4) { b.y = 4; b.vy = Math.abs(b.vy) * 0.7; }
     if (b.y > H - 4) { b.y = H - 4; b.vy = -Math.abs(b.vy) * 0.7; }
+    if (b.x < 0) woodwork(b, 0); else if (b.x > W) woodwork(b, 1);
     const mouth = Math.abs(b.y - H / 2) < GOAL_HALF;
     if (b.x < 0) { if (mouth && b.z < GOAL_H) { goal(1); return; } b.x = 0; b.vx = Math.abs(b.vx) * 0.6; }
     if (b.x > W) { if (mouth && b.z < GOAL_H) { goal(0); return; } b.x = W; b.vx = -Math.abs(b.vx) * 0.6; }
@@ -2784,7 +3013,7 @@ function update(dt) {
         if (p.gk && sp > 300 && b.lastTouch && b.lastTouch.team !== p.team) { p.stats.saves++; addPop(p, 8); addMood(p, 15); crowdEvent(p.team, { perf: 6, drama: 4 }); fxEvent('save', p); addCharge(p, 15); cheer('applause', p.x, 'GREAT SAVE!'); if (b.shotBy && b.shotBy.team !== p.team && S.time - b.shotT < 3) M(b.shotBy, 'shotsOnTarget'); EV('save', p, { shooter: b.lastTouch.name }); floatText(p, 'SAVE!', '#ffffff'); S.excite += 0.35; if (loud(p, b.lastTouch)) feed(`Big save by ${p.name}`); }
         if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { addPop(b.lastPasser, 1); addCharge(b.lastPasser, 4); M(b.lastPasser, 'passesCompleted'); }
         if (b.lastPasser && b.lastPasser.team !== p.team && S.time - b.passTime < 3) { M(p, 'interceptions'); EV('interception', p, { from: b.lastPasser.name }); }
-        b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0;
+        b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0; b.curve = null;
       }
     }
   }
@@ -2901,28 +3130,6 @@ function drawChants() {
     ctx.fillStyle = CHEER_COL[c.kind] || '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(c.text, P.x, P.y - h / 2 + 2 * P.s); ctx.textBaseline = 'alphabetic';
   }
   ctx.globalAlpha = 1;
-}
-function drawSetPiece() {
-  const sp = S.setPiece; if (!sp || !sp.taker || S.pause > 0) return;
-  const t = sp.taker, hm = t.human, local = !!hm && (hm.local || (!hm.remote && S.net !== 'client'));
-  const map = (hm && hm.map) || MAPSOLO;
-  if (local) {   // aim guide
-    const ax = Math.cos(t.face), ay = Math.sin(t.face), A = proj(t.x + ax * 14, t.y + ay * 14), B = proj(t.x + ax * 150, t.y + ay * 150);
-    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.lineDashOffset = -S.time * 30;
-    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
-  }
-  const title = `${sp.type === 'penalty' ? 'PENALTY' : 'FREE KICK'} · ${t.name}`;
-  const sub = local ? `Aim with movement · ${keyLabel(map.pass[0])} pass · hold and release ${keyLabel(map.shoot[0])} to shoot · ${Math.max(0, Math.ceil(12 - sp.t))}s`
-                    : `Everyone holds until ${t.name} takes it`;
-  ctx.font = `600 30px ${DISP}`; const tw = Math.max(ctx.measureText(title).width, 0);
-  ctx.font = `600 15px ${UI}`; const sw = ctx.measureText(sub).width;
-  const w = Math.max(tw, sw) + 40, x = LW / 2 - w / 2, y = LH - MINI_W * H / W - 96;
-  ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, 58, 10);
-  ctx.strokeStyle = TEAM[sp.team].col; ctx.lineWidth = 1.5; rrs(x + 0.5, y + 0.5, w - 1, 57, 10);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = TEAM[sp.team].col; ctx.font = `600 30px ${DISP}`; ctx.fillText(title, LW / 2, y + 22);
-  ctx.fillStyle = '#eef2e6'; ctx.font = `600 15px ${UI}`; ctx.fillText(sub, LW / 2, y + 44);
-  ctx.textBaseline = 'alphabetic';
 }
 function drawPitch() {
   ctx.fillStyle = '#123a22'; path(region(-90, -18, W + 90, H + 60), true); ctx.fill();
@@ -3491,12 +3698,12 @@ function draw3d() {
 }
 // Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
 function drawOverlays3D() {
-  drawChants();
+  drawChants(); drawSetPieceWorld();
   drawWorldExtras();
   for (const p of S.players) {
     if (!onPitch(p)) continue;
     const down = p.stun > 0 || p.ko > 0;
-    if (p.human) {
+    if (p.human && !(S.setPiece && S.setPiece.taker === p)) {
       const P = proj(p.x, p.y, down ? 16 : 48), s = Math.max(0.75, P.s), col = HUMAN_COL[p.human.idx % HUMAN_COL.length];
       drawLabelPill(P.x, P.y, s, col, p.human.label || 'P' + (p.human.idx + 1));
       if (p.human.charging && S.ball.owner === p) { const w = 26 * s; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(P.x - w / 2, P.y - 26 * s, w, 4 * s); ctx.fillStyle = col; ctx.fillRect(P.x - w / 2, P.y - 26 * s, w * p.human.charge, 4 * s); }
@@ -3540,7 +3747,7 @@ function view3d() {
     if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
-  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX };
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
 }
 const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
 async function setGraphics(on, note) {
@@ -3569,7 +3776,7 @@ function draw() {
   drawBackdrop(); drawPitch(); drawGoal(0); drawGoal(1); drawCones();
   for (const n of S.bananas) { const P = proj(n.x, n.y); drawIcon('banana', P.x, P.y, P.s); }
   drawGroundExtras();
-  drawTargets();
+  drawTargets(); drawSetPieceWorld();
   const ents = [];
   for (const p of S.players) if (onPitch(p)) ents.push([p.y, () => drawPlayer(p)]);
   for (const r of S.refs) if (!(r.gone > 0)) ents.push([r.y, () => drawRef(r)]);
@@ -3664,6 +3871,8 @@ function guideSections() {
         <li><b>Switch player:</b> press ${k('switch')}, or ${k('pass')} when you don't have the ball and no opponent with the ball is close, to take over the team-mate nearest the ball.</li>
         <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
         <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
+        <li><b>Ball physics:</b> shooting while running across the ball puts a little curl on it, the ball bounces and rolls to a stop, shots can come back off the post or the bar, and a hard shot that hits someone's body or head is blocked.</li>
+        <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
         <li><b>Short tackle:</b> press ${k('pass')} without the ball when an opponent with the ball is close, for a quick lunge at them. Cheap, safe and never a foul.</li>
         <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
         <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass. Punching in the air (${k('foul')}) becomes a jump kick.</li>
@@ -3738,9 +3947,11 @@ function guideSections() {
         <li><b>Party mutators:</b> big heads, banana rain, no referee, low gravity, super sprint or classic gifts only, in Pace and controls.</li></ul>`],
     ['g-setpieces', 'Free kicks and penalties', `
       <ul>
-        <li>When a foul is called, everyone freezes and the clock stops until the kick is taken.</li>
-        <li>If you are the taker, aim with the movement keys (a dashed line shows the direction), then pass with ${k('pass')} or hold and release ${k('shoot')} to shoot.</li>
-        <li>If nobody acts within 12 seconds, the kick is taken automatically.</li>
+        <li>When a foul is called the clock stops and everyone gets <b>15 seconds to set up</b> (10 for a penalty). In 3D the camera swings round behind the ball, facing the goal.</li>
+        <li><b>The laws apply while you set up:</b> defenders stay outside the dashed 9.15 m circle around the ball, and the attacking team stays behind the offside line (the dashed line in their colour). For a penalty, everyone but the taker and the goalkeeper stays outside the box, and the keeper stays on the line.</li>
+        <li><b>The wall:</b> defending bots line up between the ball and the near post and jump as the kick is taken. People on the defending team can join it or mark someone.</li>
+        <li><b>Taking it:</b> move the yellow target across the goal with left and right, and up and down for height. The dotted line shows the flight: the shot curls round the wall by itself. After the whistle, hold ${k('shoot')} and release inside the green band on the power bar to hit your target; too much power flies high, too little drops short. With 25 charge the green band is wider. You can also pass with ${k('pass')} or ${k('lpass')}.</li>
+        <li>If the time runs out, the kick is taken for you.</li>
       </ul>`],
     ['g-modes', 'Game modes', `
       <ul>
@@ -4291,7 +4502,7 @@ function sendSnap(force) {
   if (!Object.keys(NET.conns).length) return;
   const b = S.ball;
   const s = { ph: S.phase, fm: FORMAT, pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
-    spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type] : 0,
+    spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type, r1(S.setPiece.aim.y), r1(S.setPiece.aim.z), S.setPiece.prep, S.setPiece.minT, S.setPiece.offX == null ? -1 : r1(S.setPiece.offX)] : 0,
     ch: S.chants.map(c => [c.id, c.kind, c.text, r1(c.x), r1(c.life)]),
     mu: MUT_LIST.map(([k]) => MUT[k] ? 1 : 0),
     fx: S.fxq.filter(e => S.time - e.t < 2).map(e => [e.id, e.type, e.pid, r1(e.x), r1(e.y), e.team != null ? e.team : -1, e.side != null ? e.side : -1]),
@@ -4372,7 +4583,7 @@ function applySnap(s) {
   S.bananas = (s.bn || []).map(a => ({ x: a[0], y: a[1] }));
   S.feed = (s.fd || []).map(a => ({ text: a[0], col: a[1], t: a[2] }));
   S.texts = (s.tx || []).map(a => ({ x: a[0], y: a[1], z: a[2], text: a[3], col: a[4], life: a[5] }));
-  S.setPiece = s.spk ? { team: s.spk[0], taker: S.players[s.spk[1]], t: s.spk[2], type: s.spk[3] } : null;
+  S.setPiece = s.spk ? { team: s.spk[0], taker: S.players[s.spk[1]], t: s.spk[2], type: s.spk[3], aim: { y: +s.spk[4] || H / 2, z: +s.spk[5] || 12 }, prep: +s.spk[6] || 15, minT: +s.spk[7] || 3, offX: s.spk[8] >= 0 ? s.spk[8] : null, wall: [] } : null;
   const ch = s.ch || [];
   if (NET.lastCh == null) NET.lastCh = Math.max(0, ...ch.map(c => c[0]));
   for (const c of ch) if (c[0] > NET.lastCh) { NET.lastCh = c[0]; crowdSound(c[1]); }
