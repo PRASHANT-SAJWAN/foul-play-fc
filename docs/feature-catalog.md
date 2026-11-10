@@ -18,7 +18,7 @@ Contents
 5. [Big-moment animations](#5-big-moment-animations): fouls, power shots, saves, goals
 6. [Taunts](#6-taunts)
 7. [Audience opinion meter](#7-audience-opinion-meter): categories, team tug-of-war, chants and banners
-8. [Player roles and abilities](#8-player-roles-and-abilities): goalkeeper, defender, midfielder, striker, captain, backseat
+8. [Player roles and abilities](#8-player-roles-and-abilities): goalkeeper, defender, midfielder, striker, captain, backseat ([8.1 The Backseat](#81-the-backseat-the-player-who-wont-stop-talking))
 9. [Ability catalog](#9-ability-catalog)
 10. [Network messages](#10-network-messages)
 11. [Suggested order](#11-suggested-order)
@@ -262,11 +262,77 @@ tackle chance, foul reach 42 (60 with a bat), charge gain.
 | **Midfielder** | 1–2 | Pass speed +10%, charge gain +25% | **Vision:** sees the pass guide to two team-mates (best + second best) | **Through ball:** next long pass curves around the nearest defender and leads the receiver extra | **Tempo:** your team's charge fills 2× for 6 s |
 | **Striker** | 1 | Shot speed +20% (exists), sprint drain −20% | **Poacher:** power shots need 15 charge instead of 25 | **Curler:** next shot bends around the keeper (sideways curve of 60 units) | **Thunderbolt:** next shot is a power shot at full pace that knocks the keeper down if they stop it |
 | **Captain** | 1 per team, any position (an armband on top of their role) | No stat change | **Leadership:** team-mates within 150 of you gain +10% speed; your karma counts double for the referee's opinion of your team | **Rally:** heals team-mates within 150 by 25 HP and clears stuns | **Protest:** the referee re-checks the last foul against your team (60% to call it, but −15 karma if it was a dive) |
-| **Backseat** | Any extra human beyond the pitch slots | Not on the pitch | **Coach's eye:** sees the whole mini-map enlarged and the referee's cone always | Every 20 s pick one: **Chant** (crowd meter boost for your team), **Substitute** (swap a tired bot or team-mate for a fresh one at 100 HP), **Call a play** (shows an arrow plan to your team's humans) | **Gift drop:** once per half, throw any crowd gift to a team-mate |
+| **Backseat** | 0–1 per team, on the pitch in any outfield spot | **No stat changes** and no special moves | **Loud mouth:** every trick also builds **Annoyance** in nearby team-mates (see 8.1) | **Two tricks** chosen before kickoff from the trick list (8.1), each on its own cooldown | **Meltdown** (see 8.1): a match-swinging trick with a big backfire, once per half |
 
-About "backseat players": I read this as people who join a full room. Instead of only watching, they act as coach on the
-bench, influencing the match without playing on the pitch. If you meant something else (for example a player who hangs
-back and supports), it slots in easily as another on-pitch role.
+### 8.1 The Backseat: the player who won't stop talking
+
+An ordinary outfield player (normal speed, shots, passes and tackles) whose edge is **mind games**. Every trick has a
+cooldown, and almost every trick can **backfire on their own team**. They're fun to play, a nightmare to play against,
+and a gamble for their own side.
+
+#### New system: Mood
+
+Every player gets a **mood** from −100 (tilted) to +100 (in the zone), starting at 0 and drifting back toward 0 by
+5 points per second. Mood shows as a small icon over the player (storm cloud, question marks, steam, sparkles) and as a
+bar on the player panel.
+
+| Mood | Effect |
+|---|---|
+| +40 or more (**In the zone**) | Shot spread −15%, charge gain +15% |
+| −40 or less (**Tilted**) | Shot spread +25%, pass lead error up to 25 units, tackle success −20% |
+| −70 or less (**Meltdown**) | As tilted, and fouls this player commits are 30% more likely to be seen (they get sloppy) |
+
+Mood also moves from normal play: a goal +40 for the scorer, conceding −15 for the whole team, being fouled −10,
+helping someone up +10, and a help-up received +15. So the Backseat's tricks push on a meter everyone already has.
+
+#### New system: Annoyance (the double edge)
+
+Each team-mate has **Annoyance** toward their own Backseat, from 0 to 100. Every trick adds Annoyance to team-mates
+within 200 units (amounts in the trick table). It fades by 3 per second.
+
+| Annoyance | What the team-mate does |
+|---|---|
+| 50+ | Mood −10 and won't pass to the Backseat if anyone else is open (bots); humans see an "ignore them" hint |
+| 80+ | Their passes to the Backseat are 30% slower and land behind them |
+| 100 (**Snaps**) | Bots shove the Backseat (a team foul, so the referee can card it); humans get 3 s where their pass key skips the Backseat. Annoyance resets to 40 |
+
+So spamming tricks wrecks your own team's chemistry. A good Backseat times one trick when it matters.
+
+#### Trick list
+
+Pick **two** before kickoff (P1 trick key and P2 trick key, or one key that cycles). Range is from the Backseat.
+"Target" means the opponent the trick is aimed at; aim uses the same red-ring targeting as fouls.
+
+| Trick | What it does to the opponent | Backfire on your team | Cooldown | Range | Counter |
+|---|---|---|---|---|---|
+| **Backseat Driving** "Left! No, RIGHT!" | Target's movement input is **mirrored for 1.2 s** | 30% chance your nearest team-mate is mirrored for 0.6 s too. Annoyance +15 | 18 s | 160 | Stand still for a moment; the Captain's Rally clears it |
+| **Trash Talk** "My nan tackles harder" | Target mood −30 | The target is **fired up**: +20% tackle success against *you* for 6 s. Your karma −6 | 15 s | 220 | Score or get a help-up to recover mood |
+| **Fake Call** "Leave it!" | The next pass to the target is left to roll past them (they can't pick it up for 0.6 s) | 25% chance the nearest team-mate of *yours* also leaves the next ball meant for them. Annoyance +10 | 20 s | 200 | Call it out: take the ball with a short pass yourself first |
+| **Ref Whisperer** "Ref, did you see that?" | The referee turns to look at you for 2 s, so they miss what's behind them | Fouls **against your own team** in those 2 s go unseen too. If the referee already thinks badly of you, −10 referee opinion | 25 s | 300 (to the referee) | Foul the Backseat while the referee is looking straight at them |
+| **The Stare-down** | Target's controls react 0.25 s late for 3 s | **You can't move** for 1.5 s while staring. Annoyance +10 | 20 s | 140 | Pass before the stare lands; the Backseat is a sitting duck |
+| **Wind-up the Keeper** "Butterfingers!" | Opposing keeper's dive reach −30% for 5 s | The keeper gets angry: their next save is booted 900 units straight up the pitch, often starting a counter against you | 30 s | Whole pitch | Shoot early or pass instead of shooting |
+| **Blame Game** (only right after your team concedes) | — | A team-mate of your choice: mood −25, and *you* gain +30 mood and +20 charge. Annoyance +25 | Once per goal conceded | Team | The blamed team-mate can Trash Talk you back (if they're also a Backseat) or just foul you |
+| **Hype Man** "You're the GOAT!" | — | A team-mate gets +30 mood but turns **overconfident** for 6 s: shots +15% speed and +30% spread, and they won't pass. Annoyance +5 | 16 s | 180 | It's your own team-mate: choose wisely |
+| **Dive** (simulation) | You fall over near an opponent. If the referee sees it from 160+ away, 40% they give **you** a free kick | If the referee is within 160 or the dice say no: **yellow card for diving**, crowd Villainy +, every team-mate's mood −10 | 30 s | Opponent within 40 | Stay away from the Backseat near the referee |
+
+**Meltdown (once per half, needs 60 charge):** the Backseat throws a full tantrum for 3 s (stomping, arms waving). Every
+opponent within 250 gets mood −35 and their controls react 0.2 s late for 3 s, **but** every team-mate within 250 gets
+Annoyance +40, the Backseat can't move during it, and if the referee sees it, it's a yellow card for dissent.
+
+#### Fit with the rest of the game
+
+- **No field ability:** the Backseat's stats are exactly those of the outfield slot they take; tricks never touch the ball
+  directly.
+- **Crowd opinion (§7):** tricks that land raise the Backseat team's **Fun** and **Drama**; backfires raise **Noobie-ness**;
+  Dive and Ref Whisperer raise **Villainy**. A crowd that loves chaos can end up backing the Backseat's team anyway.
+- **Karma and referee opinion:** Trash Talk, Dive and Meltdown cost karma, so a Backseat who overdoes it gets *marked* by
+  the referee (fouls against them are ignored more), which is its own punishment.
+- **Bots as Backseat:** bots pick two tricks at random and use them when a target is in range and their team is losing or
+  drawing. Bot team-mates react to Annoyance as described.
+- **Caps:** at most one Backseat per team; tricks never stack on the same target (a 6 s immunity after any trick); every
+  trick shows a speech bubble ("LEFT! NO, RIGHT!") so it's always clear who did it.
+- **Metrics:** tricks used, tricks landed, backfires, team-mates snapped and mood swings go into the match report, which
+  tells us quickly whether the Backseat is fun or just annoying.
 
 ### Role picking
 
@@ -305,10 +371,17 @@ A flat list for review. Values are starting points for testing.
 | `cap.leadership` | Captain | Passive | +10% speed to team-mates within 150; karma counts double for team referee opinion | — | Isolate the captain |
 | `cap.rally` | Captain | Active | +25 HP and clear stuns for team-mates within 150 | 25 s | Foul the captain first |
 | `cap.protest` | Captain | Ultimate | Referee re-checks the last foul against your team (60%); −15 karma if it wasn't a foul | 60 charge | Don't foul where it can be reviewed |
-| `bench.chant` | Backseat | Active | +15 to your team's crowd support for 10 s | 20 s | Opposing backseat chants back |
-| `bench.sub` | Backseat | Active | Replace one bot or tired team-mate with a fresh one (100 HP, full sand) | 20 s (max 3 per match) | — |
-| `bench.play` | Backseat | Active | Draws a 3-second arrow plan on your team's screens | 20 s | Read the play and intercept |
-| `bench.gift` | Backseat | Ultimate | Throw any crowd gift to a team-mate | Once per half | Grab it first (anyone can after 1.5 s) |
+| `bs.loudMouth` | Backseat | Passive | Every trick adds Annoyance to team-mates within 200 | — | Use tricks sparingly |
+| `bs.driving` | Backseat | Trick | Mirror target's movement 1.2 s; 30% backfire on nearest team-mate | 18 s | Stop moving briefly |
+| `bs.trashTalk` | Backseat | Trick | Target mood −30; target gets +20% tackles vs the Backseat | 15 s | Recover mood |
+| `bs.fakeCall` | Backseat | Trick | Target ignores the next ball 0.6 s; 25% backfire | 20 s | Collect it with a short pass |
+| `bs.refWhisper` | Backseat | Trick | Referee looks at the Backseat 2 s; fouls on both teams unseen | 25 s | Foul the Backseat in front of the referee |
+| `bs.stare` | Backseat | Trick | Target controls lag 0.25 s for 3 s; Backseat rooted 1.5 s | 20 s | Pass early |
+| `bs.windUp` | Backseat | Trick | Keeper dive reach −30% 5 s; keeper's next save is a long counter | 30 s | Shoot early or pass |
+| `bs.blame` | Backseat | Trick | After conceding: team-mate mood −25, Backseat +30 mood, +20 charge | Once per goal conceded | Foul the Backseat |
+| `bs.hype` | Backseat | Trick | Team-mate +30 mood but overconfident 6 s (+speed, +spread, won't pass) | 16 s | — |
+| `bs.dive` | Backseat | Trick | 40% free kick if the referee is far; else yellow for diving and team mood −10 | 30 s | Stay clear of the Backseat near the referee |
+| `bs.meltdown` | Backseat | Ultimate | Opponents within 250: mood −35, controls lag 0.2 s for 3 s; team-mates Annoyance +40; Backseat rooted; yellow if seen | Once per half, 60 charge | Get out of range |
 
 ## 10. Network messages
 
@@ -321,8 +394,8 @@ All of this fits the current host-runs-everything design. New messages are small
 | `role` | Player → host | Lobby only | `{ role }` |
 | `ready` | Player → host | Lobby | `{ ready: true }` |
 | `roster` (extended) | Host → all | Lobby and joins | each entry gains `skin`, `role`, `ready` |
-| `in` (extended) | Player → host | Every input change | counters gain `ability`, `ult`, `taunt` (same edge-counter pattern as pass/foul) |
-| snapshot (extended) | Host → all | 20 per second | `cr` (crowd meter), `ab` (per-player ability cooldowns), `fx` (one-shot animation events: id, type, player) |
+| `in` (extended) | Player → host | Every input change | counters gain `ability`, `ult`, `taunt`, `trick1`, `trick2` (same edge-counter pattern as pass/foul) |
+| snapshot (extended) | Host → all | 20 per second | `cr` (crowd meter), `ab` (per-player ability and trick cooldowns), `md` (mood per player, rounded), `an` (Annoyance per team-mate of a Backseat), `fx` (one-shot animation and speech-bubble events: id, type, player) |
 | `rematch` | Player → host | Full time | `{ vote: true }` |
 
 `fx` events carry the big moments from §5 (goal, save, power shot, knockout, caught foul, celebration id), so every
@@ -341,7 +414,7 @@ screen plays the same animation at the same time without sending animation data.
 
 ## 12. Open questions
 
-1. **Backseat players:** coach on the bench (as written above), or a defensive "sitting back" role on the pitch?
+1. **Backseat:** decided: an on-pitch player with no field ability and double-edged tricks (§8.1). Should players pick 2 tricks, or get 1 trick + Meltdown?
 2. **Taunt key:** `T` is sand for P1 today. Use `Z` (P1) and `Backslash` (P2), or a hold-to-open wheel on an existing key?
 3. **Skins and fairness:** keep height and build purely cosmetic (current proposal), or allow small trade-offs?
 4. **Crowd pressure:** is the +10% shot spread for a team the crowd turns against fun, or too punishing?
