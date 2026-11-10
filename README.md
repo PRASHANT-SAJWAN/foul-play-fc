@@ -36,6 +36,16 @@ Some networks block direct browser-to-browser connections. For those players, th
 
 The match still runs in the host's browser either way. Relayed players have a little more lag (their traffic passes through Cloudflare).
 
+### Hosting from GitHub Pages with a relay
+
+The host doesn't need to play from their computer for the backup link to work. Someone (usually the host) runs the relay on any computer, and the host plays on GitHub Pages:
+
+1. Run `start-mac.command` / `start-windows.bat` and answer **Y** (or `python3 server.py --tunnel`). Copy the `https://….trycloudflare.com` link it prints, and keep that window open during the match.
+2. On GitHub Pages, create the room. Paste the link into **Relay link (optional)** in the lobby and choose **Connect relay**.
+3. The lobby shows a backup link like `https://<you>.github.io/foul-play-fc/?room=ABCDE&relay=xyz.trycloudflare.com`. Send it to friends who can't connect directly.
+
+Friends who open it stay on GitHub Pages, try a direct connection first and fall back to the relay automatically. Everyone else keeps joining with the room code. The relay only forwards messages; it can't save match files for other sites.
+
 ## Host it on GitHub Pages
 
 1. Create an empty **public** repository on GitHub, e.g. `foul-play-fc`.

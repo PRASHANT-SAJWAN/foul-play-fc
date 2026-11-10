@@ -254,10 +254,12 @@ class Handler(SimpleHTTPRequestHandler):
         if self.command == 'POST' or (args and str(args[1]) >= '400'):
             super().log_message(fmt, *args)
 
-    def send_json(self, code, obj):
+    def send_json(self, code, obj, cors=False):
         body = json.dumps(obj).encode('utf-8')
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
+        if cors:   # lets the GitHub Pages copy of the game check that this relay is up
+            self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -352,7 +354,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.split('?')[0] == '/api/health':
-            return self.send_json(200, {'ok': True, 'saves': True, 'dir': 'data-metric', 'relay': True, 'tunnel': PUBLIC_URL})
+            return self.send_json(200, {'ok': True, 'saves': True, 'dir': 'data-metric', 'relay': True, 'tunnel': PUBLIC_URL}, cors=True)
         if self.path.split('?')[0] == '/ws' and 'websocket' in self.headers.get('Upgrade', '').lower():
             return self.handle_ws()
         return super().do_GET()
@@ -360,6 +362,14 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path.split('?')[0] != '/api/metrics':
             return self.send_json(404, {'error': 'Unknown endpoint.'})
+        # Only the game itself (same origin, JSON body) may save matches. Other websites can't send
+        # application/json without a CORS preflight, which this server never approves.
+        if 'application/json' not in (self.headers.get('Content-Type') or ''):
+            return self.send_json(415, {'error': 'Expected a JSON body.'})
+        origin = self.headers.get('Origin')
+        allowed = {self.headers.get('Host') or ''} | ({urlparse(PUBLIC_URL).netloc} if PUBLIC_URL else set())
+        if origin and urlparse(origin).netloc not in allowed:
+            return self.send_json(403, {'error': 'Matches can only be saved by the game on this server.'})
         try:
             n = int(self.headers.get('Content-Length') or 0)
         except ValueError:
