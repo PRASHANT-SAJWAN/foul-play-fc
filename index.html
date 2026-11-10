@@ -22,6 +22,11 @@ body{background:var(--night);color:var(--ink);font-family:var(--ui);font-size:16
   display:flex;flex-direction:column;align-items:center;gap:10px}
 #stage{position:relative;width:min(100%,calc((100vh - 130px) * 1280 / 760),1280px);min-width:min(100%,320px);aspect-ratio:1280/760;max-width:100%}
 canvas{width:100%;height:100%;display:block;border-radius:12px;background:#0b1410;touch-action:none}
+#game{position:relative;z-index:1}
+#game3d{position:absolute;inset:0;display:none}
+#stage.gfx3d #game3d{display:block}
+#stage.gfx3d #game{background:transparent}
+.overlay,#touch{z-index:3}
 .overlay{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;background:rgba(4,8,7,.74);backdrop-filter:blur(3px);border-radius:12px;overflow:auto;padding:16px;box-sizing:border-box}
 .card{max-width:760px;width:100%;display:flex;flex-direction:column;gap:14px}
 .overlay>.card,.overlay>.panel{margin-block:auto}
@@ -119,7 +124,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 .team ul{margin:0;padding:0;list-style:none;font-size:16px}
 .team li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .team .bot{color:var(--muted)}
-#admin{position:absolute;top:8px;right:8px;width:min(236px,46%);max-height:calc(100% - 16px);display:flex;flex-direction:column;background:rgba(8,14,12,.93);border:1px solid var(--line);border-radius:8px;font-size:14px;overflow:hidden;z-index:2}
+#admin{position:absolute;top:8px;right:8px;width:min(236px,46%);max-height:calc(100% - 16px);display:flex;flex-direction:column;background:rgba(8,14,12,.93);border:1px solid var(--line);border-radius:8px;font-size:14px;overflow:hidden;z-index:4}
 .adm-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px}
 .adm-head span{font-family:var(--display);font-size:24px;line-height:1;color:var(--gold)}
 .adm-x{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:4px;font-family:var(--ui);font-size:13px;padding:2px 8px;cursor:pointer}
@@ -139,6 +144,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 </head>
 <body>
 <div id="stage">
+  <canvas id="game3d" aria-hidden="true"></canvas>
   <canvas id="game" aria-label="Foul Play FC game pitch"></canvas>
 
   <div id="touch" hidden>
@@ -235,6 +241,10 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       </div>
       <div class="panel-body" id="settings-body">
         <section class="tabpanel" id="sp-game" role="tabpanel" aria-labelledby="st-game">
+          <div class="field-group">
+            <div><h3>Graphics</h3><p class="hint" id="gfx-note">3D uses WebGL and loads three.js the first time. Classic is the original 2.5D view and runs anywhere.</p></div>
+            <div class="seg" id="gfxopt"></div>
+          </div>
           <div class="field-group">
             <div><h3>Game pace</h3><p class="hint">Slows players, ball, referees and bots together. The match clock still runs in real time.</p></div>
             <div class="seg" id="pace"></div>
@@ -338,7 +348,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 <script>
 (() => {
 'use strict';
-const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+const cv = document.getElementById('game'), ctx = cv.getContext('2d'), cv3 = document.getElementById('game3d');
 const LW = 1280, LH = 760, W = 1000, H = 620, K = 1.1, TOP = 178;
 const GOAL_HALF = 62, GOAL_H = 48, BOX_D = 150, BOX_HALF = 140;
 const UI = "'Barlow Condensed','Arial Narrow',sans-serif", DISP = "'Teko','Arial Narrow',Impact,sans-serif";
@@ -360,7 +370,9 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
-function proj(x, y, z = 0) { const t = y / H, s = (0.7 + 0.3 * t) * K; return { x: LW / 2 + (x - W / 2) * s, y: TOP + H * K * (0.5 * t + 0.25 * t * t) - z * s, s }; }
+function proj2d(x, y, z = 0) { const t = y / H, s = (0.7 + 0.3 * t) * K; return { x: LW / 2 + (x - W / 2) * s, y: TOP + H * K * (0.5 * t + 0.25 * t * t) - z * s, s }; }
+// The 3D view swaps in its own camera projection so labels and text land on the 3D scene.
+let proj = proj2d, R3 = null, GFX3D = false, gfxNote = '';
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['pass', 'Pass / switch player'], ['shoot', 'Shoot (hold) / tackle'], ['foul', 'Foul target'], ['cycle', 'Next foul target'], ['blind', 'Throw sand at ref'], ['item', 'Drop banana'], ['sprint', 'Sprint (uses charge)']];
@@ -1654,7 +1666,7 @@ function drawBackdrop() {
 }
 function drawChants() {
   for (const c of S.chants) {
-    const age = 2.2 - c.life, P = proj(c.x, -150 - age * 30), a = Math.max(0, Math.min(1, c.life * 1.5, age * 6));
+    const age = 2.2 - c.life, P = proj === proj2d ? proj(c.x, -150 - age * 30) : proj(c.x, -110, 80 + age * 24), a = Math.max(0, Math.min(1, c.life * 1.5, age * 6));
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(34 * P.s)}px ${DISP}`; ctx.textAlign = 'center';
     const w = ctx.measureText(c.text).width + 22 * P.s, h = 30 * P.s;
     ctx.fillStyle = 'rgba(6,11,10,.8)'; rr(P.x - w / 2, P.y - h, w, h, 8 * P.s);
@@ -2003,8 +2015,99 @@ function drawPauseMsg() {
   ctx.font = `600 24px ${UI}`; ctx.fillStyle = '#eef2e6'; ctx.fillText(S.pauseSub, LW / 2, 432);
   ctx.globalAlpha = 1;
 }
+function drawRefBlind() {
+  if (S.refHuman && S.refs[0].blind > 0) {
+    const a = Math.min(1, S.refs[0].blind) * 0.86;
+    ctx.fillStyle = `rgba(48,36,14,${a})`; ctx.fillRect(0, 0, LW, LH);
+    ctx.fillStyle = `rgba(216,192,138,${a * 0.6})`;
+    for (let i = 0; i < 160; i++) { const sx = (Math.sin(i * 12.9898 + S.time * 3) * 43758.5453 % 1 + 1) % 1, sy = (Math.sin(i * 78.233 + S.time * 2) * 12345.678 % 1 + 1) % 1; ctx.fillRect(sx * LW, sy * LH, 3, 3); }
+    ctx.globalAlpha = a; ctx.fillStyle = '#f3e3b8'; ctx.textAlign = 'center'; ctx.font = `700 54px ${DISP}`; ctx.fillText('SAND IN YOUR EYES', LW / 2, LH / 2);
+    ctx.font = `600 20px ${UI}`; ctx.fillText(`You can't see fouls for ${S.refs[0].blind.toFixed(1)}s`, LW / 2, LH / 2 + 30); ctx.globalAlpha = 1;
+  }
+}
+function draw3d() {
+  try { R3.render(S.time); }
+  catch (e) { console.error(e); setGraphics(false, 'The 3D view stopped with an error, so the game switched to classic graphics.'); return; }
+  ctx.clearRect(0, 0, LW, LH);
+  drawOverlays3D();
+  drawRefBlind();
+  const v = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.55, LW / 2, LH / 2, LH * 1.0); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.3)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, LW, LH);
+  drawSetPiece(); drawHUD(); drawPauseMsg();
+}
+// Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
+function drawOverlays3D() {
+  drawChants();
+  for (const p of S.players) {
+    if (!onPitch(p)) continue;
+    const down = p.stun > 0 || p.ko > 0;
+    if (p.human) {
+      const P = proj(p.x, p.y, down ? 16 : 48), s = Math.max(0.75, P.s), col = HUMAN_COL[p.human.idx % HUMAN_COL.length];
+      drawLabelPill(P.x, P.y, s, col, p.human.label || 'P' + (p.human.idx + 1));
+      if (p.human.charging && S.ball.owner === p) { const w = 26 * s; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(P.x - w / 2, P.y - 26 * s, w, 4 * s); ctx.fillStyle = col; ctx.fillRect(P.x - w / 2, P.y - 26 * s, w * p.human.charge, 4 * s); }
+    }
+    if (p.hp < 100 && (p.hitT > 0 || p.human)) {
+      const P = proj(p.x, p.y, down ? 10 : 44), s = Math.max(0.75, P.s), w = 24 * s;
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(P.x - w / 2, P.y, w, 3 * s);
+      ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(P.x - w / 2, P.y, w * p.hp / 100, 3 * s);
+    }
+    if (p.yellows > 0) { const P = proj(p.x, p.y, 44); ctx.fillStyle = '#ffd23f'; ctx.fillRect(P.x + 14 * P.s, P.y - 4 * P.s, 4 * P.s, 6 * P.s); }
+    if (p.stun > 0 && p.ko <= 0) { const P = proj(p.x, p.y, 12); drawStars(P.x, P.y, P.s); }
+    if (p.ko > 0) { const P = proj(p.x, p.y, 20); ctx.fillStyle = '#ff6b6b'; ctx.font = `700 ${12 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('K.O. ' + Math.ceil(p.ko), P.x, P.y); }
+  }
+  for (const r of S.refs) {
+    if (r.blind > 0) {
+      const P = proj(r.x, r.y, 46); drawStars(P.x, P.y, P.s);
+      ctx.fillStyle = 'rgba(240,228,190,.95)'; ctx.font = `600 ${11 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('BLINDED ' + r.blind.toFixed(1) + 's', P.x, P.y - 9 * P.s);
+    } else if (r.human) { const P = proj(r.x, r.y, 50); drawLabelPill(P.x, P.y, Math.max(0.75, P.s), '#ffd23f', 'YOU · REF'); }
+  }
+  for (const h of S.humans) {
+    if (h.remote) continue;
+    const p = S.players[h.pid]; if (!p || !p.target || !able(p)) continue;
+    const t = p.target, P = proj(t.x, t.y, 0), help = t.stun > 0, ready = p.foulCd <= 0;
+    ctx.fillStyle = help ? '#9dffb8' : ready ? '#ff8095' : 'rgba(255,128,149,.5)'; ctx.font = `700 ${11 * P.s}px ${UI}`; ctx.textAlign = 'center';
+    ctx.fillText(help ? `HELP UP [${keyLabel(h.map.foul[0])}]` : `FOUL [${keyLabel(h.map.foul[0])}]${t.team === p.team ? ' · TEAMMATE' : ''}`, P.x, P.y + 26 * P.s);
+  }
+  for (const q of S.parts) { const P = proj(q.x, q.y, q.z); ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.col; ctx.fillRect(P.x - q.size / 2, P.y - q.size / 2, q.size, q.size); }
+  ctx.globalAlpha = 1;
+  for (const t of S.texts) { const P = proj(t.x, t.y, t.z + 20); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
+  ctx.globalAlpha = 1;
+}
+// What the 3D view should mark on the ground.
+function view3d() {
+  const humans = [], targets = [], passes = [];
+  for (const p of S.players) if (p.human && onPitch(p)) humans.push({ x: p.x, y: p.y, face: p.face, col: HUMAN_COL[p.human.idx % HUMAN_COL.length] });
+  for (const h of S.humans) {
+    if (h.remote) continue;
+    const p = S.players[h.pid]; if (!p || !able(p)) continue;
+    if (S.ball.owner === p) { const q = pickPassTarget(p, passDir(p)); if (q) passes.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, col: HUMAN_COL[h.idx % HUMAN_COL.length] }); }
+    if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
+  }
+  const r0 = S.refs[0];
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null };
+}
+const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
+async function setGraphics(on, note) {
+  gfxNote = note || '';
+  GFX3D = !!on;
+  if (GFX3D && !R3) {
+    try {
+      const mod = await import('./render3d.js');
+      R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, TEAM, HUMAN_COL, view: view3d, coneHot });
+      resize();
+    } catch (e) {
+      console.error(e); GFX3D = false; R3 = null;
+      gfxNote = 'Could not start 3D here (' + (e && e.message ? e.message : 'WebGL unavailable') + '). Using classic graphics.';
+    }
+  }
+  if (!GFX3D) store.set('fpfc-gfx', note ? store.get('fpfc-gfx') : '2d'); else store.set('fpfc-gfx', '3d');
+  document.getElementById('stage').classList.toggle('gfx3d', GFX3D && !!R3);
+  proj = GFX3D && R3 ? R3.project : proj2d;
+  if (!document.getElementById('settings').hidden) renderOpts();
+}
 function draw() {
   ctx.setTransform(cv.width / LW, 0, 0, cv.height / LH, 0, 0);
+  if (GFX3D && R3) { draw3d(); return; }
   ctx.save();
   if (S.shake > 0) ctx.translate(rand(-1, 1) * S.shake, rand(-1, 1) * S.shake);
   drawBackdrop(); drawPitch(); drawGoal(0); drawGoal(1); drawCones();
@@ -2022,14 +2125,7 @@ function draw() {
   for (const t of S.texts) { const P = proj(t.x, t.y, t.z); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
   ctx.globalAlpha = 1;
   ctx.restore();
-  if (S.refHuman && S.refs[0].blind > 0) {
-    const a = Math.min(1, S.refs[0].blind) * 0.86;
-    ctx.fillStyle = `rgba(48,36,14,${a})`; ctx.fillRect(0, 0, LW, LH);
-    ctx.fillStyle = `rgba(216,192,138,${a * 0.6})`;
-    for (let i = 0; i < 160; i++) { const sx = (Math.sin(i * 12.9898 + S.time * 3) * 43758.5453 % 1 + 1) % 1, sy = (Math.sin(i * 78.233 + S.time * 2) * 12345.678 % 1 + 1) % 1; ctx.fillRect(sx * LW, sy * LH, 3, 3); }
-    ctx.globalAlpha = a; ctx.fillStyle = '#f3e3b8'; ctx.textAlign = 'center'; ctx.font = `700 54px ${DISP}`; ctx.fillText('SAND IN YOUR EYES', LW / 2, LH / 2);
-    ctx.font = `600 20px ${UI}`; ctx.fillText(`You can't see fouls for ${S.refs[0].blind.toFixed(1)}s`, LW / 2, LH / 2 + 30); ctx.globalAlpha = 1;
-  }
+  drawRefBlind();
   const v = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.45, LW / 2, LH / 2, LH * 0.95); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)');
   ctx.fillStyle = v; ctx.fillRect(0, 0, LW, LH);
   drawSetPiece(); drawHUD(); drawPauseMsg();
@@ -2039,6 +2135,7 @@ function draw() {
 function resize() {
   const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.max(320, Math.round(r.width * dpr)); cv.height = Math.max(190, Math.round(r.height * dpr));
+  if (R3) R3.resize(r.width, r.height, dpr);
 }
 addEventListener('resize', resize);
 const overlays = ['menu', 'paused', 'over', 'settings', 'online', 'guide'];
@@ -2182,6 +2279,10 @@ function openGuide(from) { guideFrom = from; renderGuide(); showOverlay('guide')
 function closeGuide() { showOverlay(guideFrom); }
 
 function renderOpts() {
+  const gx = document.getElementById('gfxopt');
+  gx.innerHTML = [['3D', true], ['Classic 2.5D', false]].map(([n, v]) => `<button id="gfx-${v}" aria-pressed="${v === GFX3D}" data-v="${v}">${n}</button>`).join('');
+  gx.querySelectorAll('button').forEach(b => b.onclick = async () => { b.textContent = b.dataset.v === 'true' && !R3 ? 'Loading…' : b.textContent; await setGraphics(b.dataset.v === 'true'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
+  document.getElementById('gfx-note').textContent = gfxNote || '3D uses WebGL and loads three.js the first time. Classic is the original 2.5D view and runs anywhere.';
   const len = document.getElementById('len');
   len.innerHTML = LENS.map(([n, v]) => `<button id="len-${v}" aria-pressed="${v === MATCH_LEN}" data-v="${v}">${n}</button>`).join('');
   len.querySelectorAll('button').forEach(b => b.onclick = () => { MATCH_LEN = +b.dataset.v; store.set('fpfc-len', MATCH_LEN); renderOpts(); document.getElementById(b.id).focus(); });
@@ -2625,6 +2726,7 @@ document.getElementById('adm-inf').addEventListener('change', e => { if (S.admin
 
 // Debug hook for testing: only exposed when the URL contains ?debug
 if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV };
+if (store.get('fpfc-gfx') !== '2d') setGraphics(true);
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
