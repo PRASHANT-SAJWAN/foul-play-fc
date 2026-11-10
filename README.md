@@ -15,18 +15,29 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
 - **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
 - **Classes:** 12 classes (Striker, Assassin, Speedster, Tank, Defender, Goalkeeper, Playmaker, Healer, Aura, Brawler, Trickster, Ranger), each with a passive, three skills and an ultimate on a hotbar, plus synergies and bot line-ups. Blocky characters with faces wear their class look by default. Full list in **Classes & skills** in the game and in [docs/feature-catalog.md](docs/feature-catalog.md).
-- **Mouse and MMO controls:** the mouse aims passes, shots, skills and weapons (left-click attack, right-click pass). Optional Albion-style controls: left-click to move, right-click to shoot or attack, Q W E skills, R ultimate. You can also lock yourself to one character instead of switching team-mates.
+- **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. You can lock yourself to one character instead of switching team-mates.
 - **Ranged weapons:** slingshots and foam blasters from the crowd.
 
 ### Default keys (player 1)
 
-| Move | Short pass / short tackle / switch | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt | Skills | Ultimate | Attack / fire |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| W A S D | L | J | Space | Left Shift | R | Q | E | K | I | U | T (hold) | 1 2 3 | 4 | F or left-click |
+| Keys | Action |
+|---|---|
+| W A S D | Move and aim (the direction turns smoothly, so tap to fine-tune) |
+| Left Shift | Sprint |
+| Space | Shoot (hold to power) · jump without the ball · volley or header in the air |
+| J | Pass · tackle when an opponent with the ball is close · otherwise switch player |
+| K | Long pass · sliding tackle |
+| L | Switch player |
+| Q | Punch · jump kick in the air · fires a slingshot or blaster if you have one |
+| E | Item: lift or throw the referee when next to them, otherwise your throwable |
+| R | Sand at the referee |
+| 1 2 3 | Class skills |
+| F | Ultimate |
+| T | Taunt (hold and pick a direction) |
 
-Without the ball, L tackles if an opponent with the ball is close, and otherwise switches player. In the air, press Space again to volley or head the ball, or L / J for a headed pass. A carried referee keeps watching wherever the carrier faces.
+Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `P`, 8 9 0, `-` and `]`. Only the keys for the current mode are shown under the game.
 
-Change them in **Pace and controls → Controls**; changes are saved in the browser. Custom keys from the previous version are kept, and the old jump-kick key becomes the lift-referee key.
+Change them in **Pace and controls → Controls**; changes are saved in the browser. This layout replaces older custom keys once (a copy is kept in `fpfc-binds-old`).
 
 ## How online play works
 
