@@ -3,6 +3,118 @@
 // world x (0..W) maps to three.js X, world y (0..H) to Z, and height z to Y.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
+const stdM = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0, ...o });
+function makeCanvasTex(maxAniso) {
+  return (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; return t; };
+}
+// A jointed low-poly footballer. `look` carries team colours plus the optional skin (hair style, trim, accessories…).
+function buildRig(look, canvasTex) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const trim = look.trim || null;
+  const m = { jersey: stdM(look.jersey), shorts: stdM(look.shorts), skin: stdM(look.skin, { roughness: 0.6 }), hair: stdM(look.hair, { roughness: 0.9 }),
+    sleeves: stdM(look.sleeves || look.jersey), boots: stdM(look.boots || '#151515', { roughness: 0.5 }), trim: stdM(trim || '#ffffff') };
+  const shirt = canvasTex(64, 64, (c, w, h) => { c.fillStyle = look.jersey; c.fillRect(0, 0, w, h); if (trim) { c.fillStyle = trim; c.fillRect(0, 0, w, 6); c.fillRect(0, h - 6, w, 6); } if (look.num != null) { c.fillStyle = look.numCol; c.font = "700 40px 'Barlow Condensed','Arial Narrow',sans-serif"; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(look.num), w / 2, h / 2 + 3); } });
+  const back = new THREE.MeshStandardMaterial({ map: shirt, roughness: 0.8 });
+  const side = trim ? new THREE.MeshStandardMaterial({ map: canvasTex(16, 64, (c, w, h) => { c.fillStyle = look.jersey; c.fillRect(0, 0, w, h); c.fillStyle = trim; c.fillRect(0, 0, w, 6); c.fillRect(0, h - 6, w, 6); }), roughness: 0.8 }) : m.jersey;
+  const socks = new THREE.MeshStandardMaterial({ map: canvasTex(16, 64, (c, w, h) => { c.fillStyle = look.socks; c.fillRect(0, 0, w, h); c.fillStyle = trim || '#ffffff'; if (look.sockStyle === 1) for (let y = 6; y < h; y += 14) c.fillRect(0, y, w, 5); if (look.sockStyle === 2) c.fillRect(6, 0, 4, h); }), roughness: 0.8 });
+  const bw = look.build === 0 ? 0.88 : look.build === 2 ? 1.14 : 1;
+  const legGeo = new THREE.BoxGeometry(3.8, 14, 3.8).translate(0, -7, 0), bootGeo = new THREE.BoxGeometry(4, 2.4, 6.2).translate(0, -13.6, 1);
+  const mkLeg = x => { const leg = new THREE.Mesh(legGeo, socks); leg.position.set(x, 15, 0); leg.add(new THREE.Mesh(bootGeo, m.boots)); body.add(leg); return leg; };
+  const legL = mkLeg(-2.5 * bw), legR = mkLeg(2.5 * bw);
+  const shorts = new THREE.Mesh(new THREE.BoxGeometry(11.4 * bw, 6.5, 6.6), m.shorts); shorts.position.y = 16.6; body.add(shorts);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(12.4 * bw, 12.5, 7), [side, side, m.jersey, m.jersey, back, back]); torso.position.y = 25.6; body.add(torso);
+  const longSleeve = look.sleeveStyle === 1;
+  const upper = new THREE.BoxGeometry(3.3, longSleeve ? 12 : 5.5, 3.3).translate(0, longSleeve ? -6 : -2.75, 0);
+  const fore = longSleeve ? null : new THREE.BoxGeometry(2.9, 6.6, 2.9).translate(0, -8.8, 0);
+  const handGeo = new THREE.SphereGeometry(1.9, 8, 6).translate(0, -12.6, 0), bandGeo = new THREE.CylinderGeometry(1.95, 1.95, 1.6, 10).translate(0, -10.6, 0);
+  const mkArm = x => { const arm = new THREE.Mesh(upper, m.sleeves); arm.position.set(x, 31, 0); if (fore) arm.add(new THREE.Mesh(fore, m.skin)); arm.add(new THREE.Mesh(handGeo, m.skin)); if (look.accessory === 2) arm.add(new THREE.Mesh(bandGeo, m.trim)); body.add(arm); return arm; };
+  const armL = mkArm(-8.1 * bw), armR = mkArm(8.1 * bw);
+  const headG = new THREE.Group(); headG.position.y = 36.8; body.add(headG);
+  headG.add(new THREE.Mesh(new THREE.SphereGeometry(4.7, 16, 12), m.skin));
+  const hs = look.hairStyle == null ? 1 : look.hairStyle;
+  const cap = (r, th) => { const h = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8, 0, Math.PI * 2, 0, th), m.hair); h.position.y = 0.3; h.rotation.x = -0.25; headG.add(h); };
+  if (hs === 0) cap(4.8, Math.PI / 2.6);
+  if (hs === 1) cap(4.95, Math.PI / 2.1);
+  if (hs === 2) { cap(4.9, Math.PI / 2.3); for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, c = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), m.hair); c.position.set(Math.cos(a) * 3.4, 3.4, Math.sin(a) * 3.4 - 0.6); headG.add(c); } }
+  if (hs === 3) { cap(4.95, Math.PI / 2.1); const bun = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), m.hair); bun.position.set(0, 4.6, -2.6); headG.add(bun); }
+  if (hs === 4) { const mo = new THREE.Mesh(new THREE.BoxGeometry(1.4, 3.6, 9), m.hair); mo.position.set(0, 4.4, -0.6); headG.add(mo); }
+  if (hs === 5) { cap(5, Math.PI / 2); const lb = new THREE.Mesh(new THREE.BoxGeometry(8.6, 8, 2.4), m.hair); lb.position.set(0, -1.5, -3.8); headG.add(lb); }
+  if (hs === 7) { const af = new THREE.Mesh(new THREE.SphereGeometry(6.8, 16, 12), m.hair); af.position.set(0, 2.6, -1.4); headG.add(af); }
+  if (look.facial === 1) headG.add(new THREE.Mesh(new THREE.SphereGeometry(4.78, 12, 8, 0, Math.PI * 2, Math.PI / 1.8, Math.PI / 3), stdM('#3a2a1f', { transparent: true, opacity: 0.35 })));
+  if (look.facial === 2) { const bd = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 3), m.hair); bd.position.set(0, -3.2, 2.8); headG.add(bd); }
+  if (look.facial === 3) { const mu = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.8, 1), m.hair); mu.position.set(0, -1.6, 4.5); headG.add(mu); }
+  if (look.accessory === 1) { const hb = new THREE.Mesh(new THREE.TorusGeometry(4.75, 0.6, 6, 20), m.trim); hb.rotation.x = Math.PI / 2; hb.position.y = 1.6; headG.add(hb); }
+  if (look.accessory === 3) { const gl = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.4, 0.8), stdM('#111111', { roughness: 0.2, metalness: 0.4 })); gl.position.set(0, 0.6, 4.4); headG.add(gl); }
+  if (look.accessory === 4) { const mk = new THREE.Mesh(new THREE.BoxGeometry(5.6, 2.8, 1.2), stdM('#e8e8e8')); mk.position.set(0, -2, 4.2); headG.add(mk); }
+  const bat = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 0.9, 18, 8), stdM('#a06a33'));
+  bat.position.set(0, -13, 4); bat.rotation.x = Math.PI / 2.6; bat.visible = false; armR.add(bat);
+  const card = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.6, 0.5), stdM('#ffd23f', { emissive: '#ffd23f', emissiveIntensity: 0.4 }));
+  card.position.set(0, -15.5, 0); card.visible = false; armR.add(card);
+  const birds = new THREE.Group();
+  for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), stdM('#ffe66d', { emissive: '#ffcc33', emissiveIntensity: 0.6 })); b.position.set(Math.cos(k * 2.1) * 7, 0, Math.sin(k * 2.1) * 7); birds.add(b); }
+  birds.position.y = 14; birds.visible = false; g.add(birds);
+  g.scale.setScalar(1 + (look.height || 0) * 0.01);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { g, body, headG, legL, legR, armL, armR, bat, card, birds, m };
+}
+// Short animations layered over the running pose: fouls, shots, celebrations and taunts.
+function applyAnim(R, anim, time) {
+  if (!anim) return;
+  const S2 = (o, x, y, z) => o.rotation.set(x, y, z);
+  switch (anim) {
+    case 'punch': S2(R.armR, -1.6, 0, -0.1); R.body.rotation.x += 0.15; break;
+    case 'kick': R.body.position.y += 6; R.legR.rotation.x = -1.5; R.legL.rotation.x = 0.4; R.body.rotation.x = -0.35; S2(R.armL, -1.2, 0, 0.6); break;
+    case 'swing': { const ph = Math.sin(time * 18); S2(R.armR, -1.4 + ph, 0, -0.3); S2(R.armL, -1.4 + ph, 0, 0.3); break; }
+    case 'shoot': R.legR.rotation.x = -1.1; R.armL.rotation.z = 0.8; break;
+    case 'plead': R.body.position.y = -6; R.legL.rotation.x = -1.5; R.legR.rotation.x = -1.5; S2(R.armL, -1.4, 0, 0.2); S2(R.armR, -1.4, 0, -0.2); break;
+    case 'facepalm': S2(R.armR, -2.7, 0, -0.5); R.headG.rotation.x = 0.3; break;
+    case 'cel0': R.body.position.y = -5; R.body.rotation.x = -0.35; R.legL.rotation.x = -1.5; R.legR.rotation.x = -1.5; S2(R.armL, -0.4, 0, 1.6); S2(R.armR, -0.4, 0, -1.6); break;
+    case 'cel1': S2(R.armL, 0, 0, 1.55); S2(R.armR, 0, 0, -1.55); R.body.rotation.z = Math.sin(time * 4) * 0.3; break;
+    case 'cel2': { const ph = (time * 1.6) % 1; R.body.rotation.x = -ph * Math.PI * 2; R.body.position.y = Math.sin(ph * Math.PI) * 18; break; }
+    case 'cel3': { const st = Math.floor(time * 4) % 2; S2(R.armL, -1.57 * st, 0, 0.2); S2(R.armR, -1.57 * (1 - st), 0, -0.2); R.headG.rotation.y = st ? 0.5 : -0.5; break; }
+    case 'cel4': S2(R.armR, -2.5, 0, -0.35); break;
+    case 'cel5': S2(R.armR, -2.3, 0, -1.3); R.headG.rotation.z = 0.25; break;
+    case 'shrug': S2(R.armL, -0.3, 0, 0.9); S2(R.armR, -0.3, 0, -0.9); break;
+    case 'point': S2(R.armR, -1.55, 0, 0); R.headG.rotation.x = -0.15 * Math.sin(time * 10); break;
+    case 'sorry': S2(R.armL, -2.9, 0, 0.3); S2(R.armR, -2.9, 0, -0.3); break;
+    case 'wave': S2(R.armR, -2.8, 0, -0.4 + Math.sin(time * 12) * 0.4); break;
+    case 'chest': { const st = Math.sin(time * 14) > 0; S2(R.armL, -1.3, 0, st ? -0.7 : -0.3); S2(R.armR, -1.3, 0, st ? 0.3 : 0.7); break; }
+    case 'thumbs': S2(R.armR, -1.5, 0, -0.2); break;
+  }
+}
+// Turntable preview for the character creator.
+export function createPreview(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight('#c2d8ff', '#2a3a30', 1.3));
+  const key = new THREE.DirectionalLight('#fff3da', 2.2); key.position.set(60, 120, 100); scene.add(key);
+  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(18, 20, 3, 40), stdM('#1d2a24')); plinth.position.y = -1.5; scene.add(plinth);
+  const cam = new THREE.PerspectiveCamera(30, 1, 1, 1000); cam.position.set(0, 30, 112); cam.lookAt(0, 22, 0);
+  const tex = makeCanvasTex(renderer.capabilities.getMaxAnisotropy());
+  let R = null, lastKey = '', raf = 0, anim = '', animUntil = 0;
+  const t0 = performance.now();
+  function frame() {
+    const now = performance.now(), time = (now - t0) / 1000;
+    if (R) {
+      R.g.rotation.y = time * 0.6;
+      R.body.rotation.set(0, 0, 0); R.body.position.y = 0; R.headG.rotation.set(0, 0, 0);
+      R.legL.rotation.set(0, 0, 0); R.legR.rotation.set(0, 0, 0);
+      R.armL.rotation.set(Math.sin(time * 2) * 0.05, 0, 0.12); R.armR.rotation.set(-Math.sin(time * 2) * 0.05, 0, -0.12);
+      if (anim && now < animUntil) applyAnim(R, anim, time);
+    }
+    const w = canvas.clientWidth || 300, h = canvas.clientHeight || 300, dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+    renderer.render(scene, cam);
+    raf = requestAnimationFrame(frame);
+  }
+  return {
+    setLook(look) { const k = JSON.stringify(look); if (k === lastKey) return; lastKey = k; if (R) scene.remove(R.g); R = buildRig(look, tex); scene.add(R.g); },
+    play(a, seconds = 2.5) { anim = a; animUntil = performance.now() + seconds * 1000; },
+    start() { if (!raf) frame(); }, stop() { cancelAnimationFrame(raf); raf = 0; }
+  };
+}
+
 export function createRenderer3D(canvas, G) {
   const { W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL } = G;
   const SPACING = W > 1500 ? 15 : 10;   // crowd density: fewer, wider-spaced fans on the big stadium
@@ -161,40 +273,11 @@ export function createRenderer3D(canvas, G) {
   }
 
   /* ---------- people: a jointed low-poly rig ---------- */
-  function numberTex(num, bg, fg) {
-    return canvasTex(64, 64, (c, w, h) => { c.fillStyle = bg; c.fillRect(0, 0, w, h); if (num != null) { c.fillStyle = fg; c.font = "700 40px 'Barlow Condensed','Arial Narrow',sans-serif"; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(num), w / 2, h / 2 + 3); } });
-  }
-  function makeRig(look) {
-    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-    const m = {
-      jersey: std(look.jersey), shorts: std(look.shorts), socks: std(look.socks), skin: std(look.skin, { roughness: 0.6 }),
-      hair: std(look.hair, { roughness: 0.9 }), sleeves: std(look.sleeves || look.jersey), boots: std('#151515', { roughness: 0.5 })
-    };
-    const back = new THREE.MeshStandardMaterial({ map: numberTex(look.num, look.jersey, look.numCol), roughness: 0.8 });
-    const legGeo = new THREE.BoxGeometry(3.8, 14, 3.8).translate(0, -7, 0);
-    const bootGeo = new THREE.BoxGeometry(4, 2.4, 6.2).translate(0, -13.6, 1);
-    const mkLeg = x => { const leg = new THREE.Mesh(legGeo, m.socks); leg.position.set(x, 15, 0); leg.add(new THREE.Mesh(bootGeo, m.boots)); body.add(leg); return leg; };
-    const legL = mkLeg(-2.5), legR = mkLeg(2.5);
-    const shorts = new THREE.Mesh(new THREE.BoxGeometry(11.4, 6.5, 6.6), m.shorts); shorts.position.y = 16.6; body.add(shorts);
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(12.4, 12.5, 7), [m.jersey, m.jersey, m.jersey, m.jersey, back, back]);
-    torso.position.y = 25.6; body.add(torso);
-    const armGeo = new THREE.BoxGeometry(3.2, 12, 3.2).translate(0, -6, 0);
-    const handGeo = new THREE.SphereGeometry(1.9, 8, 6).translate(0, -12.6, 0);
-    const mkArm = x => { const arm = new THREE.Mesh(armGeo, m.sleeves); arm.position.set(x, 31, 0); arm.add(new THREE.Mesh(handGeo, m.skin)); body.add(arm); return arm; };
-    const armL = mkArm(-8.1), armR = mkArm(8.1);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(4.7, 14, 10), m.skin); head.position.y = 36.8; body.add(head);
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(4.95, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.1), m.hair); hair.position.y = 37.1; hair.rotation.x = -0.25; body.add(hair);
-    const bat = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 0.9, 18, 8), std('#a06a33'));
-    bat.position.set(0, -13, 4); bat.rotation.x = Math.PI / 2.6; bat.visible = false; armR.add(bat);
-    const card = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.6, 0.5), std('#ffd23f', { emissive: '#ffd23f', emissiveIntensity: 0.4 }));
-    card.position.set(0, -15.5, 0); card.visible = false; armR.add(card);
-    shadowAll(g);
-    scene.add(g);
-    return { g, body, legL, legR, armL, armR, bat, card, m, src: null };
-  }
+  function makeRig(look) { const R = buildRig(look, canvasTex); scene.add(R.g); return R; }
   function pose(R, x, y, face, run, moving, down, lean) {
     R.g.position.set(x - W / 2, 0, y - H / 2);
     R.g.rotation.y = Math.PI / 2 - face;
+    R.headG.rotation.set(0, 0, 0);
     const sw = Math.sin(run) * 0.85 * moving;
     R.legL.rotation.set(sw, 0, 0); R.legR.rotation.set(-sw, 0, 0);
     R.armL.rotation.set(-sw * 0.9, 0, 0.1); R.armR.rotation.set(sw * 0.9, 0, -0.1);
@@ -203,10 +286,13 @@ export function createRenderer3D(canvas, G) {
   }
 
   const playerRigs = [];
-  const playerLook = p => ({
-    jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : TEAM[p.team].col, shorts: TEAM[p.team].shorts, socks: TEAM[p.team].socks,
-    skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee'
-  });
+  const playerLook = p => {
+    const L = { jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : TEAM[p.team].col, shorts: TEAM[p.team].shorts, socks: TEAM[p.team].socks,
+      skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee' };
+    const sk = p.skinData, O = G.SKIN_OPTS;
+    if (sk && O) Object.assign(L, { trim: O.trim[sk.trim], sleeveStyle: sk.sleeves, sockStyle: sk.socks, boots: O.boots[sk.boots], hairStyle: sk.hair, facial: sk.facial, accessory: sk.accessory, build: sk.build, height: sk.height });
+    return L;
+  };
   const refRigs = [0, 1].map(() => makeRig({ jersey: '#161616', shorts: '#161616', socks: '#161616', sleeves: '#ffd23f', skin: '#d9a477', hair: '#2a2a2a', num: null, numCol: '#fff' }));
 
   /* ---------- ball ---------- */
@@ -230,9 +316,13 @@ export function createRenderer3D(canvas, G) {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.1, 20, 8), std('#b07a3c')); m.rotation.z = Math.PI / 2.3; g.add(m);
     } else if (type === 'flash') {
       g.add(new THREE.Mesh(new THREE.SphereGeometry(4, 14, 10), std('#ffd23f', { emissive: '#ffcc33', emissiveIntensity: 1.4 })));
-    } else {
+    } else if (type === 'banana' || type === 'peel') {
       const m = new THREE.Mesh(new THREE.TorusGeometry(5, 1.5, 6, 14, Math.PI * 0.85), std('#ffe14d', { roughness: 0.55 }));
       if (type === 'peel') m.rotation.x = -Math.PI / 2; g.add(m);
+    } else {
+      const col = (G.ITEM_COL && G.ITEM_COL[type]) || '#ffffff';
+      g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(4.6, 0), std(col, { emissive: col, emissiveIntensity: 0.55, roughness: 0.4 })));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(6.4, 0.5, 6, 24), std(col, { emissive: col, emissiveIntensity: 0.8 })); ring.rotation.x = Math.PI / 2; g.add(ring);
     }
     shadowAll(g); scene.add(g); return g;
   }
@@ -291,6 +381,12 @@ export function createRenderer3D(canvas, G) {
   airRing.renderOrder = landMark.renderOrder = airLine.renderOrder = 4;
   scene.add(airRing, landMark, airLine);
 
+  const trailMat = new THREE.LineBasicMaterial({ color: '#4fd6ff', transparent: true, opacity: 0.85 });
+  const trailLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 18 }, () => new THREE.Vector3())), trailMat); trailLine.visible = false; scene.add(trailLine);
+  const puddles = [], decoyRigs = [];
+  function puddle(i) { if (!puddles[i]) { const m = new THREE.Mesh(new THREE.CircleGeometry(20, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4fbf5f', transparent: true, opacity: 0.7, roughness: 0.2 })); m.renderOrder = 2; scene.add(m); puddles[i] = m; } return puddles[i]; }
+  const ghost = mat => { const c = mat.clone(); c.transparent = true; c.opacity = 0.45; c.depthWrite = false; return c; };
+
   /* ---------- per-frame ---------- */
   let last = null;
   function render(time) {
@@ -298,18 +394,18 @@ export function createRenderer3D(canvas, G) {
     const b = S.ball;
 
     // camera: broadcast angle from the near side, with the focused player in the middle of the screen
+    const V0 = G.view(), cf = V0.camfx || {};
     const f = G.cam(), fx = f.x - W / 2, fz = f.y - H / 2, sh = S.shake || 0;
-    camera.position.set(fx + (Math.random() - 0.5) * sh, 540 + (Math.random() - 0.5) * sh, fz + 660);
-    camera.lookAt(fx, 12, fz);
+    if (cf.orbit) { const a = cf.orbit.a; camera.position.set(fx + Math.sin(a) * 600, 420, fz + Math.cos(a) * 600); camera.lookAt(fx, 20, fz); }
+    else { camera.position.set(fx + (Math.random() - 0.5) * sh, 540 + (Math.random() - 0.5) * sh, fz + 660); camera.lookAt(fx, 12, fz); }
+    const fov = 42 - (cf.zoom || 0); if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     sun.position.set(fx - 380, 820, fz + 430); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld();   // shadows follow the camera
 
     // players
     S.players.forEach((p, i) => {
+      const L = playerLook(p), key = JSON.stringify(L);
       let R = playerRigs[i];
-      if (!R) R = playerRigs[i] = makeRig(playerLook(p));
-      if (R.src !== p) {   // new match: refresh the look (skin and hair are random per match)
-        const L = playerLook(p); R.m.skin.color.set(L.skin); R.m.hair.color.set(L.hair); R.src = p;
-      }
+      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = playerRigs[i] = makeRig(L); R.key = key; }   // rebuilt when the look or skin changes
       R.g.visible = p.sentOff <= 0;
       if (!R.g.visible) return;
       const down = p.stun > 0 || p.ko > 0;
@@ -319,6 +415,9 @@ export function createRenderer3D(canvas, G) {
         R.body.rotation.set(0, 0, Math.sign(s * Math.cos(p.face) || 1) * Math.PI / 2 * 0.92); R.body.position.y = 6;
         R.armL.rotation.set(-2.9, 0, 0.2); R.armR.rotation.set(-2.9, 0, -0.2); R.legL.rotation.x = 0.3; R.legR.rotation.x = -0.2;
       }
+      applyAnim(R, p.anim, time);
+      R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 40.5 : 36.8;
+      R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       R.bat.visible = p.items && p.items.bat > 0 && !down;
       R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
     });
@@ -344,7 +443,8 @@ export function createRenderer3D(canvas, G) {
     // ball
     ball.position.set(b.x - W / 2, (b.z || 0) + 4.4, b.y - H / 2);
     ball.rotation.set((b.spin || 0) * 0.9, 0, (b.spin || 0) * 0.35);
-    const land = G.view().land, inAir = !!land;
+    ball.scale.setScalar(V0.mega ? 2 : 1);
+    const land = V0.land, inAir = !!land;
     airRing.visible = landMark.visible = airLine.visible = inAir;
     if (inAir) {
       const bz = b.z || 0, r = 7 + Math.min(40, bz * 0.18);   // ring under the ball tightens as it comes down
@@ -363,12 +463,12 @@ export function createRenderer3D(canvas, G) {
       m.position.set(it.x - W / 2, (it.z || 0) + 5 + (it.landed ? Math.sin(time * 4 + it.x) * 1.5 : 0), it.y - H / 2);
       m.rotation.y = time * 2 + it.x;
     }
-    for (const k of ['medkit', 'bat', 'flash', 'banana']) hideFrom(k, used[k] || 0);
+    for (const k of Object.keys(pools)) if (k !== 'peel') hideFrom(k, used[k] || 0);
     S.bananas.forEach((n, i) => { const m = pooled('peel', i); m.visible = true; m.position.set(n.x - W / 2, 1.6, n.y - H / 2); });
     hideFrom('peel', S.bananas.length);
 
     // ground markers from the game: who you control, who you'd foul, who you'd pass to
-    const v = G.view();
+    const v = V0;
     v.humans.forEach((h, i) => { const mk = marker(i); mk.g.visible = true; mk.mat.color.set(h.col); mk.g.position.set(h.x - W / 2, 0.9, h.y - H / 2); mk.g.rotation.y = -h.face; });
     let mi = v.humans.length;
     if (v.refHuman) { const mk = marker(mi++); mk.g.visible = true; mk.mat.color.set('#ffd23f'); mk.g.position.set(v.refHuman.x - W / 2, 0.9, v.refHuman.y - H / 2); mk.g.rotation.y = -v.refHuman.face; }
@@ -383,6 +483,22 @@ export function createRenderer3D(canvas, G) {
       ps.ring.position.set(p.x2 - W / 2, 1.1, p.y2 - H / 2); ps.line.visible = ps.ring.visible = true;
     });
     passes.forEach((ps, i) => { if (i >= v.passes.length) ps.line.visible = ps.ring.visible = false; });
+
+    // power-shot trail
+    const tr = V0.trail || [];
+    trailLine.visible = tr.length > 2 && !!V0.trailCol;
+    if (trailLine.visible) { const tp = trailLine.geometry.attributes.position; for (let i = 0; i < 18; i++) { const q = tr[Math.min(i, tr.length - 1)]; tp.setXYZ(i, q.x - W / 2, q.z + 4.4, q.y - H / 2); } tp.needsUpdate = true; trailLine.geometry.setDrawRange(0, tr.length); trailMat.color.set(V0.trailCol); }
+    // glue puddles
+    (V0.puddles || []).forEach((g2, i) => { const m = puddle(i); m.visible = true; m.position.set(g2.x - W / 2, 0.8, g2.y - H / 2); m.material.opacity = Math.min(0.75, g2.ttl / 2); });
+    puddles.forEach((m, i) => { if (i >= (V0.puddles || []).length) m.visible = false; });
+    // decoys: see-through copies of the player who threw them
+    (V0.decoys || []).forEach((d, i) => {
+      const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' }, key = JSON.stringify(L);
+      let R = decoyRigs[i];
+      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = decoyRigs[i] = makeRig(L); R.key = key; R.g.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(x => ghost(x)) : ghost(o.material); o.castShadow = false; } }); }
+      R.g.visible = true; pose(R, d.x, d.y, src ? src.face : 0, d.run, 1, false, 0.2);
+    });
+    decoyRigs.forEach((R, i) => { if (i >= (V0.decoys || []).length) R.g.visible = false; });
 
     updateCrowd(time, S.excite);
     renderer.render(scene, camera);

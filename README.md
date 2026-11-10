@@ -8,6 +8,18 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps the ball in the middle of the screen, with a mini-map at the bottom and an edge arrow to your player when they're off screen. One referee works inside the pitch.
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
+- **Players:** each has health, a rechargeable **stamina** bar (sprinting and shot power), and a **mood** (in the zone, tilted, meltdown). Hard fouls can **injure**, which caps stamina until a med kit heals it.
+- **Party features:** crowd opinion meter with chants and banners, taunt wheel, 10 power-ups and throwables, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.
+- **Your character:** a character creator with a 3D preview; your look is shared with everyone in the online lobby, or as a skin code.
+- **Roles & abilities:** a preview catalog of planned RPG roles (not playable yet). The full design is in [docs/feature-catalog.md](docs/feature-catalog.md).
+
+### Default keys (player 1)
+
+| Move | Short pass | Long pass | Shoot | Sprint | Punch | Jump kick | Throw sand | Throwables | Next target | Taunt |
+|---|---|---|---|---|---|---|---|---|---|---|
+| W A S D | L | J | Space | Left Shift | Q | E | K | I | U | T (hold) |
+
+Change them in **Pace and controls → Controls**; changes are saved in the browser. Anyone who had custom keys before this version starts on the new defaults (the old ones are kept as a backup in `fpfc-binds-v1`).
 
 ## How online play works
 
