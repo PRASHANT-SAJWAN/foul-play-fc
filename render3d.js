@@ -145,6 +145,7 @@ export function createRenderer3D(canvas, G) {
   /* ---------- lights ---------- */
   scene.add(new THREE.HemisphereLight('#c2d8ff', '#14301c', 0.95));
   const sun = new THREE.DirectionalLight('#fff3da', 2.3);
+  const SUN_BASE = new THREE.Color('#fff3da');
   sun.position.set(-380, 820, 430);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -387,8 +388,41 @@ export function createRenderer3D(canvas, G) {
   function puddle(i) { if (!puddles[i]) { const m = new THREE.Mesh(new THREE.CircleGeometry(20, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4fbf5f', transparent: true, opacity: 0.7, roughness: 0.2 })); m.renderOrder = 2; scene.add(m); puddles[i] = m; } return puddles[i]; }
   const ghost = mat => { const c = mat.clone(); c.transparent = true; c.opacity = 0.45; c.depthWrite = false; return c; };
 
+  /* ---------- anomalies: UFO, pirates, pitch invaders, ice blocks ---------- */
+  const ufo = new THREE.Group();
+  {
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(22, 46, 9, 36), std('#9fb2bb', { metalness: 0.7, roughness: 0.3 }));
+    const under = new THREE.Mesh(new THREE.CylinderGeometry(46, 30, 5, 36), std('#5d6e77', { metalness: 0.6, roughness: 0.4 })); under.position.y = -7;
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(18, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#9dffdc', emissive: '#2a8f6a', emissiveIntensity: 0.6, transparent: true, opacity: 0.75, roughness: 0.1 })); dome.position.y = 4;
+    const pilot = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 10), std('#7dff9b', { emissive: '#3fbf5f', emissiveIntensity: 0.5 })); pilot.position.y = 10;
+    ufo.add(hull, under, dome, pilot);
+    ufo.lights = [];
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, l = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 6), new THREE.MeshStandardMaterial({ color: '#ffd23f', emissive: '#ffd23f', emissiveIntensity: 1.5 })); l.position.set(Math.cos(a) * 42, -4, Math.sin(a) * 42); ufo.add(l); ufo.lights.push(l); }
+    shadowAll(ufo); ufo.visible = false; scene.add(ufo);
+  }
+  const beamMat = new THREE.MeshBasicMaterial({ color: '#9dffb8', transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(10, 32, 1, 28, 1, true).translate(0, 0.5, 0), beamMat); beam.visible = false; beam.renderOrder = 5; scene.add(beam);
+  const zoneMat = new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.1, depthWrite: false });
+  const zone = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), zoneMat); zone.visible = false; zone.renderOrder = 2; scene.add(zone);
+  const PIRATE = { jersey: '#f4f4f0', shorts: '#2b2b2b', socks: '#2b2b2b', skin: '#c58c5e', hair: '#1b120c', num: null, numCol: '#fff', trim: '#d0312d', hairStyle: 5, facial: 2, accessory: 1, build: 2, boots: '#3a2416', sleeves: '#d0312d' };
+  const pirateRigs = [], fanRigs = [], iceBlocks = [];
+  function pirateRig(i) {
+    if (pirateRigs[i]) return pirateRigs[i];
+    const R = makeRig(PIRATE);
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(9, 9, 3), std('#1b1b1b')); hat.position.y = 44; hat.rotation.y = Math.PI / 6; hat.scale.z = 0.6; R.body.add(hat);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(1, 16, 2.4), std('#d8dde0', { metalness: 0.8, roughness: 0.25 })); blade.position.set(0, -20, 3); blade.rotation.x = 0.5; R.armR.add(blade);
+    return (pirateRigs[i] = R);
+  }
+  function fanRig(i, f) {
+    const key = f.col + f.hair + f.skin; let R = fanRigs[i];
+    if (!R || R.key !== key) { if (R) scene.remove(R.g); R = fanRigs[i] = makeRig({ jersey: f.col, shorts: '#3b4a5a', socks: '#e8e8e8', skin: f.skin, hair: f.hair, num: null, numCol: '#fff' }); R.key = key; }
+    return R;
+  }
+  function iceBlock(i) { if (!iceBlocks[i]) { const m = new THREE.Mesh(new THREE.BoxGeometry(24, 48, 24).translate(0, 24, 0), new THREE.MeshStandardMaterial({ color: '#bfe9ff', transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.1, depthWrite: false })); m.renderOrder = 3; scene.add(m); iceBlocks[i] = m; } return iceBlocks[i]; }
+  const liftOf = (A, kind, i) => { const u = A && A.ufo; return u && u.ph === 'beam' && u.tk === kind && u.ti === i ? u.lift * 70 : 0; };
+
   /* ---------- per-frame ---------- */
-  let last = null;
+  let last = null, lastWx = null;
   function render(time) {
     const S = G.S, dt = last == null ? 0.016 : clamp(time - last, 0, 0.1); last = time;
     const b = S.ball;
@@ -416,6 +450,7 @@ export function createRenderer3D(canvas, G) {
         R.armL.rotation.set(-2.9, 0, 0.2); R.armR.rotation.set(-2.9, 0, -0.2); R.legL.rotation.x = 0.3; R.legR.rotation.x = -0.2;
       }
       applyAnim(R, p.anim, time);
+      R.g.position.y += liftOf(S.an, 'p', i);
       R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 40.5 : 36.8;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       R.bat.visible = p.items && p.items.bat > 0 && !down;
@@ -424,16 +459,17 @@ export function createRenderer3D(canvas, G) {
     for (let i = S.players.length; i < playerRigs.length; i++) playerRigs[i].g.visible = false;
 
     // referees
-    refRigs.forEach((R, i) => { R.g.visible = i < S.refs.length; });
+    refRigs.forEach((R, i) => { R.g.visible = i < S.refs.length && !(S.refs[i].gone > 0); });
     cones.forEach((c, i) => { if (i >= S.refs.length) c.mesh.visible = false; });
     S.refs.forEach((r, i) => {
       const R = refRigs[i];
       pose(R, r.x, r.y, r.face, r.run, r.blind > 0 ? 0.3 : 0.8, false, 0);
+      R.g.position.y += liftOf(S.an, 'r', i);
       R.card.visible = !!r.card;
       if (r.card) { R.card.material.color.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.card.material.emissive.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.armR.rotation.set(-2.9, 0, -0.15); }
       if (r.blind > 0) { R.armL.rotation.set(-2.5, 0, 0.55); R.armR.rotation.set(-2.5, 0, -0.55); }
       const c = cones[i] || (cones[i] = cone(r));
-      c.mesh.visible = r.blind <= 0;
+      c.mesh.visible = r.blind <= 0 && !(r.gone > 0);
       c.mesh.position.set(r.x - W / 2, 0.7 + i * 0.05, r.y - H / 2);
       c.mesh.rotation.y = -r.face;
       const hot = G.coneHot(r), col = hot ? '#ff5a6e' : '#ffec8c';
@@ -499,6 +535,38 @@ export function createRenderer3D(canvas, G) {
       R.g.visible = true; pose(R, d.x, d.y, src ? src.face : 0, d.run, 1, false, 0.2);
     });
     decoyRigs.forEach((R, i) => { if (i >= (V0.decoys || []).length) R.g.visible = false; });
+
+    // anomalies
+    const A = S.an || {};
+    const u = A.ufo;
+    ufo.visible = !!u; beam.visible = !!u && u.beam > 0.02;
+    if (u) {
+      ufo.position.set(u.x - W / 2, u.z + Math.sin(time * 2) * 4, u.y - H / 2); ufo.rotation.y = time * 1.5; ufo.rotation.z = Math.sin(time * 1.3) * 0.06;
+      ufo.lights.forEach((l, k) => l.material.emissive.set((k + Math.floor(time * 6)) % 2 ? '#ffd23f' : '#ff4d6d'));
+      if (beam.visible) { beam.position.set(u.x - W / 2, 0, u.y - H / 2); beam.scale.set(1, Math.max(1, u.z - 8), 1); beamMat.opacity = 0.32 * u.beam * (0.8 + 0.2 * Math.sin(time * 20)); }
+    }
+    (A.pir || []).forEach((q, i) => {
+      const R = pirateRig(i); R.g.visible = true;
+      pose(R, q.x, q.y, q.face, q.run, q.mv ? 1 : 0, q.st === 'down', 0.1);
+      if (q.st === 'drag') { R.armL.rotation.set(-1.4, 0, 0.2); R.armR.rotation.set(-1.4, 0, -0.2); }
+      else if (q.st === 'in' && !q.mv) R.armR.rotation.set(-2.6 + Math.sin(time * 14) * 0.8, 0, -0.1);
+    });
+    pirateRigs.forEach((R, i) => { if (i >= (A.pir || []).length) R.g.visible = false; });
+    (A.inv || []).forEach((f, i) => {
+      const R = fanRig(i, f); R.g.visible = true;
+      pose(R, f.x, f.y, f.face, f.run, f.mv ? 1 : 0, false, 0);
+      R.armL.rotation.set(-2.8 + Math.sin(time * 9 + i) * 0.3, 0, 0.3); R.armR.rotation.set(-2.8 + Math.cos(time * 9 + i) * 0.3, 0, -0.3);
+      R.g.position.y += Math.abs(Math.sin(time * 8 + i)) * 3;
+    });
+    fanRigs.forEach((R, i) => { if (i >= (A.inv || []).length) R.g.visible = false; });
+    zone.visible = !!A.zone;
+    if (A.zone) { const z = A.zone; zone.position.set((z.x0 + z.x1) / 2 - W / 2, 0.85, (z.y0 + z.y1) / 2 - H / 2); zone.scale.set(z.x1 - z.x0, 1, z.y1 - z.y0); zoneMat.opacity = 0.08 + 0.05 * Math.sin(time * 4); }
+    let ib = 0;
+    for (const p of S.players) if (p.iceT > 0 && p.sentOff <= 0) { const m = iceBlock(ib++); m.visible = true; m.position.set(p.x - W / 2, 0, p.y - H / 2); }
+    iceBlocks.forEach((m, i) => { if (i >= ib) m.visible = false; });
+    // weather tints the floodlights
+    const wk = A.wx ? A.wx.k : null, wkk = A.wx ? Math.min(1, A.wx.t / 1.5, (A.wx.d - A.wx.t) / 1.5) : 0;
+    if (wk !== lastWx || wkk > 0) { lastWx = wk; sun.color.set(wk === 'heat' ? '#ffb070' : wk === 'ice' ? '#d8f0ff' : '#fff3da').lerp(SUN_BASE, 1 - Math.max(0, wkk)); }
 
     updateCrowd(time, S.excite);
     renderer.render(scene, camera);
