@@ -279,6 +279,18 @@ export function createRenderer3D(canvas, G) {
     return passes[i];
   }
 
+  /* ---------- air-ball indicator (like Rocket League's) ---------- */
+  const airMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false });
+  const airRing = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 48).rotateX(-Math.PI / 2), airMat);
+  const landMat = new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.95, depthWrite: false });
+  const landMark = new THREE.Group();
+  landMark.add(new THREE.Mesh(new THREE.RingGeometry(9, 11.5, 40).rotateX(-Math.PI / 2), landMat));
+  landMark.add(new THREE.Mesh(new THREE.PlaneGeometry(14, 1.6).rotateX(-Math.PI / 2), landMat), new THREE.Mesh(new THREE.PlaneGeometry(1.6, 14).rotateX(-Math.PI / 2), landMat));
+  const airLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: 4, gapSize: 4, transparent: true, opacity: 0.5, depthWrite: false }));
+  airRing.renderOrder = landMark.renderOrder = airLine.renderOrder = 4;
+  scene.add(airRing, landMark, airLine);
+
   /* ---------- per-frame ---------- */
   let last = null;
   function render(time) {
@@ -332,6 +344,15 @@ export function createRenderer3D(canvas, G) {
     // ball
     ball.position.set(b.x - W / 2, (b.z || 0) + 4.4, b.y - H / 2);
     ball.rotation.set((b.spin || 0) * 0.9, 0, (b.spin || 0) * 0.35);
+    const land = G.view().land, inAir = !!land;
+    airRing.visible = landMark.visible = airLine.visible = inAir;
+    if (inAir) {
+      const bz = b.z || 0, r = 7 + Math.min(40, bz * 0.18);   // ring under the ball tightens as it comes down
+      airRing.position.set(b.x - W / 2, 0.9, b.y - H / 2); airRing.scale.setScalar(r);
+      landMark.position.set(land.x - W / 2, 1, land.y - H / 2); landMark.scale.setScalar(1 + Math.sin(time * 12) * 0.1);
+      const lp = airLine.geometry.attributes.position;
+      lp.setXYZ(0, b.x - W / 2, 1, b.y - H / 2); lp.setXYZ(1, b.x - W / 2, bz, b.y - H / 2); lp.needsUpdate = true; airLine.computeLineDistances();
+    }
 
     // crowd gifts in flight or on the ground, and dropped bananas
     const used = {};

@@ -1936,7 +1936,27 @@ function drawRef(r) {
     ctx.fillText('BLINDED ' + r.blind.toFixed(1) + 's', P.x, P.y - 46 * s);
   }
 }
+function ballLanding(b) {
+  const z = b.z || 0;
+  if (b.owner || z < 6) return null;
+  const vz = b.vz || 0, t = (vz + Math.sqrt(vz * vz + 1800 * z)) / 900, drift = (1 - Math.exp(-0.15 * t)) / 0.15;
+  return { x: clamp(b.x + (b.vx || 0) * drift, 0, W), y: clamp(b.y + (b.vy || 0) * drift, 0, H), t };
+}
+// Air-ball indicator (classic view): a ring on the ground under the ball that tightens as it drops,
+// a guide line down to it, and a target where the ball will land.
+function drawBallAirMarker() {
+  const b = S.ball, land = ballLanding(b); if (!land) return;
+  const G = proj(b.x, b.y), P = proj(b.x, b.y, b.z), r = 7 + Math.min(40, b.z * 0.18);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ell(G.x, G.y, r * G.s, r * 0.42 * G.s); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(G.x, G.y); ctx.lineTo(P.x, P.y - 4 * P.s); ctx.stroke(); ctx.setLineDash([]);
+  const L = proj(land.x, land.y), pulse = 1 + Math.sin(S.time * 12) * 0.1;
+  ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2.2; ell(L.x, L.y, 11 * L.s * pulse, 4.6 * L.s * pulse); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(L.x - 6 * L.s, L.y); ctx.lineTo(L.x + 6 * L.s, L.y); ctx.moveTo(L.x, L.y - 2.6 * L.s); ctx.lineTo(L.x, L.y + 2.6 * L.s); ctx.stroke();
+  ctx.restore();
+}
 function drawBall() {
+  drawBallAirMarker();
   const b = S.ball, G = proj(b.x, b.y), P = proj(b.x, b.y, b.z), s = P.s;
   ctx.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, b.z / 300)})`; ell(G.x, G.y, 4.5 * s, 1.8 * s); ctx.fill();
   ctx.fillStyle = '#f7f7f2'; ell(P.x, P.y - 4 * s, 4.3 * s, 4.3 * s); ctx.fill();
@@ -2227,7 +2247,7 @@ function view3d() {
     if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
-  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null };
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball) };
 }
 const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
 async function setGraphics(on, note) {
@@ -2870,7 +2890,7 @@ function sendSnap(force) {
     p: S.players.map(p => [r1(p.x), r1(p.y), r2(p.face), Math.round(p.vx), Math.round(p.vy), Math.round(p.hp), r1(p.stun), r1(p.ko), Math.ceil(p.sentOff), p.yellows, p.pop, p.hype,
       p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT), r1(p.charge), Math.round(p.karma), p.sprinting ? 1 : 0, p.stats.caught, p.dive > 0 || p.diveDown > 0 ? (p.diveDir || 1) : 0]),
     r: S.refs.map(r => [r1(r.x), r1(r.y), r2(r.face), r1(r.blind), r.card ? (r.card.red ? 2 : 1) : 0, r1(r.run)]),
-    b: [r1(b.x), r1(b.y), r1(b.z), b.owner ? b.owner.id : -1, r1(b.spin)],
+    b: [r1(b.x), r1(b.y), r1(b.z), b.owner ? b.owner.id : -1, r1(b.spin), Math.round(b.vx || 0), Math.round(b.vy || 0), Math.round(b.vz || 0)],
     it: S.items.map(i => [i.type, r1(i.x), r1(i.y), r1(i.z), i.landed ? 1 : 0, r1(i.age), i.for ? i.for.id : -1]),
     bn: S.bananas.map(n => [r1(n.x), r1(n.y)]),
     fd: S.feed.slice(0, 4).map(f => [f.text, f.col, r1(f.t)]),
@@ -2913,7 +2933,7 @@ function applySnap(s) {
     r.face = a[2]; r.blind = a[3]; r.card = a[4] ? { red: a[4] === 2, t: 1 } : null; r.run = a[5];
   });
   const b = S.ball, bb = s.b || [W / 2, H / 2, 0, -1, 0];
-  b.tx = bb[0]; b.ty = bb[1]; b.tz = bb[2]; b.owner = bb[3] >= 0 ? S.players[bb[3]] : null; b.spin = bb[4];
+  b.tx = bb[0]; b.ty = bb[1]; b.tz = bb[2]; b.owner = bb[3] >= 0 ? S.players[bb[3]] : null; b.spin = bb[4]; b.vx = +bb[5] || 0; b.vy = +bb[6] || 0; b.vz = +bb[7] || 0;
   if (!b.snap || Math.hypot(b.tx - b.x, b.ty - b.y) > 150) { b.x = b.tx; b.y = b.ty; b.z = b.tz; b.snap = true; }
   S.items = (s.it || []).map(a => ({ type: a[0], x: a[1], y: a[2], z: a[3], landed: !!a[4], age: a[5], for: S.players[a[6]] || null }));
   S.bananas = (s.bn || []).map(a => ({ x: a[0], y: a[1] }));
