@@ -14,13 +14,15 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Anomalies:** at random intervals, crowd fights, UFO abductions (players or the referee), pirates, pitch invasions, heatwaves and ice ages. Set how often with the anomaly meter (Off to Chaos) and pick which can happen in **Pace and controls → Game**, or change the meter from the pause menu.
 - **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
 - **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
-- **Roles & abilities:** a preview catalog of planned RPG roles (not playable yet). The full design is in [docs/feature-catalog.md](docs/feature-catalog.md).
+- **Classes:** 12 classes (Striker, Assassin, Speedster, Tank, Defender, Goalkeeper, Playmaker, Healer, Aura, Brawler, Trickster, Ranger), each with a passive, three skills and an ultimate on a hotbar, plus synergies and bot line-ups. Blocky characters with faces wear their class look by default. Full list in **Classes & skills** in the game and in [docs/feature-catalog.md](docs/feature-catalog.md).
+- **Mouse and MMO controls:** the mouse aims passes, shots, skills and weapons (left-click attack, right-click pass). Optional Albion-style controls: left-click to move, right-click to shoot or attack, Q W E skills, R ultimate. You can also lock yourself to one character instead of switching team-mates.
+- **Ranged weapons:** slingshots and foam blasters from the crowd.
 
 ### Default keys (player 1)
 
-| Move | Short pass / short tackle / switch | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| W A S D | L | J | Space | Left Shift | R | Q | E | K | I | U | T (hold) |
+| Move | Short pass / short tackle / switch | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt | Skills | Ultimate | Attack / fire |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| W A S D | L | J | Space | Left Shift | R | Q | E | K | I | U | T (hold) | 1 2 3 | 4 | F or left-click |
 
 Without the ball, L tackles if an opponent with the ball is close, and otherwise switches player. In the air, press Space again to volley or head the ball, or L / J for a headed pass. A carried referee keeps watching wherever the carrier faces.
 

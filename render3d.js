@@ -26,26 +26,47 @@ function buildRig(look, canvasTex) {
   const longSleeve = look.sleeveStyle === 1;
   const upper = new THREE.BoxGeometry(3.3, longSleeve ? 12 : 5.5, 3.3).translate(0, longSleeve ? -6 : -2.75, 0);
   const fore = longSleeve ? null : new THREE.BoxGeometry(2.9, 6.6, 2.9).translate(0, -8.8, 0);
-  const handGeo = new THREE.SphereGeometry(1.9, 8, 6).translate(0, -12.6, 0), bandGeo = new THREE.CylinderGeometry(1.95, 1.95, 1.6, 10).translate(0, -10.6, 0);
+  const handGeo = new THREE.BoxGeometry(3.4, 3.4, 3.4).translate(0, -12.8, 0), bandGeo = new THREE.CylinderGeometry(1.95, 1.95, 1.6, 10).translate(0, -10.6, 0);
   const mkArm = x => { const arm = new THREE.Mesh(upper, m.sleeves); arm.position.set(x, 31, 0); if (fore) arm.add(new THREE.Mesh(fore, m.skin)); arm.add(new THREE.Mesh(handGeo, m.skin)); if (look.accessory === 2) arm.add(new THREE.Mesh(bandGeo, m.trim)); body.add(arm); return arm; };
   const armL = mkArm(-8.1 * bw), armR = mkArm(8.1 * bw);
-  const headG = new THREE.Group(); headG.position.y = 36.8; body.add(headG);
-  headG.add(new THREE.Mesh(new THREE.SphereGeometry(4.7, 16, 12), m.skin));
-  const hs = look.hairStyle == null ? 1 : look.hairStyle;
-  const cap = (r, th) => { const h = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8, 0, Math.PI * 2, 0, th), m.hair); h.position.y = 0.3; h.rotation.x = -0.25; headG.add(h); };
-  if (hs === 0) cap(4.8, Math.PI / 2.6);
-  if (hs === 1) cap(4.95, Math.PI / 2.1);
-  if (hs === 2) { cap(4.9, Math.PI / 2.3); for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2, c = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 6), m.hair); c.position.set(Math.cos(a) * 3.4, 3.4, Math.sin(a) * 3.4 - 0.6); headG.add(c); } }
-  if (hs === 3) { cap(4.95, Math.PI / 2.1); const bun = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), m.hair); bun.position.set(0, 4.6, -2.6); headG.add(bun); }
-  if (hs === 4) { const mo = new THREE.Mesh(new THREE.BoxGeometry(1.4, 3.6, 9), m.hair); mo.position.set(0, 4.4, -0.6); headG.add(mo); }
-  if (hs === 5) { cap(5, Math.PI / 2); const lb = new THREE.Mesh(new THREE.BoxGeometry(8.6, 8, 2.4), m.hair); lb.position.set(0, -1.5, -3.8); headG.add(lb); }
-  if (hs === 7) { const af = new THREE.Mesh(new THREE.SphereGeometry(6.8, 16, 12), m.hair); af.position.set(0, 2.6, -1.4); headG.add(af); }
-  if (look.facial === 1) headG.add(new THREE.Mesh(new THREE.SphereGeometry(4.78, 12, 8, 0, Math.PI * 2, Math.PI / 1.8, Math.PI / 3), stdM('#3a2a1f', { transparent: true, opacity: 0.35 })));
-  if (look.facial === 2) { const bd = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 3), m.hair); bd.position.set(0, -3.2, 2.8); headG.add(bd); }
-  if (look.facial === 3) { const mu = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.8, 1), m.hair); mu.position.set(0, -1.6, 4.5); headG.add(mu); }
-  if (look.accessory === 1) { const hb = new THREE.Mesh(new THREE.TorusGeometry(4.75, 0.6, 6, 20), m.trim); hb.rotation.x = Math.PI / 2; hb.position.y = 1.6; headG.add(hb); }
-  if (look.accessory === 3) { const gl = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.4, 0.8), stdM('#111111', { roughness: 0.2, metalness: 0.4 })); gl.position.set(0, 0.6, 4.4); headG.add(gl); }
-  if (look.accessory === 4) { const mk = new THREE.Mesh(new THREE.BoxGeometry(5.6, 2.8, 1.2), stdM('#e8e8e8')); mk.position.set(0, -2, 4.2); headG.add(mk); }
+  // a blocky head with a drawn face, like the class art
+  const headG = new THREE.Group(); headG.position.y = 37.4; body.add(headG);
+  const hs = look.hairStyle == null ? 1 : look.hairStyle, acc = look.accessory || 0;
+  const face = canvasTex(32, 32, (c, w, h) => {
+    c.fillStyle = look.skin; c.fillRect(0, 0, w, h);
+    if (look.facial === 1) { c.fillStyle = 'rgba(40,30,20,.3)'; c.fillRect(3, 20, 26, 10); }
+    if (acc !== 3 && acc !== 4) {
+      c.fillStyle = '#ffffff'; c.fillRect(6, 13, 8, 7); c.fillRect(18, 13, 8, 7);
+      c.fillStyle = look.eyes || '#2a1a10'; c.fillRect(9, 14, 4, 6); c.fillRect(19, 14, 4, 6);
+      c.fillStyle = '#ffffff'; c.fillRect(10, 15, 1, 1); c.fillRect(20, 15, 1, 1);
+      c.fillStyle = look.hair; c.fillRect(5, 10, 10, 2); c.fillRect(17, 10, 10, 2);
+    }
+    c.fillStyle = 'rgba(90,30,30,.75)'; c.fillRect(12, 24, 8, 2);
+  });
+  const faceM = new THREE.MeshStandardMaterial({ map: face, roughness: 0.6 });
+  headG.add(new THREE.Mesh(new THREE.BoxGeometry(9.6, 9.6, 9.6), [m.skin, m.skin, m.skin, m.skin, faceM, m.skin]));
+  const hb = (w, h, d, x, y, z, mat = m.hair) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); headG.add(b); return b; };
+  if (hs === 0) hb(10, 1.4, 10, 0, 5, 0);
+  if ([1, 2, 3, 5, 8, 9].includes(hs)) { hb(10.2, 2.6, 10.2, 0, 5.2, 0); hb(10.2, 6, 1.6, 0, 2, -4.9); hb(1.4, 3.6, 8.6, -5, 3, -0.6); hb(1.4, 3.6, 8.6, 5, 3, -0.6); }
+  if (hs === 2) for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; hb(2.6, 2.6, 2.6, Math.cos(a) * 3.6, 6.8, Math.sin(a) * 3.6); }
+  if (hs === 3) hb(4, 4, 4, 0, 7, -3.6);
+  if (hs === 4) hb(1.8, 4.4, 10, 0, 6.8, 0);
+  if (hs === 5) { hb(10.2, 10, 1.8, 0, -1, -5); hb(1.6, 9, 4, -5.2, -1.5, -3); hb(1.6, 9, 4, 5.2, -1.5, -3); }
+  if (hs === 7) hb(13, 11, 12, 0, 3.6, -1.4);
+  if (hs === 8) {   // anime spikes, swept up and back, with a fringe
+    const cone = new THREE.ConeGeometry(2.1, 6, 4);
+    [[-3.4, 0, -0.5], [0, 0.4, 0], [3.4, 0, 0.5], [-2, -2.6, -0.7], [2, -2.6, 0.7], [0, -4.2, 0], [-4, -3.6, -0.9], [4, -3.6, 0.9]].forEach(([x, z, r]) => { const c = new THREE.Mesh(cone, m.hair); c.position.set(x, 8, z); c.rotation.set(-0.5 + z * 0.05, 0, r * 0.6); headG.add(c); });
+    hb(3, 3, 1.4, -3.2, 3.4, 4.6); hb(3, 2.4, 1.4, 0.4, 3.8, 4.6);
+  }
+  if (hs === 9) { const tail = new THREE.CylinderGeometry(1.6, 0.9, 9, 6); for (const x of [-6.6, 6.6]) { const t = new THREE.Mesh(tail, m.hair); t.position.set(x, -1, -1.6); t.rotation.z = x < 0 ? -0.25 : 0.25; headG.add(t); hb(2.4, 2, 2.4, x * 0.82, 3.6, -1.6, m.trim); } }
+  if (look.facial === 2) hb(9, 3, 1.4, 0, -3.6, 4.9);
+  if (look.facial === 3) hb(4.6, 1, 1, 0, -2, 5.1);
+  if (acc === 1) hb(10.6, 1.6, 10.6, 0, 2.6, 0, m.trim);
+  if (acc === 3) hb(8.4, 2, 0.8, 0, 0.8, 5.1, stdM('#111111', { roughness: 0.2, metalness: 0.4 }));
+  if (acc === 4) hb(8, 3.4, 1, 0, -2.6, 5, stdM('#e8e8e8'));
+  if (acc === 5) { const hood = stdM('#2a1f3a'); hb(11.6, 2, 11.6, 0, 6.2, 0, hood); hb(11.6, 11, 1.4, 0, 0.4, -5.6, hood); hb(1.4, 11, 11.6, -5.6, 0.4, 0, hood); hb(1.4, 11, 11.6, 5.6, 0.4, 0, hood); hb(9.8, 3.6, 1, 0, -2.8, 5.1, hood); }
+  if (acc === 6) { const hat = stdM('#f4f4f0'); hb(15, 1, 15, 0, 5.4, 0, hat); hb(9.6, 5, 9.6, 0, 8.4, 0, hat); hb(9.8, 1.4, 9.8, 0, 6.6, 0, stdM('#1b1b1b')); }
+  if (acc === 7) { const fr = stdM('#111111'); for (const x of [-2.4, 2.4]) { hb(3.6, 0.6, 0.6, x, 2.1, 5.1, fr); hb(3.6, 0.6, 0.6, x, -0.9, 5.1, fr); hb(0.6, 3.6, 0.6, x - 1.8, 0.6, 5.1, fr); hb(0.6, 3.6, 0.6, x + 1.8, 0.6, 5.1, fr); } }
   const bat = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 0.9, 18, 8), stdM('#a06a33'));
   bat.position.set(0, -13, 4); bat.rotation.x = Math.PI / 2.6; bat.visible = false; armR.add(bat);
   const card = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.6, 0.5), stdM('#ffd23f', { emissive: '#ffd23f', emissiveIntensity: 0.4 }));
@@ -292,6 +313,7 @@ export function createRenderer3D(canvas, G) {
       skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee' };
     const sk = p.skinData, O = G.SKIN_OPTS;
     if (sk && O) Object.assign(L, { trim: O.trim[sk.trim], sleeveStyle: sk.sleeves, sockStyle: sk.socks, boots: O.boots[sk.boots], hairStyle: sk.hair, facial: sk.facial, accessory: sk.accessory, build: sk.build, height: sk.height });
+    else if (p.lookX) { const X = p.lookX; Object.assign(L, { hairStyle: X.hairStyle, facial: X.facial, accessory: X.accessory, build: X.build, trim: X.trim, sleeves: p.gk ? undefined : X.sleeves, eyes: X.eyes }); }
     return L;
   };
   const refRigs = [0, 1].map(() => makeRig({ jersey: '#161616', shorts: '#161616', socks: '#161616', sleeves: '#ffd23f', skin: '#d9a477', hair: '#2a2a2a', num: null, numCol: '#fff' }));
@@ -450,7 +472,14 @@ export function createRenderer3D(canvas, G) {
     S.players.forEach((p, i) => {
       const L = playerLook(p), key = JSON.stringify(L);
       let R = playerRigs[i];
-      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = playerRigs[i] = makeRig(L); R.key = key; }   // rebuilt when the look or skin changes
+      if (!R || R.key !== key) {   // rebuilt when the look or skin changes
+        if (R) scene.remove(R.g); R = playerRigs[i] = makeRig(L); R.key = key;
+        R.mats = []; R.g.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(mm => { if (!R.mats.includes(mm)) R.mats.push(mm); }); } });
+        R.ring = new THREE.Mesh(new THREE.RingGeometry(9, 10.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })); R.ring.position.y = 0.6; R.g.add(R.ring);
+      }
+      const cc = G.classCol && G.classCol(p); R.ring.visible = !!cc; if (cc) R.ring.material.color.set(cc);
+      const al = G.cloakAlpha ? G.cloakAlpha(p) : 1;
+      if (R.alpha !== al) { R.alpha = al; R.mats.forEach(mm => { mm.transparent = al < 1; mm.opacity = al; mm.depthWrite = al >= 1; mm.needsUpdate = true; }); }
       R.g.visible = p.sentOff <= 0;
       if (!R.g.visible) return;
       const down = p.stun > 0 || p.ko > 0 || p.slide > 0;
@@ -462,10 +491,19 @@ export function createRenderer3D(canvas, G) {
       }
       applyAnim(R, p.anim, time);
       R.g.position.y += liftOf(S.an, 'p', i) + (p.z || 0);
+      R.g.scale.setScalar(p.bf && p.bf.rage > 0 ? 1.3 : 1);
+      if (down && !(p.slide > 0) && !(p.dive > 0 || p.diveDown > 0 || p.diveState)) {   // ragdoll: limbs flop as they hit the ground, then settle
+        if (R.downAt == null) R.downAt = time;
+        const u = time - R.downAt, f = Math.exp(-u * 3.2);
+        R.body.position.y += Math.abs(Math.sin(u * 13)) * 5 * f;
+        R.armL.rotation.set(-1.1 + Math.sin(u * 17) * 1.2 * f, 0, 1.3 + Math.sin(u * 9) * 0.5 * f); R.armR.rotation.set(-1.5 + Math.cos(u * 15) * 1.2 * f, 0, -1.3 - Math.cos(u * 10) * 0.5 * f);
+        R.legL.rotation.set(0.5 + Math.sin(u * 12) * 0.9 * f, 0, 0.25); R.legR.rotation.set(-0.3 + Math.cos(u * 14) * 0.9 * f, 0, -0.25);
+        R.headG.rotation.set(0, 0, Math.sin(u * 11) * 0.5 * f);
+      } else R.downAt = null;
       if (p.slide > 0) { R.body.rotation.set(-1.25, 0, 0); R.body.position.y = 4; R.legL.rotation.x = -1.4; R.legR.rotation.x = -0.6; }
       else if (p.z > 0 && !down) { R.legL.rotation.x = -0.9; R.legR.rotation.x = 0.4; R.armL.rotation.set(-2.4, 0, 0.4); R.armR.rotation.set(-2.4, 0, -0.4); }
       if (p.carry != null && !down) { R.armL.rotation.set(-3.0, 0, 0.35); R.armR.rotation.set(-3.0, 0, -0.35); }
-      R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 40.5 : 36.8;
+      R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 41.5 : 37.4;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       R.bat.visible = p.items && p.items.bat > 0 && !down;
       R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
@@ -545,9 +583,9 @@ export function createRenderer3D(canvas, G) {
     puddles.forEach((m, i) => { if (i >= (V0.puddles || []).length) m.visible = false; });
     // decoys: see-through copies of the player who threw them
     (V0.decoys || []).forEach((d, i) => {
-      const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' }, key = JSON.stringify(L);
+      const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' }, key = JSON.stringify(L) + (d.solid ? 's' : 'g');
       let R = decoyRigs[i];
-      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = decoyRigs[i] = makeRig(L); R.key = key; R.g.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(x => ghost(x)) : ghost(o.material); o.castShadow = false; } }); }
+      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = decoyRigs[i] = makeRig(L); R.key = key; if (!d.solid) R.g.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(x => ghost(x)) : ghost(o.material); o.castShadow = false; } }); }
       R.g.visible = true; pose(R, d.x, d.y, src ? src.face : 0, d.run, 1, false, 0.2);
     });
     decoyRigs.forEach((R, i) => { if (i >= (V0.decoys || []).length) R.g.visible = false; });
@@ -595,10 +633,12 @@ export function createRenderer3D(canvas, G) {
     pw.set(x - W / 2, z, y - H / 2); pv.copy(pw).project(camera);
     return { x: (pv.x + 1) / 2 * LW, y: (1 - pv.y) / 2 * LH, s: focal() / (camera.position.distanceTo(pw) || 1) };
   }
+  const rc = new THREE.Raycaster(), ndc = new THREE.Vector2(), pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitV = new THREE.Vector3();
+  function unproject(sx, sy) { ndc.set(sx / LW * 2 - 1, -(sy / LH * 2 - 1)); rc.setFromCamera(ndc, camera); return rc.ray.intersectPlane(pickPlane, hitV) ? { x: hitV.x + W / 2, y: hitV.z + H / 2 } : null; }
   function resize(w, h, dpr) {
     renderer.setPixelRatio(Math.min(2, dpr || 1)); renderer.setSize(Math.max(1, w), Math.max(1, h), false);
     camera.aspect = Math.max(1, w) / Math.max(1, h); camera.updateProjectionMatrix();
   }
   camera.position.set(0, 540, 660); camera.lookAt(0, 12, 0);
-  return { render, project, resize, dispose: () => renderer.dispose() };
+  return { render, project, unproject, resize, dispose: () => renderer.dispose() };
 }

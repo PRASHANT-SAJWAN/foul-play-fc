@@ -247,7 +247,130 @@ to the snapshot (tiny). It also goes into the match report and metrics files.
 
 Size: L overall (M for the model and meter, M for banners and chants). Fun ★★★.
 
-## 8. Player roles and abilities
+## 8. Classes (in the game, v1.0)
+
+Twelve classes in four roles, from the class catalog art. Every player has one; bots use the line-ups below and people pick theirs in **Classes & skills**, **Pace and controls → Game**, or the online lobby. Skills are on `1 2 3` and the ultimate on `4` (or `Q W E R` with MMO controls) and are aimed with the mouse. The ultimate charges over time and with good play. Skills that hit players (Heavy Punch, Grab & Throw, Bull Rush, Dash Burst, Quake Tackle, Ground Slam, Blink Strike on someone without the ball) count as fouls if the referee sees them.
+
+### Offense · Goal scorers, high damage, break formations
+
+#### Striker · The Finisher (#10)
+
+- **Passive · Goal Instinct:** +20% shot power and +10% speed in the opponent's third of the pitch.
+- **1 · Power Shot** (8 s): Your next shot within 4 s flies 40% faster and knocks down anyone in its path.
+- **2 · Curve Drive** (10 s): Your next shot within 4 s bends hard in mid-air, making it harder to block or save.
+- **3 · Aerial Strike** (12 s): Leap toward the aim and volley anything in reach; landing stuns nearby enemies for 2 s.
+- **Ultimate · Meteor Volley:** Meteors rain on the target goal area for 5 s, stunning every enemy there except the keeper, and your next shot can't be caught.
+
+#### Assassin · The Shadow Scorer (#7)
+
+- **Passive · Shadow Step:** Gain +15% speed and stealth for 1.5 s after a successful foul or knockout. The referee can't see you in stealth.
+- **1 · Cloak** (14 s): Turn invisible to the referee for 4 s. Your next foul or tackle deals 40% more damage.
+- **2 · Blink Strike** (10 s): Teleport to an enemy in range, steal the ball if they have it and knock them down.
+- **3 · Phantom Dribble** (12 s): Send an afterimage dribbling a fake ball toward the aim for 3 s, drawing tackles.
+- **Ultimate · Dimension Break:** With the ball (or near it), teleport it and yourself to the aim point; an illusion left behind explodes on enemies after 4 s.
+
+#### Speedster · The Velocity Ace (#11)
+
+- **Passive · Momentum:** Build up to 3 speed stacks while moving (+7% speed each). At 3 stacks, tackles on you succeed 15% less.
+- **1 · Dash Burst** (6 s): A high-speed dash that knocks enemies aside.
+- **2 · Afterimage** (12 s): Leave a clone that copies your movement for 3 s; enemies can tackle it by mistake.
+- **3 · Speed Dribble** (14 s): 4 s of ultra-fast dribbling; anyone who tackles you is stunned for 1 s instead.
+- **Ultimate · Time Rush:** 6 s of accelerated time: +40% speed, the ball can't be taken off you, immune to knockdowns, and enemies near you slow down.
+
+### Defense · Goal protection, area control, disruption
+
+#### Tank · The Iron Wall (#4)
+
+- **Passive · Unbreakable:** Take 25% less damage and can't be knocked down during a tackle or slide.
+- **1 · Body Block** (10 s): Raise a barrier in front of you that stops the ball and enemies for 2.5 s.
+- **2 · Bull Rush** (9 s): Charge forward, pushing enemies and the ball aside and knocking them down.
+- **3 · Quake Tackle** (12 s): Slam the ground and trip every enemy close to you.
+- **Ultimate · Titan's Guard:** A dome for 6 s that bounces shots away and halves damage to team-mates inside.
+
+#### Defender · The Interceptor (#3)
+
+- **Passive · Field Control:** +20% interception range and +15% tackle success.
+- **1 · Intervene** (8 s): Dash straight to an opponent and make a clean tackle if they have the ball.
+- **2 · Zone Lock** (12 s): A 4 s zone that slows enemies by 40% and makes them easier to tackle.
+- **3 · Tackle Charge** (10 s): A crunching tackle that knocks the ball far away and stuns the target for 1.5 s.
+- **Ultimate · Absolute Mark:** Mark an enemy for 8 s: they slow down with the ball, can't use skills, and you get a speed boost.
+
+#### Goalkeeper · The Last Line (#1)
+
+- **Passive · Instinct Save:** +30% save range. Picking this class puts you in goal.
+- **1 · Dive Save** (4 s): A long dive toward the aim that blocks the ball and knocks enemies away.
+- **2 · Wide Guard** (12 s): For 3 s your save area grows by 80%.
+- **3 · Aerial Grab** (6 s): Leap to catch high balls, volleys and headers.
+- **Ultimate · Infinity Save:** A barrier over your goal for 5 s that blocks every shot and sends the ball back to midfield.
+
+### Support · Team sustain, buffs, healing, utility
+
+#### Playmaker · The Game Maker (#8)
+
+- **Passive · Visionary:** Your passes never wander and give the receiver a short speed boost.
+- **1 · Precision Pass** (6 s): A pinpoint pass that slips through opponents and can't be intercepted.
+- **2 · Tactical Zone** (14 s): A 5 s zone where team-mates get +15% speed and shot power.
+- **3 · Assist Mark** (12 s): Mark a team-mate: your next pass to them can't be intercepted, and they get +30% shot power and +20% speed for 3 s.
+- **Ultimate · Perfect Play:** The whole team gets +30% speed and +25% shot power for 8 s, and their passes can't be intercepted.
+
+#### Healer · The Team Mender (#6)
+
+- **Passive · Regeneration Field:** Team-mates near you recover 2 HP and 2 stamina per second.
+- **1 · Heal Burst** (10 s): Restore 35 HP to a team-mate (or yourself).
+- **2 · Cleanse** (12 s): Remove stuns, slows, glue, freezes and marks from a team-mate.
+- **3 · Revive** (25 s, shared by the team): Get a knocked-out team-mate back up with 50% HP. The cooldown is shared by your team.
+- **Ultimate · Lifeweaver:** A big healing field for 6 s: fast HP and stamina recovery, cleansed stuns, and no knockdowns inside.
+
+#### Aura · The Team Engine (#5)
+
+- **Passive · Team Spirit:** Team-mates near you get +6% speed, +6% stamina recovery and +5% shot power.
+- **1 · Morale Boost** (14 s): Swing the crowd your way, give every team-mate 15 charge and +8% performance for 4 s.
+- **2 · Stat Aura** (10 s): Each use cycles the aura: Offense (+15% shot power), Defense (−20% damage), Speed (+12%), for 6 s on nearby team-mates.
+- **3 · Stamina Surge** (12 s): Restore 40 stamina to every team-mate near you.
+- **Ultimate · Team Awakening:** For 8 s the team gets +30% speed and shot power, takes 20% less damage, and their fouls go unseen.
+
+### Disrupt · Chaos control, mind games, field manipulation
+
+#### Brawler · The Field Rioter (#2)
+
+- **Passive · Adrenaline:** +10% damage for every successful foul, stacking 3 times.
+- **1 · Heavy Punch** (6 s): A huge punch that sends the target flying and makes them drop the ball.
+- **2 · Grab & Throw** (12 s): Grab an enemy and throw them toward the aim; they're stunned for 2 s on landing.
+- **3 · Ground Slam** (12 s): A shockwave that knocks down every enemy around you.
+- **Ultimate · Rage Mode:** 7 s berserk: +25% damage, bigger, faster and immune to knockdowns.
+
+#### Trickster · The Illusionist (#13)
+
+- **Passive · Mind Game:** Anything you hit has a 15% chance to be confused for 1.5 s (controls reversed).
+- **1 · Clone Decoy** (10 s): A clone runs toward the aim with a fake ball for 4 s, pulling defenders away.
+- **2 · Trap** (8 s): Plant a snare that trips the first enemy to step on it.
+- **3 · Referee Jammer** (20 s, shared by the team): Scramble the referee's vision for 4 s. The cooldown is shared by your team.
+- **Ultimate · Grand Illusion:** Three clones with fake balls burst out around the ball for 6 s, hiding the real one.
+
+#### Ranger · The Field Sniper (#14)
+
+- **Passive · Tactical Scope:** +15% ability range and +15% projectile speed, including weapons.
+- **1 · Projectile Pass** (6 s): A rocket of a pass that flies straight through enemies.
+- **2 · Gravity Mine** (12 s): A 3 s gravity field that slows enemies and drags them (and the ball) toward the middle.
+- **3 · Slow Bomb** (12 s): Lob a bomb that leaves a wide 40% slow field for 4 s.
+- **Ultimate · Orbital Strike:** Call down a blast on the aim after 1.5 s: enemies there are stunned for 3 s and the ball is launched toward goal.
+
+### Synergies
+
+- **Final Push** (striker + playmaker + aura): Massive offensive pressure: the team shoots 5% harder.
+- **Unbreakable Wall** (tank + defender + goalkeeper): Extreme defence: the team takes 10% less damage.
+- **Chaos Engine** (brawler + trickster + assassin): Confusion everywhere: the team's fouls take 20% longer to be spotted.
+- **Sustain Core** (healer + aura + any): High survivability: the team recovers 1 HP per second.
+
+### Bot line-ups (forward, midfielder, defender, defender; the keeper is always a Goalkeeper)
+
+- **balanced:** striker, playmaker, defender, healer
+- **aggressive:** assassin, speedster, brawler, aura
+- **control:** ranger, playmaker, tank, trickster
+
+Ranged weapons from the crowd: **slingshot** (5 pebbles: 10 damage, short stun) and **foam blaster** (10 darts: 4 damage and a brief slow). Fire them at the aim with `F` or left-click; hitting a player is a "ranged attack" foul.
+
+## 8b. Earlier role draft (superseded by the classes above)
 
 Roles give each position a job, a small stat profile and one **active ability**. Everyone still has the shared moves
 (pass, long pass, shoot, foul, sand, sprint). Roles are picked in the lobby; bots get sensible defaults.
