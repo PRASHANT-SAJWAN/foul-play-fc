@@ -528,7 +528,7 @@ function followCamera(dt, snap) { const f = CAMFX.cut ? CAMFX.cut : CAMFX.orbit 
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'],
-  ['pass', 'Short pass / short tackle'], ['lpass', 'Long pass / sliding tackle'], ['shoot', 'Shoot (hold) / jump; in the air: volley or header'], ['sprint', 'Sprint (uses stamina)'],
+  ['pass', 'Short pass / short tackle (near the ball carrier) / switch player'], ['lpass', 'Long pass / sliding tackle'], ['shoot', 'Shoot (hold) / jump; in the air: volley or header'], ['sprint', 'Sprint (uses stamina)'],
   ['switch', 'Switch player'], ['foul', 'Punch foul (jump kick in the air)'], ['lift', 'Lift or put down the referee'], ['cycle', 'Next foul target'], ['blind', 'Throw sand at the referee'], ['item', 'Throwables / throw the referee'], ['taunt', 'Taunt (hold + direction)']];
 const BINDS_VERSION = 3;
 const DEFAULT_BINDS = [
@@ -2560,7 +2560,7 @@ function humanControl(h, dt) {
     if (inp.pass) p.airAct = { k: 'pass', t: 0.4 };
     if (inp.lpass) p.airAct = { k: 'lpass', t: 0.4 };
   } else {
-    if (inp.pass) { if (own) humanPass(p, 'ground'); else shortTackle(p); }
+    if (inp.pass) { const bo = S.ball.owner; if (own) humanPass(p, 'ground'); else if (bo && bo.team !== p.team && dist(p, bo) < 45) shortTackle(p); else { switchToBest(h); return; } }
     if (inp.lpass) { if (own) humanLongPass(p); else slideTackle(p); }
     if (inp.sr && own) shoot(p, inp.power);
     if (inp.sp && !own) jump(p);
@@ -3661,10 +3661,10 @@ function guideSections() {
         <li><b>Move</b> with ${k('up')} ${k('left')} ${k('down')} ${k('right')}.</li>
         <li><b>Short pass</b> with ${k('pass')}: a pass along the ground to the teammate in the direction you're pressing, or facing. A dashed line shows who will get it.</li>
         <li><b>Long pass</b> with ${k('lpass')}: a ball in the air to a teammate further up the pitch with space around them, or into open space if nobody is there.</li>
-        <li><b>Switch player:</b> press ${k('switch')} to take over the team-mate nearest the ball.</li>
+        <li><b>Switch player:</b> press ${k('switch')}, or ${k('pass')} when you don't have the ball and no opponent with the ball is close, to take over the team-mate nearest the ball.</li>
         <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
         <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
-        <li><b>Short tackle:</b> press ${k('pass')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
+        <li><b>Short tackle:</b> press ${k('pass')} without the ball when an opponent with the ball is close, for a quick lunge at them. Cheap, safe and never a foul.</li>
         <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
         <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass. Punching in the air (${k('foul')}) becomes a jump kick.</li>
         <li><b>Sprint:</b> hold ${k('sprint')}. Sprinting uses stamina.</li>

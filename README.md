@@ -16,11 +16,11 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 
 ### Default keys (player 1)
 
-| Move | Short pass / short tackle | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt |
+| Move | Short pass / short tackle / switch | Long pass / sliding tackle | Shoot (hold) / jump | Sprint | Switch player | Punch (jump kick in the air) | Lift referee | Throw sand | Throwables / throw referee | Next target | Taunt |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | W A S D | L | J | Space | Left Shift | R | Q | E | K | I | U | T (hold) |
 
-In the air, press Space again to volley or head the ball, or L / J for a headed pass. A carried referee keeps watching wherever the carrier faces.
+Without the ball, L tackles if an opponent with the ball is close, and otherwise switches player. In the air, press Space again to volley or head the ball, or L / J for a headed pass. A carried referee keeps watching wherever the carrier faces.
 
 Change them in **Pace and controls → Controls**; changes are saved in the browser. Custom keys from the previous version are kept, and the old jump-kick key becomes the lift-referee key.
 
