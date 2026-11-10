@@ -313,6 +313,8 @@ export function createRenderer3D(canvas, G) {
     for (let i = S.players.length; i < playerRigs.length; i++) playerRigs[i].g.visible = false;
 
     // referees
+    refRigs.forEach((R, i) => { R.g.visible = i < S.refs.length; });
+    cones.forEach((c, i) => { if (i >= S.refs.length) c.mesh.visible = false; });
     S.refs.forEach((r, i) => {
       const R = refRigs[i];
       pose(R, r.x, r.y, r.face, r.run, r.blind > 0 ? 0.3 : 0.8, false, 0);

@@ -192,14 +192,14 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 
   <div id="menu" class="overlay">
     <div class="card">
-      <div class="kicker">Five-a-side · two referees · no morals</div>
+      <div class="kicker">Small-sided · one referee · no morals</div>
       <h1>FOUL PLAY <span>FC</span></h1>
-      <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referees only see what's inside their yellow cones, so throw sand in their eyes first. Play well and the crowd throws you bats, flash powder, bananas and med kits.</p>
+      <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referee only sees what's inside the yellow cone, so throw sand in their eyes first. Play well and the crowd throws you bats, flash powder, bananas and med kits.</p>
       <div class="modes">
         <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">You lead the Hounds</span></button>
         <button class="mode" id="m-2pv"><span class="t">2 players · versus</span><span class="d">Same keyboard, rival teams</span></button>
         <button class="mode" id="m-2pc"><span class="t">2 players · co-op</span><span class="d">Both on the Hounds vs bots</span></button>
-        <button class="mode" id="m-watch"><span class="t">Watch the bots</span><span class="d">Ten bots, two refs</span></button>
+        <button class="mode" id="m-watch"><span class="t">Watch the bots</span><span class="d">Bots only, one referee</span></button>
         <button class="mode" id="m-online"><span class="t">Play online</span><span class="d">Create or join a room</span></button>
         <button class="mode" id="m-play"><span class="t">Playground</span><span class="d">Admin panel: test every ability</span></button>
         <button class="mode" id="m-ref"><span class="t">Be the referee</span><span class="d">Spot fouls, give cards, dodge sand</span></button>
@@ -207,10 +207,10 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
       <ul class="rules">
         <li><b>Foul:</b> hits the nearest player in reach (red ring). Cycle to choose another.</li>
         <li><b>Caught?</b> Yellow card and a free kick. Second yellow or a bat foul: red, off for 25s.</li>
-        <li><b>Sand:</b> blinds the nearest ref for 4.5s. Recharges every 22s. The other ref may still see you.</li>
+        <li><b>Sand:</b> blinds the referee for 4.5s if they're in reach. Recharges every 22s. Nobody calls fouls while they're blinded.</li>
         <li><b>Crowd meter:</b> goals, tackles, saves and unseen fouls fill it. Full meter = a gift from the stands.</li>
         <li><b>Charge:</b> fills with possession and good play. Spend it to sprint; any shot at 25% or more becomes an accurate power shot.</li>
-        <li><b>Karma:</b> fouls lower it and make bots come after you. Help a downed player up to raise it. Referees let trusted players off and ignore fouls on serial offenders.</li>
+        <li><b>Karma:</b> fouls lower it and make bots come after you. Help a downed player up to raise it. The referee lets trusted players off and ignores fouls on serial offenders.</li>
       </ul>
       <div class="row"><button class="btn" id="m-guide">How to play</button><button class="btn ghost" id="m-settings">Pace and controls</button></div>
     </div>
@@ -418,7 +418,8 @@ function focusPoint() {
   if (S.refHuman && S.refs[0]) return { x: S.refs[0].x, y: S.refs[0].y };
   return { x: S.ball.x, y: S.ball.y };
 }
-function followCamera(dt, snap) { const f = focusPoint(), k = snap ? 1 : Math.min(1, dt * 5); CAM.x += (f.x - CAM.x) * k; CAM.y += (f.y - CAM.y) * k; }
+// The camera keeps the ball in the middle of the screen.
+function followCamera(dt, snap) { const f = { x: S.ball.x, y: S.ball.y }, k = snap ? 1 : Math.min(1, dt * 6); CAM.x += (f.x - CAM.x) * k; CAM.y += (f.y - CAM.y) * k; }
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['pass', 'Short pass (ground) / switch player'], ['lpass', 'Long pass (in the air)'], ['shoot', 'Shoot (hold) / tackle'], ['foul', 'Foul target'], ['cycle', 'Next foul target'], ['blind', 'Throw sand at ref'], ['item', 'Drop banana'], ['sprint', 'Sprint (uses charge)']];
@@ -602,10 +603,9 @@ function newMatch(mode) {
   const want = mode === 'client' ? (FORMAT || FORMAT_PREF) : FORMAT_PREF;
   if (want !== FORMAT) applyFormat(want);
   for (let t = 0; t < 2; t++) for (let i = 0; i < TEAM_SIZE; i++) S.players.push(makePlayer(t, i, S.players.length));
-  // Two referees on the pitch, each covering a different area from a different angle.
+  // One referee on the pitch, watching play from behind and to the far side.
   S.refs = [
-    { name: 'Referee', main: true, x: W * 0.35, y: H * 0.28, face: Math.PI / 2, fov: 1.3, range: REF_RANGE, blind: 0, att: null, attT: 0, scanT: 3, run: 0, card: null, seed: 1 },
-    { name: 'Second referee', main: false, x: W * 0.65, y: H * 0.72, face: -Math.PI / 2, fov: 1.3, range: REF_RANGE, blind: 0, att: null, attT: 0, scanT: 5, run: 0, card: null, seed: 2 }
+    { name: 'Referee', main: true, x: W * 0.4, y: H * 0.3, face: Math.PI / 2, fov: 1.3, range: REF_RANGE, blind: 0, att: null, attT: 0, scanT: 3, run: 0, card: null, seed: 1 }
   ];
   S.ball = { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, lastTouch: null, lastPasser: null, passTime: -9, spin: 0 };
   S.items = []; S.bananas = []; S.parts = []; S.texts = []; S.feed = []; S.pend = []; S.score = [0, 0];
@@ -1594,9 +1594,8 @@ function update(dt) {
     r.blind = Math.max(0, r.blind - dt); r.attT -= dt; r.scanT -= dt;
     if (r.human && S.refHuman) { humanRef(r, dt); continue; }
     // the first referee watches from behind and to the far side of play, the second from ahead and to the near side
-    const ang = r.main ? -2.35 : 0.8;
+    const ang = -2.35;   // behind and to the far side of the ball
     let tx = clamp(b.x + Math.cos(ang) * REF_DIST, 25, W - 25), ty = clamp(b.y + Math.sin(ang) * REF_DIST, 25, H - 25);
-    tx = r.main ? Math.min(tx, W * 0.62) : Math.max(tx, W * 0.38);
     let sp = REF_SPEED;
     if (r.blind > 0) { tx = r.x + Math.cos(S.time * 1.7 + r.seed) * 30; ty = r.y + Math.sin(S.time * 1.3 + r.seed) * 30; r.face += dt * 1.6; sp = 30; }
     else {
@@ -1999,7 +1998,7 @@ function drawHUD() {
   if (S.mode === 'watch' && S.phase === 'play') { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 15px ${UI}`; ctx.textAlign = 'right'; ctx.fillText('Esc for menu', LW - 16, 26); }
   if (muted) { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 14px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('MUTED (M)', cx, 74); }
   ctx.textBaseline = 'alphabetic';
-  drawMinimap(); drawBallPointer();
+  drawMinimap(); drawPlayerPointers();
 }
 const MINI_W = 270;
 function drawMinimap() {
@@ -2030,22 +2029,31 @@ function drawMinimap() {
   const b = S.ball; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X(b.x), Y(b.y), 2.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
-function drawBallPointer() {   // edge arrow when the ball is off screen
+function drawPlayerPointers() {   // edge arrow for each local player (or your referee) who is off screen
   if (S.phase === 'menu') return;
-  const b = S.ball, P = proj(b.x, b.y, b.z || 0), m = 36, top = 160, bot = LH - 30;
-  if (P.x >= m && P.x <= LW - m && P.y >= top - 60 && P.y <= bot) return;
-  const cx = LW / 2, cy = LH / 2, dx = P.x - cx, dy = P.y - cy;
-  const kx = dx > 0 ? (LW - m - cx) / dx : dx < 0 ? (m - cx) / dx : Infinity, ky = dy > 0 ? (bot - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
-  const k = Math.min(kx, ky), ex = cx + dx * k, ey = cy + dy * k, a = Math.atan2(dy, dx);
-  const f = focusPoint(), meters = Math.round(Math.hypot(b.x - f.x, b.y - f.y) / (W / 105));
-  ctx.save(); ctx.translate(ex, ey);
-  ctx.save(); ctx.rotate(a); ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.moveTo(27, 0); ctx.lineTo(17, -7); ctx.lineTo(17, 7); ctx.closePath(); ctx.fill(); ctx.restore();
-  ctx.fillStyle = 'rgba(6,11,10,.8)'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = '#f6f6f0'; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#eef2e6'; ctx.font = `700 12px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(meters + ' m', 0, 26);
-  ctx.restore();
+  const marks = [];
+  for (const h of S.humans) {
+    if (h.remote) continue;
+    const p = S.players[h.pid]; if (!p || !onPitch(p)) continue;
+    marks.push({ x: p.x, y: p.y, col: HUMAN_COL[h.idx % HUMAN_COL.length], label: h.label || 'P' + (h.idx + 1) });
+  }
+  if (S.refHuman && S.refs[0]) marks.push({ x: S.refs[0].x, y: S.refs[0].y, col: '#ffd23f', label: 'REF' });
+  const m = 36, top = 160, bot = LH - 30, cx = LW / 2, cy = LH / 2, b = S.ball;
+  for (const mk of marks) {
+    const P = proj(mk.x, mk.y, 20);
+    if (P.x >= m && P.x <= LW - m && P.y >= top - 60 && P.y <= bot) continue;
+    const dx = P.x - cx, dy = P.y - cy;
+    const kx = dx > 0 ? (LW - m - cx) / dx : dx < 0 ? (m - cx) / dx : Infinity, ky = dy > 0 ? (bot - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
+    const k = Math.min(kx, ky), ex = cx + dx * k, ey = cy + dy * k, a2 = Math.atan2(dy, dx);
+    const meters = Math.round(Math.hypot(b.x - mk.x, b.y - mk.y) / (W / 105));
+    ctx.save(); ctx.translate(ex, ey);
+    ctx.save(); ctx.rotate(a2); ctx.fillStyle = mk.col; ctx.beginPath(); ctx.moveTo(28, 0); ctx.lineTo(18, -7); ctx.lineTo(18, 7); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle = 'rgba(6,11,10,.82)'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = mk.col; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = mk.col; ctx.font = `700 12px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(mk.label, 0, 0.5);
+    ctx.fillStyle = '#eef2e6'; ctx.font = `600 11px ${UI}`; ctx.fillText(meters + ' m from ball', 0, 27);
+    ctx.restore();
+  }
 }
 function drawPanel(h, x) {
   const p = S.players[h.pid]; if (!p) return;
@@ -2319,13 +2327,13 @@ function guideSections() {
   return [
     ['g-basics', 'The basics', `
       <p>Foul Play FC is small-sided football where fouls are part of the game. Score more goals than the other team before the clock runs out. Play 5v5 on a full-size pitch or 3v3 on a small one (Pace and controls → Game), and bots play every spot a person isn't playing.</p>
-      <p>You can foul anyone you can reach, on either team. Two referees are watching, but each one only sees what's inside their yellow vision cone. Get caught and you get a card. Stay out of sight and the crowd loves you for it.</p>
+      <p>You can foul anyone you can reach, on either team. One referee is watching, but only sees what's inside the yellow vision cone. Get caught and you get a card. Stay out of sight and the crowd loves you for it.</p>
       <h4>Reading the screen</h4>
       <ul>
         <li><b>Your player</b> has a dashed ring, an arrow showing which way you face, and a name tag (P1, P2 or YOU).</li>
-        <li><b>Yellow cones</b> show what each referee can see. A cone turns red while it covers you.</li>
-        <li><b>The camera</b> keeps your player in the middle of the screen. The mini-map at the bottom shows everyone, and an arrow at the edge of the screen points to the ball when it's out of view.</li>
-        <li><b>Your panel</b> at the top left shows health, the crowd meter, charge, karma, the referees' opinion of you and your items, each with the key that uses it.</li>
+        <li><b>The yellow cone</b> shows what the referee can see. It turns red while it covers you.</li>
+        <li><b>The camera</b> keeps the ball in the middle of the screen. The mini-map at the bottom shows everyone, and an arrow at the edge of the screen points to your player when they're out of view, with their distance from the ball.</li>
+        <li><b>Your panel</b> at the top left shows health, the crowd meter, charge, karma, the referee's opinion of you and your items, each with the key that uses it.</li>
         <li><b>A red ring</b> marks the player you would foul. A green ring means that player is down and you would help them up instead.</li>
       </ul>`],
     ['g-controls', 'Controls', `
@@ -2347,20 +2355,20 @@ function guideSections() {
       <ul>
         <li>Press ${k('foul')} to foul the player in the red ring. ${k('cycle')} picks someone else in reach, including your own teammates.</li>
         <li>A foul knocks the player down, takes the ball off them and costs them health. At zero health they are knocked out for 6 seconds.</li>
-        <li>Two referees work inside the pitch from different angles: one behind and to the far side of play, one ahead and to the near side. They see everything inside their cone and anything right next to them. They turn toward commotion, so a foul can still be spotted a moment after it happens.</li>
+        <li>The referee works inside the pitch, behind and to the far side of play. They see everything inside their cone and anything right next to them. They turn toward commotion, so a foul can still be spotted a moment after it happens.</li>
         <li><b>Caught:</b> a yellow card and a free kick to the other team, or a penalty if it happened in your own box. A second yellow, any bat foul or a knockout is a red card: off the pitch for 25 seconds.</li>
         <li><b>Not caught:</b> the crowd cheers and your popularity goes up.</li>
       </ul>`],
     ['g-tricks', 'Sand, items and the crowd', `
       <ul>
-        <li><b>Sand</b> (${k('blind')}) blinds the nearest referee in reach for 4.5 seconds. You carry up to 2, and one refills every 22 seconds. The other referee might see you throw it, and that is a card too.</li>
+        <li><b>Sand</b> (${k('blind')}) blinds the referee for 4.5 seconds if they're in reach. You carry up to 2, and one refills every 22 seconds. While the referee is blinded nobody calls fouls, but if they see you throw it, that's a card.</li>
         <li><b>The crowd meter</b> fills with goals, assists, tackles, saves and fouls nobody saw. When it is full the crowd throws you a gift. Anyone can grab it after a moment, so be quick.</li>
       </ul>
       <h4>Gifts</h4>
       <ul>
         <li><b>Med kit:</b> 45 health back.</li>
         <li><b>Bat:</b> your next 3 fouls hit harder and reach further. A bat foul seen by a referee is always a red card.</li>
-        <li><b>Flash powder:</b> your next sand throw blinds every referee nearby for 7 seconds.</li>
+        <li><b>Flash powder:</b> your next sand throw reaches further and blinds the referee for 7 seconds.</li>
         <li><b>Bananas:</b> drop one behind you with ${k('item')}. Whoever steps on it slips and loses the ball.</li>
       </ul>`],
     ['g-charge', 'Charge, karma, reputation', `
@@ -2385,10 +2393,10 @@ function guideSections() {
       <ul>
         <li><b>Solo vs bots:</b> you lead the Harbor Hounds.</li>
         <li><b>2 players:</b> on one keyboard, as rivals or as teammates.</li>
-        <li><b>Watch the bots:</b> ten bots and two referees.</li>
+        <li><b>Watch the bots:</b> bots only, with one referee.</li>
         <li><b>Play online:</b> create a room and share the 5-letter code. Friends open the same game link and join with it. The host's browser runs the match, so the host keeps that tab open and visible. If a friend's network blocks direct connections, a host running the game on their computer with a Cloudflare link gets a <b>backup link</b> in the lobby; friends who open it join the same room.</li>
         <li><b>Playground:</b> free play with an admin panel to hand out items, switch referees and bots between modes, set up penalties and end the match for a report. Press <kbd>\`</kbd> to hide the panel.</li>
-        <li><b>Be the referee:</b> you control the main referee. Press ${k('foul')} when you see a foul happen. ${k('pass')} turns ball tracking on and off, ${k('cycle')} and ${k('item')} turn your view, and holding ${k('shoot')} sprints. Correct, missed and wrong calls make up your rating.</li>
+        <li><b>Be the referee:</b> you control the referee. Press ${k('foul')} when you see a foul happen. ${k('pass')} turns ball tracking on and off, ${k('cycle')} and ${k('item')} turn your view, and holding ${k('shoot')} sprints. Correct, missed and wrong calls make up your rating.</li>
       </ul>`],
     ['g-tips', 'Stats and tips', `
       <h4>After the match</h4>
@@ -2396,7 +2404,7 @@ function guideSections() {
       <h4>Tips</h4>
       <ul>
         <li>Check the cones before you foul. If one is red, you are being watched.</li>
-        <li>Sand first, foul second, and make sure the other referee is looking away.</li>
+        <li>Sand first, foul second: a blinded referee can't call anything.</li>
         <li>Save some charge for a power shot near goal.</li>
         <li>Helping players up builds trust, and a trusted player gets away with more.</li>
         <li>Low karma makes you a target. Expect revenge.</li>

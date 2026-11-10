@@ -1,11 +1,11 @@
 # Foul Play FC
 
-A 2.5D five-a-side football game in the browser: foul anyone in reach, blind the referees, and earn gifts from the crowd.
+A 2.5D five-a-side football game in the browser: foul anyone in reach, blind the referee, and earn gifts from the crowd.
 Plain HTML and JavaScript: no build step and no backend. The game lives in `index.html`; the 3D view is in `render3d.js` and uses [three.js](https://threejs.org) from a CDN.
 
 - **Graphics:** 3D (default) or Classic 2.5D, under **Pace and controls → Game**. The 3D view draws the same match with low-poly player models, a floodlit stadium, shadows and a broadcast camera that follows the ball. If WebGL isn't available, the game falls back to Classic automatically.
 
-- **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps your player in the middle of the screen, with a mini-map at the bottom and an edge pointer to the ball.
+- **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps the ball in the middle of the screen, with a mini-map at the bottom and an edge arrow to your player when they're off screen. One referee works inside the pitch.
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
 
@@ -96,7 +96,7 @@ To try online play alone, create a room in one browser window and join it from a
 
 ## Known limits
 
-- **The host has an advantage** (no lag) and could cheat, because the referees run in their browser.
+- **The host has an advantage** (no lag) and could cheat, because the referee runs in their browser.
 - **The host's tab must stay open and visible.** Browsers slow down background tabs, which freezes the match.
 - **Some networks block direct connections** (strict corporate firewalls, some mobile carriers). PeerJS's public relay usually rescues them; if not, use the backup link above.
 - **The public PeerJS server** is free and shared, with no uptime guarantee. If it's down, rooms can't be created or joined until it's back. You can run your own with `npx peerjs --port 9000` and point the game at it.
