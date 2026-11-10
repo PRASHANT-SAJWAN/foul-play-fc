@@ -37,24 +37,31 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 
 To play: everyone opens that link. The host chooses **Play online → Create room** and shares the code; friends choose **Join room**.
 
-## Optional: share straight from your computer (Cloudflare tunnel)
+## Run it on your computer (macOS or Windows)
 
-`host.sh` runs `server.py` (so matches are saved to `data-metric/` on your Mac) and opens a free, temporary Cloudflare **quick tunnel**: a public `https://….trycloudflare.com` link to the game on your Mac.
-It's handy for testing changes with friends before pushing to GitHub. Rooms work the same way.
+Running locally also saves every finished match to `data-metric/` (see below). You need Python 3.7 or newer.
+
+| | macOS | Windows |
+|---|---|---|
+| Start | Double-click **`start-mac.command`** | Double-click **`start-windows.bat`** |
+| Python | Already on most Macs; otherwise [python.org](https://www.python.org/downloads/macos/) or `xcode-select --install` | [python.org](https://www.python.org/downloads/windows/) (tick "Add python.exe to PATH") or `winget install --id Python.Python.3.12 -e` |
+| Cloudflare link (optional) | Offers `brew install cloudflared` | Offers `winget install --id Cloudflare.cloudflared -e` |
+
+Both launchers start the game at http://localhost:8080, open it in your browser, and ask whether to share it online with a temporary Cloudflare link. With a link, friends open `https://….trycloudflare.com` and join your room with the code. The link changes every run and stops when you close the window.
+
+The first time on macOS, if Finder says the file can't be opened, right-click it and choose **Open**. On Windows, SmartScreen may ask you to confirm: choose **More info → Run anyway**.
+
+From a terminal instead:
 
 ```sh
-./host.sh          # installs cloudflared via Homebrew if needed (asks first)
+python3 server.py --open            # macOS / Linux   (Windows: py server.py --open)
+python3 server.py --open --tunnel   # plus a public Cloudflare link
+python3 server.py --port 9000       # if 8080 is taken
 ```
 
-The link changes on every run and stops working when you press Ctrl+C.
+### Match files
 
-## Run locally (saves every match to `data-metric/`)
-
-```sh
-python3 server.py            # then open http://localhost:8080
-```
-
-`server.py` serves the game and, at full time, writes all the match metrics into `data-metric/` in this folder:
+At full time the game writes all the match metrics into `data-metric/` in this folder:
 a `.json` (raw: every metric, rating and the event timeline), an `.html` report and a `.csv` per match, plus
 `index.html` (every match), `index.json` and `all-players.csv` (every player row from every match).
 See `data-metric/README.md`. Match files stay out of git.

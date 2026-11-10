@@ -2515,7 +2515,7 @@ function openOnline() {
   showOverlay('online');
   const n = store.get('fpfc-name'); if (n && !$('on-name').value) $('on-name').value = n;
   $('on-setup').hidden = !!NET; $('on-lobby').hidden = !NET;
-  if (!NET && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) onStatus('You are on localhost, which friends cannot open. Send them the GitHub Pages link, or run ./host.sh for a temporary public link.');
+  if (!NET && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) onStatus('You are on localhost, which friends cannot open. Send them the GitHub Pages link, or restart with start-mac.command / start-windows.bat and choose the Cloudflare link.');
 }
 function showLobby() {
   $('on-roomcode').textContent = NET.code; $('on-setup').hidden = true; $('on-lobby').hidden = false;

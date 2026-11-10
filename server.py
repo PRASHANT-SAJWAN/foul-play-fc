@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Serve Foul Play FC locally and save every finished match into ./data-metric.
 
-    python3 server.py              # http://localhost:8080
+Works the same on macOS, Windows and Linux (Python 3.7+, standard library only).
+Easiest start: double-click start-mac.command (macOS) or start-windows.bat (Windows).
+
+    python3 server.py                  # macOS / Linux: http://localhost:8080
+    py server.py                       # Windows
+    python3 server.py --open           # also open the game in your browser
+    python3 server.py --tunnel         # also create a temporary public link with Cloudflare
     python3 server.py --port 9000
 
 The game detects this server (GET api/health) and, at full time, POSTs the match
@@ -17,8 +23,8 @@ and keeps three running files for all matches:
     data-metric/index.json       one summary per match
     data-metric/all-players.csv  every player row from every match (for spreadsheets)
 
-Standard library only. Binds to 127.0.0.1 so only this computer (or a tunnel you
-start yourself, see host.sh) can reach it.
+Binds to 127.0.0.1 so only this computer can reach it, unless you add --tunnel,
+which gives friends a temporary https://...trycloudflare.com link to it.
 """
 import argparse
 import csv
@@ -28,7 +34,11 @@ import json
 import os
 import re
 import sys
+import shutil
+import subprocess
 import threading
+import time
+import webbrowser
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -38,6 +48,15 @@ MAX_BODY = 8 * 1024 * 1024
 SAFE_BASE = re.compile(r'^[a-z0-9-]{1,120}$')
 EXTS = ('json', 'html', 'csv')
 LOCK = threading.Lock()
+IS_WIN, IS_MAC = os.name == 'nt', sys.platform == 'darwin'
+URL_RE = re.compile(r'https://[a-z0-9-]+\.trycloudflare\.com')
+
+# Some Windows consoles can't print every character; never crash on output, and show messages immediately.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors='replace', line_buffering=True)
+    except (AttributeError, ValueError):
+        pass
 
 
 def read_json(path, default):
@@ -123,6 +142,13 @@ th{{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut
 
 
 class Handler(SimpleHTTPRequestHandler):
+    # Fixed content types. On some Windows machines the registry maps .js to text/plain,
+    # which makes browsers refuse to load the 3D view (render3d.js) as a module.
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
+                      '.html': 'text/html', '.css': 'text/css', '.svg': 'image/svg+xml',
+                      '.csv': 'text/csv; charset=utf-8', '.md': 'text/markdown; charset=utf-8'}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
@@ -176,24 +202,116 @@ class Handler(SimpleHTTPRequestHandler):
             write_index(entries)
             if 'csv' in files:
                 append_players(base, files['csv'])
-        print(f'  saved {base} ({", ".join(files)}) → data-metric/', flush=True)
+        print(f'  saved {base} ({", ".join(files)}) -> data-metric/', flush=True)
         return self.send_json(200, {'saved': saved})
 
 
+def find_cloudflared():
+    found = shutil.which('cloudflared')
+    if found:
+        return found
+    if IS_WIN:
+        bases = [os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LOCALAPPDATA')]
+        cands = [os.path.join(b, 'cloudflared', 'cloudflared.exe') for b in bases if b]
+        if os.environ.get('LOCALAPPDATA'):
+            cands.append(os.path.join(os.environ['LOCALAPPDATA'], 'Microsoft', 'WinGet', 'Links', 'cloudflared.exe'))
+    else:
+        cands = ['/opt/homebrew/bin/cloudflared', '/usr/local/bin/cloudflared', '/usr/bin/cloudflared']
+    return next((c for c in cands if os.path.isfile(c)), None)
+
+
+def offer_install():
+    print('cloudflared is not installed, so there is no public link yet. The game still runs at the address above.')
+    if IS_MAC and shutil.which('brew'):
+        cmd = ['brew', 'install', 'cloudflared']
+    elif IS_WIN and shutil.which('winget'):
+        cmd = ['winget', 'install', '--id', 'Cloudflare.cloudflared', '-e']
+    else:
+        print('Install it from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ and run again.')
+        return None
+    try:
+        answer = input(f'Install it now with "{" ".join(cmd)}"? [y/N] ').strip().lower()
+    except EOFError:
+        answer = ''
+    if answer != 'y':
+        print('Skipped. You can still play locally, or share the GitHub Pages link instead.')
+        return None
+    subprocess.run(cmd)
+    return find_cloudflared()
+
+
+def copy_to_clipboard(text):
+    tools = [['pbcopy']] if IS_MAC else [['clip']] if IS_WIN else [['wl-copy'], ['xclip', '-selection', 'clipboard']]
+    for tool in tools:
+        if shutil.which(tool[0]):
+            try:
+                subprocess.run(tool, input=text, text=True, check=True)
+                return True
+            except (OSError, subprocess.CalledProcessError):
+                pass
+    return False
+
+
+def start_tunnel(port):
+    """Start a Cloudflare quick tunnel to this server and print the public link once it appears."""
+    cf = find_cloudflared() or offer_install()
+    if not cf:
+        return None
+    print('Opening a Cloudflare quick tunnel (no account needed)...', flush=True)
+    proc = subprocess.Popen([cf, 'tunnel', '--no-autoupdate', '--url', f'http://localhost:{port}'],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
+
+    def pump():
+        shown = False
+        for line in proc.stdout:
+            m = URL_RE.search(line)
+            if m and not shown:
+                shown, url = True, m.group(0)
+                copied = copy_to_clipboard(url)
+                print(f"""
+  Public game link: {url}{'   (copied to the clipboard)' if copied else ''}
+  1. Open it, choose Play online, then Create room.
+  2. Send friends the link and the 5-letter room code.
+  The link stops working when you close this window.
+""", flush=True)
+                webbrowser.open(url)
+            elif ' ERR ' in line:
+                print('  cloudflared: ' + line.strip(), flush=True)
+    threading.Thread(target=pump, daemon=True).start()
+    return proc
+
+
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description='Serve Foul Play FC locally and save every finished match into ./data-metric.')
     ap.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8080)))
     ap.add_argument('--bind', default='127.0.0.1')
+    ap.add_argument('--open', action='store_true', help='open the game in your browser')
+    ap.add_argument('--tunnel', action='store_true', help='also create a temporary public link with Cloudflare')
     args = ap.parse_args()
     try:
         srv = ThreadingHTTPServer((args.bind, args.port), Handler)
     except OSError as e:
-        sys.exit(f'Could not start on port {args.port}: {e}. Try --port 9000.')
-    print(f'Foul Play FC on http://localhost:{args.port}  ·  match metrics are saved to {DATA}', flush=True)
+        sys.exit(f'Could not start on port {args.port}: {e}. Another copy may already be running; try --port 9000.')
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    local = f'http://localhost:{args.port}'
+    print(f'Foul Play FC is running at {local}', flush=True)
+    print(f'Finished matches are saved to {DATA}', flush=True)
+    print('Press Ctrl+C (or close this window) to stop.', flush=True)
+    if args.open:
+        webbrowser.open(local)
+    proc = start_tunnel(args.port) if args.tunnel else None
     try:
-        srv.serve_forever()
+        while True:
+            time.sleep(0.5)
+            if proc and proc.poll() is not None:
+                print('The Cloudflare tunnel stopped. The game is still running locally.', flush=True)
+                proc = None
     except KeyboardInterrupt:
-        pass
+        print('\nStopping...', flush=True)
+    finally:
+        if proc:
+            proc.terminate()
+        srv.shutdown()
 
 
 if __name__ == '__main__':
