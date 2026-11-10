@@ -4,7 +4,8 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 export function createRenderer3D(canvas, G) {
-  const { W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, TEAM, HUMAN_COL } = G;
+  const { W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL } = G;
+  const SPACING = W > 1500 ? 15 : 10;   // crowd density: fewer, wider-spaced fans on the big stadium
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
@@ -42,7 +43,7 @@ export function createRenderer3D(canvas, G) {
   const fill = new THREE.DirectionalLight('#9fc4ff', 0.55); fill.position.set(520, 420, -320); scene.add(fill);
 
   /* ---------- pitch ---------- */
-  const M = 70, PX = 2;
+  const M = 70, PX = W > 1500 ? 1.6 : 2;   // keeps the pitch texture within common GPU size limits
   const pitchTex = canvasTex((W + 2 * M) * PX, (H + 2 * M) * PX, c => {
     c.scale(PX, PX);
     c.fillStyle = '#165029'; c.fillRect(0, 0, W + 2 * M, H + 2 * M);
@@ -53,13 +54,13 @@ export function createRenderer3D(canvas, G) {
     const seg = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
     const arc = (x, y, r, a0 = 0, a1 = Math.PI * 2) => { c.beginPath(); c.arc(x, y, r, a0, a1); c.stroke(); };
     const spot = (x, y) => { c.beginPath(); c.arc(x, y, 2.4, 0, Math.PI * 2); c.fill(); };
-    c.strokeRect(0, 0, W, H); seg(W / 2, 0, W / 2, H); arc(W / 2, H / 2, 70); spot(W / 2, H / 2);
+    c.strokeRect(0, 0, W, H); seg(W / 2, 0, W / 2, H); arc(W / 2, H / 2, CIRCLE_R); spot(W / 2, H / 2);
     for (const side of [0, 1]) {
       const x0 = side ? W : 0, d = side ? -1 : 1;
       c.strokeRect(Math.min(x0, x0 + d * BOX_D), H / 2 - BOX_HALF, BOX_D, BOX_HALF * 2);
-      c.strokeRect(Math.min(x0, x0 + d * 50), H / 2 - 85, 50, 170);
-      const cx = x0 + d * 110; spot(cx, H / 2);
-      if (side) arc(cx, H / 2, 70, Math.PI - 0.963, Math.PI + 0.963); else arc(cx, H / 2, 70, -0.963, 0.963);
+      c.strokeRect(Math.min(x0, x0 + d * GA_D), H / 2 - GA_HALF, GA_D, GA_HALF * 2);
+      const cx = x0 + d * PEN_X; spot(cx, H / 2);
+      if (side) arc(cx, H / 2, ARC_R, Math.PI - ARC_A, Math.PI + ARC_A); else arc(cx, H / 2, ARC_R, -ARC_A, ARC_A);
     }
     arc(0, 0, 12, 0, Math.PI / 2); arc(W, 0, 12, Math.PI / 2, Math.PI); arc(0, H, 12, -Math.PI / 2, 0); arc(W, H, 12, Math.PI, Math.PI * 1.5);
   });
@@ -76,13 +77,13 @@ export function createRenderer3D(canvas, G) {
     const z = -(H / 2 + M + 24 + i * DEPTH + DEPTH / 2), y = RISE * (i + 1);
     const box = new THREE.Mesh(new THREE.BoxGeometry(W + 2 * M + 280, y, DEPTH), standMat);
     box.position.set(0, y / 2, z); box.receiveShadow = true; scene.add(box);
-    for (let x = -(W / 2 + M + 130); x <= W / 2 + M + 130; x += 10) crowdSpots.push([x + rand(-2, 2), y, z + rand(-4, 4)]);
+    for (let x = -(W / 2 + M + 130); x <= W / 2 + M + 130; x += SPACING) crowdSpots.push([x + rand(-2, 2), y, z + rand(-4, 4)]);
   }
   for (const sgn of [-1, 1]) for (let i = 0; i < 7; i++) {
     const x = sgn * (W / 2 + M + 34 + i * DEPTH + DEPTH / 2), y = RISE * (i + 1);
     const box = new THREE.Mesh(new THREE.BoxGeometry(DEPTH, y, H + 2 * M + 40), standMat);
     box.position.set(x, y / 2, 0); box.receiveShadow = true; scene.add(box);
-    for (let z = -(H / 2 + M); z <= H / 2 + M; z += 10) crowdSpots.push([x + rand(-4, 4), y, z + rand(-2, 2)]);
+    for (let z = -(H / 2 + M); z <= H / 2 + M; z += SPACING) crowdSpots.push([x + rand(-4, 4), y, z + rand(-2, 2)]);
   }
   const back = new THREE.Mesh(new THREE.BoxGeometry(W + 2 * M + 600, 190, 20), std('#0e1513'));
   back.position.set(0, 95, -(H / 2 + M + 24 + 9 * DEPTH + 10)); scene.add(back);
@@ -197,8 +198,8 @@ export function createRenderer3D(canvas, G) {
     const sw = Math.sin(run) * 0.85 * moving;
     R.legL.rotation.set(sw, 0, 0); R.legR.rotation.set(-sw, 0, 0);
     R.armL.rotation.set(-sw * 0.9, 0, 0.1); R.armR.rotation.set(sw * 0.9, 0, -0.1);
-    if (down) { R.body.rotation.x = Math.PI / 2 * 0.97; R.body.position.y = 3.6; R.legL.rotation.x = 0.25; R.legR.rotation.x = -0.15; R.armL.rotation.z = 1.1; R.armR.rotation.z = -1.1; }
-    else { R.body.rotation.x = lean || 0; R.body.position.y = 0; }
+    if (down) { R.body.rotation.set(Math.PI / 2 * 0.97, 0, 0); R.body.position.y = 3.6; R.legL.rotation.x = 0.25; R.legR.rotation.x = -0.15; R.armL.rotation.z = 1.1; R.armR.rotation.z = -1.1; }
+    else { R.body.rotation.set(lean || 0, 0, 0); R.body.position.y = 0; }
   }
 
   const playerRigs = [];
@@ -284,12 +285,11 @@ export function createRenderer3D(canvas, G) {
     const S = G.S, dt = last == null ? 0.016 : clamp(time - last, 0, 0.1); last = time;
     const b = S.ball;
 
-    // camera: broadcast angle from the near touchline, panning with the ball
-    const tx = clamp((b.x - W / 2) * 0.32, -170, 170);
-    cam.x += (tx - cam.x) * Math.min(1, dt * 2.4);
-    const sh = S.shake || 0;
-    camera.position.set(cam.x + (Math.random() - 0.5) * sh, 560 + (Math.random() - 0.5) * sh, 830);
-    camera.lookAt(cam.x * 0.85, 0, -120);
+    // camera: broadcast angle from the near side, with the focused player in the middle of the screen
+    const f = G.cam(), fx = f.x - W / 2, fz = f.y - H / 2, sh = S.shake || 0;
+    camera.position.set(fx + (Math.random() - 0.5) * sh, 540 + (Math.random() - 0.5) * sh, fz + 660);
+    camera.lookAt(fx, 12, fz);
+    sun.position.set(fx - 380, 820, fz + 430); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld();   // shadows follow the camera
 
     // players
     S.players.forEach((p, i) => {
@@ -302,6 +302,11 @@ export function createRenderer3D(canvas, G) {
       if (!R.g.visible) return;
       const down = p.stun > 0 || p.ko > 0;
       pose(R, p.x, p.y, p.face, p.run, Math.min(1, Math.hypot(p.vx, p.vy) / 120), down, p.sprinting ? 0.32 : 0);
+      if (p.dive > 0 || p.diveDown > 0 || p.diveState) {   // goalkeeper dive: roll sideways, arms stretched
+        const s = p.diveDir || p.diveState || 1;
+        R.body.rotation.set(0, 0, Math.sign(s * Math.cos(p.face) || 1) * Math.PI / 2 * 0.92); R.body.position.y = 6;
+        R.armL.rotation.set(-2.9, 0, 0.2); R.armR.rotation.set(-2.9, 0, -0.2); R.legL.rotation.x = 0.3; R.legR.rotation.x = -0.2;
+      }
       R.bat.visible = p.items && p.items.bat > 0 && !down;
       R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
     });
@@ -319,7 +324,7 @@ export function createRenderer3D(canvas, G) {
       c.mesh.position.set(r.x - W / 2, 0.7 + i * 0.05, r.y - H / 2);
       c.mesh.rotation.y = -r.face;
       const hot = G.coneHot(r), col = hot ? '#ff5a6e' : '#ffec8c';
-      c.mat.color.set(col); c.mat.opacity = hot ? 0.2 : r.human ? 0.22 : 0.15; c.edge.material.color.set(col);
+      c.mat.color.set(col); c.mat.opacity = hot ? 0.13 : r.human ? 0.16 : 0.08; c.edge.material.color.set(col); c.edge.material.opacity = hot ? 0.55 : 0.35;
     });
 
     // ball
@@ -371,6 +376,6 @@ export function createRenderer3D(canvas, G) {
     renderer.setPixelRatio(Math.min(2, dpr || 1)); renderer.setSize(Math.max(1, w), Math.max(1, h), false);
     camera.aspect = Math.max(1, w) / Math.max(1, h); camera.updateProjectionMatrix();
   }
-  camera.position.set(0, 560, 830); camera.lookAt(0, 0, -120);
+  camera.position.set(0, 540, 660); camera.lookAt(0, 12, 0);
   return { render, project, resize, dispose: () => renderer.dispose() };
 }

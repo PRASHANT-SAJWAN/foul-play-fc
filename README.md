@@ -5,6 +5,7 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 
 - **Graphics:** 3D (default) or Classic 2.5D, under **Pace and controls → Game**. The 3D view draws the same match with low-poly player models, a floodlit stadium, shadows and a broadcast camera that follows the ball. If WebGL isn't available, the game falls back to Classic automatically.
 
+- **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps your player in the middle of the screen, with a mini-map at the bottom and an edge pointer to the ball.
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
 
