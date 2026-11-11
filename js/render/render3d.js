@@ -245,7 +245,7 @@ export function createRenderer3D(canvas, G) {
   const N = crowdSpots.length;
   const bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(6, 9, 4.5), new THREE.MeshLambertMaterial(), N);
   const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(2.6, 6, 5), new THREE.MeshLambertMaterial({ color: '#d7b08c' }), N);
-  const palette = [TEAM[0].col, '#2b78b8', TEAM[1].col, '#c4502c', '#e8e2d0', '#4a5b52', '#c9b46a', '#2a3a33'].map(c => new THREE.Color(c));
+  const palette = [TEAM[0].col, TEAM[0].socks, TEAM[1].col, TEAM[1].socks, '#e8e2d0', '#4a5b52', '#c9b46a', '#2a3a33'].map(c => new THREE.Color(c));
   const phase = new Float32Array(N), fan = new Float32Array(N);
   for (let i = 0; i < N; i++) { bodies.setColorAt(i, palette[(Math.random() * palette.length) | 0]); phase[i] = Math.random() * 6.28; fan[i] = Math.random(); }
   bodies.instanceColor.needsUpdate = true;

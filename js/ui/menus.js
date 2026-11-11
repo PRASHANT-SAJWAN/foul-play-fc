@@ -3,13 +3,13 @@
    Classic script sharing one global scope with the rest of js/; index.html loads them in order. */
 'use strict';
 
-function showOverlay(id) { overlays.forEach(o => document.getElementById(o).hidden = o !== id); updateTouch(); }
+function showOverlay(id) { if (id === 'setup' && typeof renderSetup === 'function') renderSetup(); overlays.forEach(o => document.getElementById(o).hidden = o !== id); updateTouch(); }
 function updateTouch() {
   const coarse = matchMedia('(pointer: coarse)').matches;
   document.getElementById('touch').hidden = !(coarse && S.phase === 'play' && (S.humans.length || S.net || S.refHuman) && !S.userPaused);
 }
 function start(mode) { initAudio(); if (AC && AC.state === 'suspended') AC.resume(); S.phase = 'play'; newMatch(mode); setupAdmin(mode === 'playground'); whistle(1); showOverlay(null); }
-function toMenu() { leaveRoom(); S.net = null; S.phase = 'menu'; newMatch('watch'); setupAdmin(false); showOverlay('menu'); }
+function toMenu() { leaveRoom(); S.net = null; applyTeams(SETUP.teams); S.phase = 'menu'; newMatch('watch'); setupAdmin(false); showOverlay('menu'); }
 function togglePause() { S.userPaused = !S.userPaused; renderAnomOpts('p-anomlvl'); renderRefVis('p-refdist'); document.getElementById('p-anom').hidden = S.net === 'client' || S.mode === 'playground'; document.getElementById('p-ref').hidden = S.net === 'client'; document.getElementById('p-restart').hidden = S.net === 'client'; document.getElementById('p-menu').textContent = S.net ? 'Leave room' : 'Main menu'; showOverlay(S.userPaused ? 'paused' : null); }
 document.getElementById('m-1p').onclick = () => start('1p');
 document.getElementById('m-2pv').onclick = () => start('2pv');

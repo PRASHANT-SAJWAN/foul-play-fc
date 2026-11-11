@@ -15,7 +15,7 @@ function resize() {   // fill the window at its native resolution; letterbox onl
 }
 addEventListener('resize', resize);
 if (window.visualViewport) visualViewport.addEventListener('resize', resize);
-const overlays = ['menu', 'paused', 'over', 'settings', 'online', 'guide', 'creator', 'roles'];
+const overlays = ['menu', 'setup', 'paused', 'over', 'settings', 'online', 'guide', 'creator', 'roles'];
 let settingsFrom = 'menu';
 function renderPace() {
   const el = document.getElementById('pace');

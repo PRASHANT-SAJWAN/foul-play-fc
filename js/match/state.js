@@ -52,17 +52,24 @@ function newMatch(mode) {
   S.admin = mode === 'playground' ? { god: false, inf: false, refs: 'normal', bots: 'normal' } : null;
   S.refHuman = null;
   const P = (t, i) => S.players[t * TEAM_SIZE + i], FWD = TEAM_SIZE - 1, MID = TEAM_SIZE - 2;
-  if (mode === '1p') S.humans = [{ idx: 0, team: 0, map: MAPSOLO, pid: P(0, FWD).id, prev: {}, charge: 0, charging: false, touch: true }];
-  if (mode === '2pv') S.humans = [{ idx: 0, team: 0, map: MAP1, pid: P(0, FWD).id, prev: {}, charge: 0, charging: false, touch: true },
-                                  { idx: 1, team: 1, map: MAP2, pid: P(1, FWD).id, prev: {}, charge: 0, charging: false }];
-  if (mode === '2pc') S.humans = [{ idx: 0, team: 0, map: MAP1, pid: P(0, FWD).id, prev: {}, charge: 0, charging: false, touch: true },
-                                  { idx: 1, team: 0, map: MAP2, pid: P(0, MID).id, prev: {}, charge: 0, charging: false }];
-  if (mode === 'playground') S.humans = [{ idx: 0, team: 0, map: MAPSOLO, pid: P(0, FWD).id, prev: {}, charge: 0, charging: false, touch: true }];
+  const me = S.phase === 'menu' ? 0 : SETUP.side, you = 1 - me;   // the side picked on the setup screen
+  if (mode === '1p') S.humans = [{ idx: 0, team: me, map: MAPSOLO, pid: P(me, FWD).id, prev: {}, charge: 0, charging: false, touch: true }];
+  if (mode === '2pv') S.humans = [{ idx: 0, team: me, map: MAP1, pid: P(me, FWD).id, prev: {}, charge: 0, charging: false, touch: true },
+                                  { idx: 1, team: you, map: MAP2, pid: P(you, FWD).id, prev: {}, charge: 0, charging: false }];
+  if (mode === '2pc') S.humans = [{ idx: 0, team: me, map: MAP1, pid: P(me, FWD).id, prev: {}, charge: 0, charging: false, touch: true },
+                                  { idx: 1, team: me, map: MAP2, pid: P(me, MID).id, prev: {}, charge: 0, charging: false }];
+  if (mode === 'playground') S.humans = [{ idx: 0, team: me, map: MAPSOLO, pid: P(me, FWD).id, prev: {}, charge: 0, charging: false, touch: true }];
   if (mode === 'ref') { S.refHuman = { map: MAPSOLO, prev: {}, charge: 0, charging: false, touch: true, track: true, correct: 0, missed: 0, wrong: 0 }; S.refs[0].human = true; }
   assignClasses();
   for (const h of S.humans) if ((h.idx || 0) === 0 && mode !== 'online') {   // your class, your player, your controls
     if (MY_CLASS === 'goalkeeper') h.pid = P(h.team, 0).id;
     S.players[h.pid].cls = MY_CLASS; h.lock = LOCK_PLAYER;
+  }
+  for (const h of S.humans) if (h.idx === 1 && mode !== 'online') {   // player 2's class from the setup screen
+    const c2 = CLS[SETUP.p2] ? SETUP.p2 : 'striker', taken = id => S.humans.some(o => o !== h && o.pid === id);
+    if (c2 === 'goalkeeper' && !taken(P(h.team, 0).id)) h.pid = P(h.team, 0).id;
+    else if (taken(h.pid)) h.pid = P(h.team, MID).id;
+    S.players[h.pid].cls = c2; h.lock = LOCK_PLAYER;
   }
   for (const p of S.players) applyClassLook(p);
   refreshSynergies();

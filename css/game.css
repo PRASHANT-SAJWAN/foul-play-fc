@@ -158,3 +158,31 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
 .adm-t input{accent-color:var(--gold)}
 #admin.min .adm-body{display:none}
 @media (prefers-reduced-motion:reduce){button.mode{transition:none}}
+/* match setup */
+.su-card{max-width:980px}
+.su-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.su-teams{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:stretch}
+.su-vs{align-self:center;font-family:var(--display);font-size:34px;color:var(--muted)}
+.su-team{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--tc);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.su-team.mine{box-shadow:0 0 0 2px var(--tc)}
+.su-team-top{display:flex;justify-content:space-between;align-items:center}
+.su-badge{font-size:12px;letter-spacing:.14em;color:var(--muted)}
+.su-you{background:var(--tc);color:#08100d;font-weight:700;font-size:13px;border-radius:999px;padding:2px 10px}
+.su-label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.su-name{font-family:var(--display);font-size:28px;line-height:1;background:#08110e;border:1px solid var(--line);border-radius:8px;color:var(--tc);padding:6px 10px;width:100%;box-sizing:border-box}
+.su-name:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.su-team .sw:disabled{opacity:.2;cursor:not-allowed}
+.su-side{align-self:flex-start}
+.su-row{justify-content:center}
+.su-h{margin:6px 0 0;font-size:18px;font-weight:600}
+.su-h .hint{font-weight:400;margin-left:6px}
+.su-classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.su-cls{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 4px;color:var(--ink);font-family:var(--ui);cursor:pointer}
+.su-cls img{width:42px;height:42px;border-radius:8px}
+.su-cls .n{font-size:16px;font-weight:600}
+.su-cls .r{font-size:12px;color:var(--muted)}
+.su-cls[aria-pressed="true"]{border-color:var(--cc);box-shadow:0 0 0 2px var(--cc);background:#121f1a}
+.su-cls:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.su-lock{font-size:15px}
+@media (max-width:700px){.su-teams{grid-template-columns:1fr}.su-vs{display:none}}
+

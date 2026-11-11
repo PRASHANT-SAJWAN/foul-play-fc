@@ -9,6 +9,7 @@ Plain HTML and JavaScript: no build step and no backend. `index.html` holds the 
 - **Referee vision:** set the referee's vision distance (50% to 200%) and cone width in **Pace and controls → Game**, or the distance from the pause menu. Online, the host's setting is used.
 - **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps the ball in the middle of the screen, with a mini-map at the bottom and an edge arrow to your player when they're off screen. One referee works inside the pitch.
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
+- **Match setup:** picking a mode opens a setup screen: name both teams, pick their kit colours, choose which side you play for (versus: swap sides), and pick each player's class. Choices are remembered; online, everyone sees the host's team names and colours.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
 - **Players:** each has health, a rechargeable **stamina** bar (sprinting and shot power), and a **mood** (in the zone, tilted, meltdown). Hard fouls can **injure**, which caps stamina until a med kit heals it.
 - **Party features:** crowd opinion meter with chants and banners, taunt wheel, crowd gifts, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.

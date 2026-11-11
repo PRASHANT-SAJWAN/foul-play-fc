@@ -9,7 +9,7 @@ function sendSnap(force) {
   const now = performance.now(); if (!force && now - NET.lastSnap < 50) return; NET.lastSnap = now;
   if (!Object.keys(NET.conns).length) return;
   const b = S.ball;
-  const s = { ph: S.phase, fm: FORMAT, pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
+  const s = { ph: S.phase, fm: FORMAT, tm: teamsSnap(), pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
     spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type, r1(S.setPiece.aim.y), r1(S.setPiece.aim.z), S.setPiece.prep, S.setPiece.minT, S.setPiece.offX == null ? -1 : r1(S.setPiece.offX), S.setPiece.view === 'side' ? 1 : 0] : 0,
     ch: S.chants.map(c => [c.id, c.kind, c.text, r1(c.x), r1(c.life)]),
     mu: MUT_LIST.map(([k]) => MUT[k] ? 1 : 0),
@@ -48,6 +48,7 @@ function humanTag(uid) {
 }
 function applySnap(s) {
   if (!s || !NET) return;
+  if (s.tm) applyTeamsSnap(s.tm);
   if (s.fm && s.fm !== FORMAT) {   // the host plays a different format: rebuild the pitch and teams to match
     applyFormat(s.fm); newMatch('client'); S.humans = [];
     for (const p of S.players) p.snap = false; for (const r of S.refs) r.snap = false; S.ball.snap = false;

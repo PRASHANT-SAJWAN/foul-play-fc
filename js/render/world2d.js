@@ -9,7 +9,7 @@ function buildCrowd2D() {
   crowd.length = 0;
   const step = W > 1500 ? 16 : 11;
   for (let r = 0; r < 20; r++) for (let x = -110; x <= W + 110; x += step) {
-    crowd.push({ x: x + rand(-3, 3), y: -32 - r * 14 + rand(-2, 2), col: pick(['#3fa9ff', '#2b78b8', '#ff6a3d', '#c4502c', '#e8e2d0', '#4a5b52', '#c9b46a', '#2a3a33']), ph: rand(0, 6.28), fan: Math.random() });
+    crowd.push({ x: x + rand(-3, 3), y: -32 - r * 14 + rand(-2, 2), col: pick([TEAM[0].col, TEAM[0].socks, TEAM[1].col, TEAM[1].socks, '#e8e2d0', '#4a5b52', '#c9b46a', '#2a3a33']), ph: rand(0, 6.28), fan: Math.random() });
   }
 }
 function ell(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, Math.PI * 2); }

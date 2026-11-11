@@ -93,9 +93,9 @@
       <h1>FOUL PLAY <span>FC</span></h1>
       <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referee only sees what's inside the yellow cone, so throw sand in their eyes first. Play well and the crowd throws you med kits, swords, rocket boots, ultimate charges and fake whistles.</p>
       <div class="modes">
-        <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">You lead the Hounds</span></button>
+        <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">Pick your team and player</span></button>
         <button class="mode" id="m-2pv"><span class="t">2 players · versus</span><span class="d">Same keyboard, rival teams</span></button>
-        <button class="mode" id="m-2pc"><span class="t">2 players · co-op</span><span class="d">Both on the Hounds vs bots</span></button>
+        <button class="mode" id="m-2pc"><span class="t">2 players · co-op</span><span class="d">Both on one team vs bots</span></button>
         <button class="mode" id="m-watch"><span class="t">Watch the bots</span><span class="d">Bots only, one referee</span></button>
         <button class="mode" id="m-online"><span class="t">Play online</span><span class="d">Create or join a room</span></button>
         <button class="mode" id="m-play"><span class="t">Playground</span><span class="d">Admin panel: test every ability</span></button>
@@ -110,6 +110,14 @@
         <li><b>Karma:</b> fouls lower it and make bots come after you. Help a downed player up to raise it. The referee lets trusted players off and ignores fouls on serial offenders.</li>
       </ul>
       <div class="row"><button class="btn" id="m-guide">How to play</button><button class="btn ghost" id="m-creator">Your character</button><button class="btn ghost" id="m-roles">Classes &amp; skills</button><button class="btn ghost" id="m-settings">Pace and controls</button></div>
+    </div>
+  </div>
+
+  <div id="setup" class="overlay" hidden>
+    <div class="card su-card">
+      <div class="su-head"><div><div class="kicker">Match setup</div><h2 id="su-title">Solo vs bots</h2></div><button class="btn ghost sm" id="su-classes">Class details</button></div>
+      <div id="su-body"></div>
+      <div class="row"><button class="btn" id="su-start">Kick off</button><button class="btn ghost" id="su-back">Back</button></div>
     </div>
   </div>
 
@@ -291,8 +299,8 @@
         </div>
         <p class="hint">Friends open the same game link and enter this code. Up to 4 people per team; bots play the empty spots and both goalkeepers. The match runs in the host’s browser, so nothing is stored on a server.</p>
         <div class="teams">
-          <div class="team"><h3 style="color:var(--hounds)">Harbor Hounds</h3><ul id="on-t0"></ul></div>
-          <div class="team"><h3 style="color:var(--vipers)">Ember Vipers</h3><ul id="on-t1"></ul></div>
+          <div class="team"><h3 style="color:var(--hounds)" id="on-tname0">Harbor Hounds</h3><ul id="on-t0"></ul></div>
+          <div class="team"><h3 style="color:var(--vipers)" id="on-tname1">Ember Vipers</h3><ul id="on-t1"></ul></div>
         </div>
         <div id="on-invite" class="card" style="gap:6px" hidden>
           <div class="settings-h">Backup link for friends who can't connect directly</div>
@@ -347,6 +355,7 @@
 <script src="js/core/input.js"></script>
 <script src="js/core/audio.js"></script>
 <script src="js/match/state.js"></script>
+<script src="js/match/teams.js"></script>
 <script src="js/match/feedback.js"></script>
 <script src="js/mechanics/passing.js"></script>
 <script src="js/mechanics/shooting.js"></script>
@@ -401,6 +410,7 @@
 <script src="js/ui/creator.js"></script>
 <script src="js/ui/catalog.js"></script>
 <script src="js/ui/lobby.js"></script>
+<script src="js/ui/setup.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
