@@ -137,7 +137,8 @@ export function createPreview(canvas) {
 }
 
 export function createRenderer3D(canvas, G) {
-  const { W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL } = G;
+  let LW = G.LW;
+  const { W, H, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL } = G;
   const SPACING = W > 1500 ? 15 : 10;   // crowd density: fewer, wider-spaced fans on the big stadium
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -522,6 +523,7 @@ export function createRenderer3D(canvas, G) {
       R.card.visible = !!r.card;
       if (r.card) { R.card.material.color.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.card.material.emissive.set(r.card.red ? '#ff3b3b' : '#ffd23f'); R.armR.rotation.set(-2.9, 0, -0.15); }
       if (r.blind > 0) { R.armL.rotation.set(-2.5, 0, 0.55); R.armR.rotation.set(-2.5, 0, -0.55); }
+      if (cones[i] && (cones[i].range !== r.range || cones[i].fov !== r.fov)) { const o = cones[i]; scene.remove(o.mesh); o.mesh.geometry.dispose(); o.edge.geometry.dispose(); o.mat.dispose(); o.edge.material.dispose(); cones[i] = null; }   // vision setting changed
       const c = cones[i] || (cones[i] = cone(r));
       c.mesh.visible = r.blind <= 0 && !(r.gone > 0);
       c.mesh.position.set(r.x - W / 2, 0.7 + i * 0.05, r.y - H / 2);
@@ -635,7 +637,8 @@ export function createRenderer3D(canvas, G) {
   }
   const rc = new THREE.Raycaster(), ndc = new THREE.Vector2(), pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitV = new THREE.Vector3();
   function unproject(sx, sy) { ndc.set(sx / LW * 2 - 1, -(sy / LH * 2 - 1)); rc.setFromCamera(ndc, camera); return rc.ray.intersectPlane(pickPlane, hitV) ? { x: hitV.x + W / 2, y: hitV.z + H / 2 } : null; }
-  function resize(w, h, dpr) {
+  function resize(w, h, dpr, lw) {
+    if (lw) LW = lw;
     renderer.setPixelRatio(Math.min(2, dpr || 1)); renderer.setSize(Math.max(1, w), Math.max(1, h), false);
     camera.aspect = Math.max(1, w) / Math.max(1, h); camera.updateProjectionMatrix();
   }

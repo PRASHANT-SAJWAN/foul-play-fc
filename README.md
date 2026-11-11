@@ -5,6 +5,8 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 
 - **Graphics:** 3D (default) or Classic 2.5D, under **Pace and controls → Game**. The 3D view draws the same match with low-poly player models, a floodlit stadium, shadows and a broadcast camera that follows the ball. If WebGL isn't available, the game falls back to Classic automatically.
 
+- **Full screen, any monitor:** the game fills the browser window at native resolution. Wider screens (16:10, 16:9, 21:9, 32:9) see more of the pitch from side to side; anything taller than 4:3 or wider than 3.6:1 is letterboxed.
+- **Referee vision:** set the referee's vision distance (50% to 200%) and cone width in **Pace and controls → Game**, or the distance from the pause menu. Online, the host's setting is used.
 - **Formats:** 5v5 on a full-size pitch (four times the area of 3v3, marked like a FIFA pitch) or 3v3 on a small pitch. The camera keeps the ball in the middle of the screen, with a mini-map at the bottom and an edge arrow to your player when they're off screen. One referee works inside the pitch.
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
@@ -35,7 +37,7 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 | P | Ultimate |
 | T | Taunt (hold and pick a direction) |
 
-Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `[`, 8 9 0, `-` and `]`. Only the keys for the current mode are shown under the game.
+Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `[`, 8 9 0, `-` and `]`. The full list is in **How to play** and **Pace and controls → Controls**.
 
 Change them in **Pace and controls → Controls**; changes are saved in the browser. This layout replaces older custom keys once (a copy is kept in `fpfc-binds-old`).
 
