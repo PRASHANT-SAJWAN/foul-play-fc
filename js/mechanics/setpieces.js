@@ -70,8 +70,10 @@ function fkLegal(p, sp, snap) {   // keep a player where the laws allow during t
   if (d < min) { const a = d > 0.1 ? Math.atan2(p.y - b.y, p.x - b.x) : (att ? Math.PI : 0) + (dir > 0 ? 0 : Math.PI); p.x = b.x + Math.cos(a) * min; p.y = b.y + Math.sin(a) * min; if (!snap) { p.vx *= 0.3; p.vy *= 0.3; } }
   p.x = clamp(p.x, 8, W - 8); p.y = clamp(p.y, 8, H - 8);
 }
+// The taker's camera: 'front' (behind the ball, aim at a spot on the goal) or 'side' (the normal view: aim with movement, pass anywhere, back passes included).
+let FK_VIEW = store.get('fpfc-fkview') === 'side' ? 'side' : 'front';
 function fkPlaceTaker(sp) {
-  const t = sp.taker, b = S.ball, gx = fkGoalX(t), a = Math.atan2(sp.aim.y - b.y, gx - b.x);
+  const t = sp.taker, b = S.ball, gx = fkGoalX(t), a = sp.view === 'side' && t.aimA != null ? t.aimA : Math.atan2(sp.aim.y - b.y, gx - b.x);
   t.x = b.x - Math.cos(a) * 14; t.y = b.y - Math.sin(a) * 14; t.face = a; t.vx = t.vy = 0; t.z = 0;
   if (b.owner === t) { b.x = b.x; b.z = 0; b.vx = b.vy = b.vz = 0; }
 }
@@ -124,7 +126,7 @@ function fkPathPoints(sp, P, n = 26) {
 }
 function fkShoot(t, sp, power) {
   const b = S.ball; if (b.owner !== t) return;
-  const ideal = fkIdealPower(sp), boosted = t.charge >= 25, band = boosted ? 0.14 : 0.08;
+  const ideal = fkIdealPower(sp), boosted = t.charge >= 25, curveBf = hasBf(t, 'curveDrive'), band = curveBf ? 1 : boosted ? 0.14 : 0.08;   // Curve Drive: always on target
   if (boosted) { t.charge -= 25; M(t, 'chargeSpent', 25); M(t, 'powerShots'); }
   power = clamp(power, 0.2, 1);
   const dp = power - ideal, ex = Math.max(0, Math.abs(dp) - band);
@@ -133,7 +135,11 @@ function fkShoot(t, sp, power) {
   const rocket = t.fx && t.fx.rocket > 0; if (rocket) t.fx.rocket--;
   const m = rocket ? 1.15 : 1;
   b.owner = null; b.z = 0.5; b.vx = P.vx * m; b.vy = P.vy * m; b.vz = P.vz; b.curve = { ax: P.ax, ay: P.ay, t: P.T + 0.4 };
-  b.lastTouch = t; b.shotBy = t; b.shotT = S.time; b.shotPowered = boosted; b.trail = boosted || rocket ? (rocket ? '#ff7a2f' : (t.trailCol || '#4fd6ff')) : null;
+  b.lastTouch = t; b.shotBy = t; b.shotT = S.time; b.shotPowered = boosted; b.trail = rocket || (boosted && power >= POWER_TRAIL) ? (rocket ? '#ff7a2f' : (t.trailCol || '#4fd6ff')) : null;
+  b.knock = 0; b.unstoppable = 0;
+  if (curveBf) { t.bf.curveDrive = 0; floatText(t, 'CURVE DRIVE!', '#ff9a6b'); }
+  if (hasBf(t, 'powerShot')) { b.vx *= 1.25; b.vy *= 1.25; b.knock = S.time + 1.5; t.bf.powerShot = 0; b.trail = '#ff4d4d'; floatText(t, 'POWER SHOT!', '#ff4d4d'); }
+  if (hasBf(t, 'meteorShot')) { b.vx *= 1.2; b.vy *= 1.2; b.unstoppable = S.time + 2; t.bf.meteorShot = 0; b.trail = '#ff7a2f'; }
   t.pickCd = 0.5; t.stamina = Math.max(0, t.stamina - (8 + 14 * power)); a0Anim(t, 'shoot', 0.35); thump(85, 0.3, 0.12); S.excite += 0.3;
   M(t, 'shots'); EV('shot', t, { power: rnd(power, 2), powered: boosted, setPiece: sp.type, curve: Math.round(Math.hypot(P.ax, P.ay)) });
   const curl = Math.hypot(P.ax, P.ay) > 200;
@@ -149,24 +155,35 @@ function setPieceUpdate(dt) {
   if (!sp.whistled && sp.t >= sp.minT) { sp.whistled = true; whistle(1); }
   sp.offX = pen ? null : fkOffside(sp);
   fkWallSpots(sp);
-  let shot = null;
+  if (!sp.viewSet) { sp.viewSet = true; sp.view = isLocalHuman(t) ? FK_VIEW : 'front'; if (sp.view === 'side') t.aimA = t.face; }
+  let shot = null, sideShot = null;
   for (const h of S.humans) {          // read every human so stray presses don't queue up
     const inp = readInput(h, dt), p = S.players[h.pid]; if (!p) continue;
+    const early = p === t && sp.t < sp.minT;
+    // skills and ultimates work during the set-up too (the taker's wait for the whistle)
+    for (const [k, slot] of [['s1', 0], ['s2', 1], ['s3', 2], ['ul', 3]]) if (inp[k]) { if (early) floatText(t, 'Wait for the whistle', '#c8c8c8'); else castSkill(p, slot); }
     if (p === t) {
+      if (inp.view) {
+        sp.view = sp.view === 'side' ? 'front' : 'side'; t.aimA = t.face;
+        if (!h.remote) { FK_VIEW = sp.view; store.set('fpfc-fkview', FK_VIEW); }
+        floatText(t, sp.view === 'side' ? 'SIDE VIEW: AIM ANYWHERE, PASS OR SHOOT' : 'FREE-KICK VIEW', '#9fe8ff');
+      }
+      if (sp.view === 'side') steerAim(t, inp.ix, inp.iy, dt);   // turn to aim, including back towards your own half
       // aim: in the 3D front view left/right moves across the goal and up/down sets the height
-      if ((GFX3D && !!R3) || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
+      else if ((GFX3D && !!R3) || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
       else { sp.aim.y += inp.iy * 150 * dt; sp.aim.z += inp.ix * dir * 55 * dt; }
       sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
-      if (sp.t < sp.minT) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
+      if (early) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
       if (inp.passR) humanPass(t, inp.power);
       else if (inp.lpassR) humanLongPass(t, inp.power);
       else if (inp.thR) throughBall(t, inp.power);
-      else if (inp.sr) shot = inp.power;
+      else if (inp.sr) { if (sp.view === 'side') sideShot = inp.power; else shot = inp.power; }
     } else {
       p.dx = inp.ix; p.dy = inp.iy; p.sprintWant = !!inp.sprint;
       if (inp.pass) switchToBest(h);
     }
   }
+  updateClasses(dt);   // cooldowns, zones, buffs and ultimate charge keep running while everyone sets up
   if (!t.human && b.owner === t && sp.t > sp.wait) {   // bot taker
     const d = Math.hypot(gx - b.x, H / 2 - b.y);
     if (pen || d < W * 0.33 || (d < W * 0.45 && Math.random() < 0.5)) {
@@ -195,6 +212,7 @@ function setPieceUpdate(dt) {
   }
   for (const r of S.refs) if (!r.human && !(r.gone > 0)) { r.face += angDiff(r.face, Math.atan2(b.y - r.y, b.x - r.x)) * Math.min(1, dt * 4); r.blind = Math.max(0, r.blind - dt); }
   if (b.owner === t) fkPlaceTaker(sp);
-  if (shot != null && b.owner === t) fkShoot(t, sp, shot);
+  if (sideShot != null && b.owner === t) { t.face = t.aimA != null ? t.aimA : t.face; shoot(t, sideShot); }   // side view: an ordinary shot along your aim
+  else if (shot != null && b.owner === t) fkShoot(t, sp, shot);
   if (b.owner !== t) { S.setPiece = null; t.dx = t.dy = 0; }
 }

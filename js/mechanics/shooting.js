@@ -3,6 +3,7 @@
    Classic script sharing one global scope with the rest of js/; index.html loads them in order. */
 'use strict';
 
+const POWER_TRAIL = 0.7;   // charged shots hit at least this hard get a trail
 function shoot(p, power, aimY) {
   const b = S.ball; if (b.owner !== p) return;
   const gx = p.team === 0 ? W : 0;
@@ -24,7 +25,7 @@ function shoot(p, power, aimY) {
   const striker = p.i === TEAM_SIZE - 1;
   const rocket = p.fx && p.fx.rocket > 0; if (rocket) p.fx.rocket--;
   const sp = (430 + 380 * power) * (boosted ? 1.12 : 1) * (striker ? 1.2 : 1) * (rocket ? 1.35 : 1) * shotMul(p);
-  S.ball.trail = boosted || rocket ? (rocket ? '#ff7a2f' : (p.trailCol || '#4fd6ff')) : null;
+  S.ball.trail = rocket || (boosted && power >= POWER_TRAIL) ? (rocket ? '#ff7a2f' : (p.trailCol || '#4fd6ff')) : null;   // trail and ground fire only for powerful strikes
   if (boosted || rocket) fxEvent('power', p);
   b.owner = null; b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp; b.vz = 60 + 180 * power * power + rand(-30, 50) * (boosted ? 0.4 : 1);
   const lat = -Math.sin(ang) * p.vx + Math.cos(ang) * p.vy, cm = clamp(-lat * 0.9, -90, 90);

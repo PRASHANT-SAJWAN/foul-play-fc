@@ -6,7 +6,7 @@
 /* ---------------- actions ---------------- */
 function loseBall(p, ang) {
   const b = S.ball; if (b.owner !== p) return;
-  b.owner = null; b.curve = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
+  b.owner = null; b.curve = null; b.trail = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
 }
 function switchHuman(h, q) { if (!q || q.human) return; const cur = S.players[h.pid]; if (cur) cur.human = null; h.pid = q.id; q.human = h; }
 function switchToBest(h) {
@@ -32,7 +32,7 @@ function passTo(p, q, mode = 'auto', power = null, rest = false) {
   if (air) { T = clamp(d / (power == null ? 380 : 300 + 200 * power), 0.45, 1.9); vz = GRAV() / 2 * T; sp = d / T * 1.04; }   // airtime under gravity g is vz / (g/2)
   else if (rest) sp = Math.min(820, d * 1.1 + 40);                               // rolls out and stops near the spot
   else sp = Math.min(820, d * k / (1 - Math.exp(-k * T)));                      // ground friction e^(-k t): arrive in T seconds
-  p.face = a; b.owner = null; b.curve = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
+  p.face = a; b.owner = null; b.curve = null; b.trail = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
   b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.vz = vz; b.lastTouch = p; b.lastPasser = p; b.passTime = S.time;
   p.pickCd = 0.35; thump(air ? 120 : 160, 0.12, 0.06);
   M(p, 'passes'); if (air) { M(p, 'lobs'); if (mode === 'air') M(p, 'longPasses'); }

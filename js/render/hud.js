@@ -298,7 +298,7 @@ const AIM_COL = { shoot: '#ff6a3d', pass: '#ffffff', lpass: '#ffd23f', through: 
 function drawAimGuides() {
   const list = S.net === 'client' ? (NET && NET.inH ? [[S.players.find(p => p.human && p.human.local), NET.inH]] : []) : (S.humans || []).filter(h => !h.remote).map(h => [S.players[h.pid], h]);
   for (const [p, h] of list) {
-    if (!p || !onPitch(p) || S.ball.owner !== p || !h || !(h.charging || h.lineT > 0) || S.setPiece) continue;
+    if (!p || !onPitch(p) || S.ball.owner !== p || !h || !(h.charging || h.lineT > 0) || (S.setPiece && !(S.setPiece.taker === p && S.setPiece.view === 'side'))) continue;
     const kind = h.charging ? h.chargeKind : h.lineKind; if (!kind) continue; h.lineKind = kind;
     const pw = Math.max(0.25, h.charging ? h.charge : 0.5), a = h.charging ? 1 : clamp(h.lineT / 0.35, 0, 1);
     let tx, ty, q = null;

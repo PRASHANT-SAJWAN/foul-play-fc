@@ -12,7 +12,7 @@ function drawSetPieceWorld() {   // on the pitch: the 9.15 m circle, the offside
   ctx.strokeStyle = 'rgba(255,255,255,.55)'; const ring = []; for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2; ring.push(proj(b.x + Math.cos(a) * R, b.y + Math.sin(a) * R)); } path(ring); ctx.stroke();
   if (sp.offX != null) { ctx.strokeStyle = TEAM[t.team].col; ctx.globalAlpha = 0.7; const L = []; for (let i = 0; i <= 12; i++) L.push(proj(sp.offX, H * i / 12)); path(L); ctx.stroke(); ctx.globalAlpha = 1; }
   ctx.restore();
-  const h = fkLocalTakerHuman(); if (!h || b.owner !== t) return;
+  const h = fkLocalTakerHuman(); if (!h || b.owner !== t || sp.view === 'side') return;   // the flight preview belongs to the free-kick view
   const P = fkPlan(sp, fkIdealPower(sp)), pts = fkPathPoints(sp, P);
   pts.forEach((q, i) => { const Q = proj(q.x, q.y, q.z + 4); ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.5 * i / pts.length})`; ell(Q.x, Q.y, 2.2 * Math.max(0.6, Q.s), 2.2 * Math.max(0.6, Q.s)); ctx.fill(); });
   const A = proj(gx, sp.aim.y, sp.aim.z), s = Math.max(0.8, A.s);
@@ -25,8 +25,10 @@ function drawSetPiece() {
   const map = (h && h.map) || MAPSOLO, pen = sp.type === 'penalty', left = Math.max(0, Math.ceil(sp.prep - sp.t));
   const title = `${pen ? 'PENALTY' : 'FREE KICK'} · ${t.name} · ${left}s`;
   const iAmPlaying = S.humans.some(x => !x.remote && S.players[x.pid] && S.players[x.pid] !== t);
-  const sub = local ? (sp.t < sp.minT ? `Aim with movement (left/right across the goal, up/down for height) · wait for the whistle`
-                                       : `Hold ${keyLabel(map.shoot[0])} and release in the green · ${keyLabel(map.pass[0])} pass · ${keyLabel(map.lpass[0])} long ball · the shot curls round the wall`)
+  const vk = keyLabel((map.view || [])[0] || 'KeyV'), side = sp.view === 'side';
+  const sub = local ? (side ? `Side view: aim with movement, back passes too · ${keyLabel(map.pass[0])} pass · ${keyLabel(map.lpass[0])} long · ${keyLabel(map.through[0])} through · hold ${keyLabel(map.shoot[0])} to shoot · ${vk} free-kick view`
+                             : sp.t < sp.minT ? `Aim with movement (left/right across the goal, up/down for height) · ${vk} side view · wait for the whistle`
+                                       : `Hold ${keyLabel(map.shoot[0])} and release in the green · ${keyLabel(map.pass[0])} pass · ${keyLabel(map.lpass[0])} long ball · ${vk} side view · skills work too`)
     : iAmPlaying ? (pen ? 'Stay outside the box and behind the ball until it is kicked' : `Get into position: defenders stay outside the circle, attackers stay behind the ${TEAM[t.team].short} line`)
     : `Everyone sets up while ${t.name} lines it up`;
   ctx.font = `600 30px ${DISP}`; const tw = ctx.measureText(title).width;
@@ -37,7 +39,7 @@ function drawSetPiece() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = TEAM[sp.team].col; ctx.font = `600 30px ${DISP}`; ctx.fillText(title, LW / 2, y + 22);
   ctx.fillStyle = '#eef2e6'; ctx.font = `600 15px ${UI}`; ctx.fillText(sub, LW / 2, y + 44);
-  if (local) {   // power bar with the sweet spot
+  if (local && !side) {   // power bar with the sweet spot
     const bw = 320, bx = LW / 2 - bw / 2, by = y + 66, ideal = fkIdealPower(sp), band = t.charge >= 25 ? 0.14 : 0.08;
     ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(bx - 6, by - 4, bw + 12, 26, 6);
     ctx.fillStyle = '#1b2621'; ctx.fillRect(bx, by, bw, 10);

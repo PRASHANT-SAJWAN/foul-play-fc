@@ -16,11 +16,11 @@ Plain HTML and JavaScript: no build step and no backend. `index.html` holds the 
 - **Anomalies:** at random intervals, crowd fights, UFO abductions (players or the referee), pirates, pitch invasions, heatwaves and ice ages. Set how often with the anomaly meter (Off to Chaos) and pick which can happen in **Pace and controls → Game**, or change the meter from the pause menu.
 - **Field items:** only five items reach the pitch, from the crowd or a team's bench: med kits, ultimate charges, swords (a stronger, longer-reaching melee weapon), rocket boots and fake whistles.
 - **The bench:** a red card sends a player to their team's dugout by the near touchline for 25 seconds, with a countdown over their head. From the bench they can taunt, and they're handed a random field item every few seconds to throw in to a team-mate (bots do this by themselves).
-- **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D for the taker only (everyone else keeps the normal view), bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
+- **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D for the taker only (everyone else keeps the normal view; the taker can switch to the side view with V to pass anywhere, back passes included), skills and ultimates during the set-up, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
 - **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
 - **Classes:** 12 classes (Striker, Assassin, Speedster, Tank, Defender, Goalkeeper, Playmaker, Healer, Aura, Brawler, Trickster, Ranger), each with a passive, three skills and an ultimate on a hotbar, plus synergies and bot line-ups. Blocky characters with faces wear their class look by default. Full list in **Classes & skills** in the game and in [docs/feature-catalog.md](docs/feature-catalog.md).
 - **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. Holding shoot or a pass key draws a direction line; pass assist only picks a team-mate you're facing (about 30°), and through balls have none. You can lock yourself to one character instead of switching team-mates.
-- **Effects:** power shots leave a trail of fire on the grass, and hits land with animated comic-book "WHACK!" bursts.
+- **Effects:** only powerful strikes (a hard charged shot, rocket boots or a power-shot skill) get a ball trail and leave fire on the grass, and hits land with animated comic-book "WHACK!" bursts.
 
 ### Default keys (player 1)
 
@@ -32,6 +32,7 @@ Plain HTML and JavaScript: no build step and no backend. `index.html` holds the 
 | L | Short pass (hold to power) · switch player without the ball |
 | J | Long pass (hold to power) · sliding tackle |
 | K | Through ball along the ground (hold to power, no assist) · tackle |
+| V | Free kicks: switch between the view behind the ball and the side view (pass anywhere, back passes too) |
 | Q | Punch (a sword slash if you have one) · jump kick in the air |
 | E | Item: lift or throw the referee when next to them, otherwise your throwable |
 | R | Sand at the referee |
@@ -39,7 +40,7 @@ Plain HTML and JavaScript: no build step and no backend. `index.html` holds the 
 | P | Ultimate |
 | T | Taunt (hold and pick a direction) |
 
-Player 2 uses the arrows, Right Shift, `/` (shoot), `.` (short pass), `,` (long pass), `N` (through ball), `;` `'` `[`, 8 9 0, `-` and `]`. The full list is in **How to play** and **Pace and controls → Controls**.
+Player 2 uses the arrows, Right Shift, `/` (shoot), `.` (short pass), `,` (long pass), `N` (through ball), `\` (free-kick view), `;` `'` `[`, 8 9 0, `-` and `]`. The full list is in **How to play** and **Pace and controls → Controls**.
 
 Change them in **Pace and controls → Controls**; changes are saved in the browser. This layout replaces older custom keys once (a copy is kept in `fpfc-binds-old`).
 

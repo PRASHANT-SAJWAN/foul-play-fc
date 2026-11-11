@@ -5,14 +5,14 @@
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['sprint', 'Sprint'],
-  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass (hold for power) · switch player without the ball'], ['lpass', 'Long pass (hold for power) · sliding tackle'], ['through', 'Through ball along the ground (hold for power) · tackle'],
+  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass (hold for power) · switch player without the ball'], ['lpass', 'Long pass (hold for power) · sliding tackle'], ['through', 'Through ball along the ground (hold for power) · tackle'], ['view', 'Free kicks: switch between the view behind the ball and the side view'],
   ['foul', 'Punch · jump kick in the air · fire a weapon'], ['item', 'Item: lift or throw the referee when next to them, otherwise throwables'], ['blind', 'Sand at the referee'],
   ['skill1', 'Skill 1'], ['skill2', 'Skill 2'], ['skill3', 'Skill 3'], ['ult', 'Ultimate'], ['taunt', 'Taunt (hold + direction)']];
 const BINDS_VERSION = 7;
 const DEFAULT_BINDS = [
-  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'Space', pass: 'KeyL', lpass: 'KeyJ', through: 'KeyK',
+  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'Space', pass: 'KeyL', lpass: 'KeyJ', through: 'KeyK', view: 'KeyV',
     foul: 'KeyQ', item: 'KeyE', blind: 'KeyR', skill1: 'KeyU', skill2: 'KeyI', skill3: 'KeyO', ult: 'KeyP', taunt: 'KeyT' },
-  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'ShiftRight', shoot: 'Slash', pass: 'Period', lpass: 'Comma', through: 'KeyN',
+  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'ShiftRight', shoot: 'Slash', pass: 'Period', lpass: 'Comma', through: 'KeyN', view: 'Backslash',
     foul: 'Semicolon', item: 'Quote', blind: 'BracketLeft', skill1: 'Digit8', skill2: 'Digit9', skill3: 'Digit0', ult: 'Minus', taunt: 'BracketRight' }
 ];
 const store = {

@@ -106,6 +106,7 @@ function update(dt) {
     if (d > 0 && d < 16 && Math.abs((a.z || 0) - (c.z || 0)) < 20 && !(a.slide > 0) && !(c.slide > 0)) { const o = (16 - d) / 2, ux = dx / d, uy = dy / d; a.x -= ux * o; a.y -= uy * o; c.x += ux * o; c.y += uy * o; }
   }
 
+  if (S.ball.owner) S.ball.trail = null;   // a trail belongs to one strike: it ends when someone has the ball
   // referees
   applyRefVis();
   for (const r of S.refs) {

@@ -22,7 +22,7 @@ function renderPace() {
   el.innerHTML = PACES.map(([n, v]) => `<button id="pace-${Math.round(v * 100)}" aria-pressed="${v === PACE}" data-v="${v}">${n} · ${Math.round(v * 100)}%</button>`).join('');
   el.querySelectorAll('button').forEach(b => b.onclick = () => { PACE = +b.dataset.v; store.set('fpfc-pace', PACE); renderPace(); document.getElementById(b.id).focus(); });
 }
-const BIND_GROUPS = [['Movement', ['up', 'down', 'left', 'right', 'sprint']], ['Ball', ['shoot', 'pass', 'lpass', 'through']], ['Fouls and tricks', ['foul', 'item', 'blind', 'taunt']], ['Class skills', ['skill1', 'skill2', 'skill3', 'ult']]];
+const BIND_GROUPS = [['Movement', ['up', 'down', 'left', 'right', 'sprint']], ['Ball', ['shoot', 'pass', 'lpass', 'through', 'view']], ['Fouls and tricks', ['foul', 'item', 'blind', 'taunt']], ['Class skills', ['skill1', 'skill2', 'skill3', 'ult']]];
 function renderBinds() {
   const t = document.getElementById('binds'), label = Object.fromEntries(ACTIONS);
   const cell = (pi, a) => {

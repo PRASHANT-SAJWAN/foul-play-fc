@@ -8,7 +8,7 @@ function readInput(h, dt) {
   if (h.remote) {
     const r = (NET && NET.inputs[h.id]) || {}, c = r.c || {}, lc = h.lc || (h.lc = { ...c });
     const e = a => (c[a] || 0) > (lc[a] || 0);
-    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), th: e('th'), passR: e('passR'), lpassR: e('lpassR'), thR: e('thR'), foul: e('foul'), s1: e('s1'), s2: e('s2'), s3: e('s3'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
+    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), th: e('th'), passR: e('passR'), lpassR: e('lpassR'), thR: e('thR'), foul: e('foul'), view: e('view'), s1: e('s1'), s2: e('s2'), s3: e('s3'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
     h.lc = { ...c }; const held = CHARGE_KEYS.find(([, pk, rk]) => (c[pk] || 0) > (c[rk] || 0)); h.charging = !!held; h.chargeKind = held ? held[0] : null;
     if (h.charging) h.charge = Math.min(1, (h.charge || 0) + dt * 1.4); else h.charge = 0;
     return out;
@@ -23,7 +23,7 @@ function localInput(h, dt) {
   if (h.touch && (virt.jx || virt.jy)) { ix = virt.jx; iy = virt.jy; }
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
   const out = { ix, iy, sprint: pr('sprint'), pass: false, lpass: false, th: false, passR: false, lpassR: false, thR: false, foul: edge('foul'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25, taunt: -1,
-    s1: edge('skill1'), s2: edge('skill2'), s3: edge('skill3'), ul: edge('ult') };
+    view: edge('view'), s1: edge('skill1'), s2: edge('skill2'), s3: edge('skill3'), ul: edge('ult') };
   // taunt wheel: hold the taunt key, pick a direction, release
   if (pr('taunt')) { h.tauntOpen = true; const d = tauntFromDir(ix, iy); if (d >= 0) h.tauntSel = d; out.ix = out.iy = 0; out.sprint = false; }
   else if (h.tauntOpen) { h.tauntOpen = false; out.taunt = h.tauntSel != null ? h.tauntSel : 0; h.tauntSel = null; }

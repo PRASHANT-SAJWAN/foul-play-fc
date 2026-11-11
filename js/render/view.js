@@ -64,7 +64,7 @@ function view3d() {
     if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
-  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) && S.setPiece.view !== 'side' ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
 }
 const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
 async function setGraphics(on, note) {

@@ -10,7 +10,7 @@ function sendSnap(force) {
   if (!Object.keys(NET.conns).length) return;
   const b = S.ball;
   const s = { ph: S.phase, fm: FORMAT, pc: PACE, pg: NET.pings, sc: S.score, cl: r1(S.clock), pz: r1(S.pause), pm: S.pauseMsg || '', ps: S.pauseSub || '', ex: r2(S.excite), sh: r1(S.shake),
-    spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type, r1(S.setPiece.aim.y), r1(S.setPiece.aim.z), S.setPiece.prep, S.setPiece.minT, S.setPiece.offX == null ? -1 : r1(S.setPiece.offX)] : 0,
+    spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type, r1(S.setPiece.aim.y), r1(S.setPiece.aim.z), S.setPiece.prep, S.setPiece.minT, S.setPiece.offX == null ? -1 : r1(S.setPiece.offX), S.setPiece.view === 'side' ? 1 : 0] : 0,
     ch: S.chants.map(c => [c.id, c.kind, c.text, r1(c.x), r1(c.life)]),
     mu: MUT_LIST.map(([k]) => MUT[k] ? 1 : 0),
     fx: S.fxq.filter(e => S.time - e.t < 2).map(e => [e.id, e.type, e.pid, r1(e.x), r1(e.y), e.team != null ? e.team : -1, e.side != null ? e.side : -1]),
@@ -101,7 +101,7 @@ function applySnap(s) {
   S.bananas = (s.bn || []).map(a => ({ x: a[0], y: a[1] }));
   S.feed = (s.fd || []).map(a => ({ text: a[0], col: a[1], t: a[2] }));
   S.texts = (s.tx || []).map(a => ({ x: a[0], y: a[1], z: a[2], text: a[3], col: a[4], life: a[5] }));
-  S.setPiece = s.spk ? { team: s.spk[0], taker: S.players[s.spk[1]], t: s.spk[2], type: s.spk[3], aim: { y: +s.spk[4] || H / 2, z: +s.spk[5] || 12 }, prep: +s.spk[6] || 15, minT: +s.spk[7] || 3, offX: s.spk[8] >= 0 ? s.spk[8] : null, wall: [] } : null;
+  S.setPiece = s.spk ? { team: s.spk[0], taker: S.players[s.spk[1]], t: s.spk[2], type: s.spk[3], aim: { y: +s.spk[4] || H / 2, z: +s.spk[5] || 12 }, prep: +s.spk[6] || 15, minT: +s.spk[7] || 3, offX: s.spk[8] >= 0 ? s.spk[8] : null, view: s.spk[9] ? 'side' : 'front', wall: [] } : null;
   const ch = s.ch || [];
   if (NET.lastCh == null) NET.lastCh = Math.max(0, ...ch.map(c => c[0]));
   for (const c of ch) if (c[0] > NET.lastCh) { NET.lastCh = c[0]; crowdSound(c[1]); }
@@ -136,7 +136,7 @@ function sendInput(dt) {
   h.map = MAPSOLO; const meP = S.players.find(p => p.human && p.human.local); h.pid = meP ? meP.id : -1;
   const inp = localInput(h, dt);
   n.charge = h.charge; n.charging = h.charging;
-  for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'foul', 'blind', 'item', 'sp', 'sr', 's1', 's2', 's3', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
+  for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'view', 'foul', 'blind', 'item', 'sp', 'sr', 's1', 's2', 's3', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
   if (inp.taunt >= 0) { n.cnt.taunt = (n.cnt.taunt || 0) + 1; n.tw = inp.taunt; }
   if (inp.sr || inp.passR || inp.lpassR || inp.thR) n.pw = r2(inp.power);
   n.chargeKind = h.chargeKind;

@@ -34,7 +34,7 @@ function guideSections() {
         <li><b>Switch player:</b> press ${k('pass')} when you don't have the ball to take over the team-mate nearest the ball.</li>
         <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
         <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
-        <li><b>Effects:</b> power shots leave a trail of fire on the grass, and every hit lands with a comic-book "WHACK!".</li>
+        <li><b>Effects:</b> only powerful strikes (a hard charged shot, rocket boots or a power-shot skill) get a ball trail and leave fire on the grass, and every hit lands with a comic-book "WHACK!".</li>
         <li><b>Ball physics:</b> shooting while running across the ball puts a little curl on it, the ball bounces and rolls to a stop, shots can come back off the post or the bar, and a hard shot that hits someone's body or head is blocked.</li>
         <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
         <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
@@ -125,6 +125,7 @@ function guideSections() {
         <li><b>The laws apply while you set up:</b> defenders stay outside the dashed 9.15 m circle around the ball, and the attacking team stays behind the offside line (the dashed line in their colour). For a penalty, everyone but the taker and the goalkeeper stays outside the box, and the keeper stays on the line.</li>
         <li><b>The wall:</b> defending bots line up between the ball and the near post and jump as the kick is taken. People on the defending team can join it or mark someone.</li>
         <li><b>Taking it:</b> move the yellow target across the goal with left and right, and up and down for height. The dotted line shows the flight: the shot curls round the wall by itself. After the whistle, hold ${k('shoot')} and release inside the green band on the power bar to hit your target; too much power flies high, too little drops short. With 25 charge the green band is wider. You can also pass with ${k('pass')}, ${k('lpass')} or ${k('through')}.</li>
+        <li><b>Two views:</b> ${k('view')} switches the taker between the view behind the ball and the normal side view (your choice is remembered). In the side view you aim with movement like in open play, so you can pass anywhere, including back to a defender, or shoot along your aim. Skills and ultimates work during the set-up too, and power-shot skills boost a free kick.</li>
         <li>If the time runs out, the kick is taken for you.</li>
       </ul>`],
     ['g-modes', 'Game modes', `
