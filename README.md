@@ -17,7 +17,8 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
 - **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
 - **Classes:** 12 classes (Striker, Assassin, Speedster, Tank, Defender, Goalkeeper, Playmaker, Healer, Aura, Brawler, Trickster, Ranger), each with a passive, three skills and an ultimate on a hotbar, plus synergies and bot line-ups. Blocky characters with faces wear their class look by default. Full list in **Classes & skills** in the game and in [docs/feature-catalog.md](docs/feature-catalog.md).
-- **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. You can lock yourself to one character instead of switching team-mates.
+- **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. Holding shoot or a pass key draws a direction line; pass assist only picks a team-mate you're facing (about 30°), and through balls have none.
+- **Effects:** power shots leave a trail of fire on the grass, and hits land with animated comic-book "WHACK!" bursts. You can lock yourself to one character instead of switching team-mates.
 - **Ranged weapons:** slingshots and foam blasters from the crowd.
 
 ### Default keys (player 1)
@@ -27,9 +28,9 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 | W A S D | Move and aim (the direction turns smoothly, so tap to fine-tune) |
 | Left Shift | Sprint |
 | Space | Shoot (hold to power) · jump without the ball · volley or header in the air |
-| J | Pass · tackle when an opponent with the ball is close · otherwise switch player |
-| K | Long pass · sliding tackle |
-| L | Switch player |
+| L | Short pass (hold to power) · switch player without the ball |
+| J | Long pass (hold to power) · sliding tackle |
+| K | Through ball along the ground (hold to power, no assist) · tackle |
 | Q | Punch · jump kick in the air · fires a slingshot or blaster if you have one |
 | E | Item: lift or throw the referee when next to them, otherwise your throwable |
 | R | Sand at the referee |
@@ -37,7 +38,7 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 | P | Ultimate |
 | T | Taunt (hold and pick a direction) |
 
-Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `[`, 8 9 0, `-` and `]`. The full list is in **How to play** and **Pace and controls → Controls**.
+Player 2 uses the arrows, Right Shift, `/` (shoot), `.` (short pass), `,` (long pass), `N` (through ball), `;` `'` `[`, 8 9 0, `-` and `]`. The full list is in **How to play** and **Pace and controls → Controls**.
 
 Change them in **Pace and controls → Controls**; changes are saved in the browser. This layout replaces older custom keys once (a copy is kept in `fpfc-binds-old`).
 

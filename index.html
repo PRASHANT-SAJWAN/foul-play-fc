@@ -181,13 +181,13 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
     <div id="tbtns">
       <button class="tb" data-act="blind">SAND</button>
       <button class="tb hot" data-act="foul">PUNCH</button>
-      <button class="tb" data-act="switch">SWITCH</button>
+      <button class="tb" data-act="through">THROUGH</button>
       <button class="tb hot" data-act="skill1">SKILL 1</button>
       <button class="tb hot" data-act="skill2">SKILL 2</button>
       <button class="tb hot" data-act="skill3">SKILL 3</button>
       <button class="tb hot" data-act="ult">ULT</button>
       <button class="tb" data-act="item">ITEM / REF</button>
-      <button class="tb" data-act="pass">PASS</button>
+      <button class="tb" data-act="pass">PASS / SWITCH</button>
       <button class="tb" data-act="lpass">LONG</button>
       <button class="tb" data-act="shoot">SHOOT / JUMP</button>
       <button class="tb" data-act="sprint">SPRINT</button>
@@ -572,14 +572,14 @@ function followCamera(dt, snap) { const f = CAMFX.cut ? CAMFX.cut : CAMFX.orbit 
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['sprint', 'Sprint'],
-  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Pass · tackle near the ball carrier · otherwise switch'], ['lpass', 'Long pass · sliding tackle'], ['switch', 'Switch player'],
+  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass (hold for power) · switch player without the ball'], ['lpass', 'Long pass (hold for power) · sliding tackle'], ['through', 'Through ball along the ground (hold for power) · tackle'],
   ['foul', 'Punch · jump kick in the air · fire a weapon'], ['item', 'Item: lift or throw the referee when next to them, otherwise throwables'], ['blind', 'Sand at the referee'],
   ['skill1', 'Skill 1'], ['skill2', 'Skill 2'], ['skill3', 'Skill 3'], ['ult', 'Ultimate'], ['taunt', 'Taunt (hold + direction)']];
-const BINDS_VERSION = 6;
+const BINDS_VERSION = 7;
 const DEFAULT_BINDS = [
-  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'Space', pass: 'KeyJ', lpass: 'KeyK', switch: 'KeyL',
+  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'Space', pass: 'KeyL', lpass: 'KeyJ', through: 'KeyK',
     foul: 'KeyQ', item: 'KeyE', blind: 'KeyR', skill1: 'KeyU', skill2: 'KeyI', skill3: 'KeyO', ult: 'KeyP', taunt: 'KeyT' },
-  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'ShiftRight', shoot: 'Slash', pass: 'Period', lpass: 'Comma', switch: 'KeyN',
+  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'ShiftRight', shoot: 'Slash', pass: 'Period', lpass: 'Comma', through: 'KeyN',
     foul: 'Semicolon', item: 'Quote', blind: 'BracketLeft', skill1: 'Digit8', skill2: 'Digit9', skill3: 'Digit0', ult: 'Minus', taunt: 'BracketRight' }
 ];
 const store = {
@@ -591,8 +591,9 @@ const RESERVED_KEYS = new Set(['Escape']);
 const validCode = c => typeof c === 'string' && /^[A-Za-z0-9]{2,24}$/.test(c) && !RESERVED_KEYS.has(c);
 function loadBinds() {
   const ver = store.get('fpfc-binds-v');
-  if (ver === 5) {   // v6: skills moved to U I O P (P2's sand moved off P); keys still on the v5 defaults follow, custom ones stay
-    const sv = store.get('fpfc-binds'), was = [{ skill1: 'Digit1', skill2: 'Digit2', skill3: 'Digit3', ult: 'KeyF' }, { blind: 'KeyP' }];
+  if (ver === 5 || ver === 6) {   // v6: skills on U I O P; v7: L short pass, J long pass, K through ball. Keys still on old defaults follow, custom ones stay
+    const sv = store.get('fpfc-binds'), was = [{ pass: 'KeyJ', lpass: 'KeyK', switch: 'KeyL' }, { pass: 'Period', lpass: 'Comma', switch: 'KeyN' }];
+    if (ver === 5) { Object.assign(was[0], { skill1: 'Digit1', skill2: 'Digit2', skill3: 'Digit3', ult: 'KeyF' }); was[1].blind = 'KeyP'; }
     if (Array.isArray(sv)) sv.forEach((m, i) => { if (m && was[i]) for (const a in was[i]) if (m[a] === was[i][a]) delete m[a]; });
     store.set('fpfc-binds', sv || null); store.set('fpfc-binds-v', BINDS_VERSION);
   } else if (ver !== BINDS_VERSION) {   // older than v5: a new, smaller layout; keep a copy of older custom keys and start fresh once
@@ -775,7 +776,7 @@ function newMatch(mode) {
   S.ball = { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, lastTouch: null, lastPasser: null, passTime: -9, spin: 0 };
   S.items = []; S.bananas = []; S.parts = []; S.texts = []; S.feed = []; S.pend = []; S.score = [0, 0];
   S.chants = []; S.cheerCd = {}; S.heat = 0; S.setPiece = null;
-  S.fxq = []; S.bubbles = []; S.smokes = []; S.puddles = []; S.decoys = []; S.megaBall = 0; S.rainT = 6; S.grudge = {}; S.bounty = null; S.bountyT = 30; S.bountyFlip = false;
+  S.fxq = []; S.fires = []; S.whacks = []; S.bubbles = []; S.smokes = []; S.puddles = []; S.decoys = []; S.megaBall = 0; S.rainT = 6; S.grudge = {}; S.bounty = null; S.bountyT = 30; S.bountyFlip = false;
   S.golden = false; S.shoot = null; S.lastGoal = null; S.recentUnseen = []; S.slowmo = null; S.specCd = {}; S.specGift = {}; S.rematch = {};
   S.crowd = { op: [newOpinion(), newOpinion()], support: 0.5, chantT: 10, bannerT: 15, banners: [], press: null };
   S.an = newAnomState(); S.zones = []; S.walls = []; S.projs = []; S.teamCd = [{}, {}];
@@ -868,20 +869,23 @@ function switchToBest(h) {
   const c = S.players.filter(q => q.team === h.team && !q.gk && !q.human && onPitch(q) && q.ko <= 0 && q !== cur).sort((a, b) => dist(a, S.ball) - dist(b, S.ball));
   if (c[0]) switchHuman(h, c[0]);
 }
-function passTo(p, q, mode = 'auto') {
+// power (0.25 to 1, from holding the key) sets the pace: a soft ball arrives later, a hard one zips in.
+// rest: a ball into space that should roll to a stop around the target instead of running through it.
+function passTo(p, q, mode = 'auto', power = null, rest = false) {
   const b = S.ball; if (b.owner !== p) return;
-  const qvx = q.vx || 0, qvy = q.vy || 0;
+  const qvx = q.vx || 0, qvy = q.vy || 0, pace = power == null ? 430 : 300 + 330 * power;
   let tx = q.x, ty = q.y, T = 0.5;
   for (let it = 0; it < 3; it++) {   // lead the receiver: aim where they will be when the ball arrives
-    T = clamp(Math.hypot(tx - p.x, ty - p.y) / 430, 0.28, 1.15);
+    T = clamp(Math.hypot(tx - p.x, ty - p.y) / pace, 0.25, 1.3);
     tx = clamp(q.x + qvx * T * 0.85, 10, W - 10); ty = clamp(q.y + qvy * T * 0.85, 10, H - 10);
   }
   if (p.mood <= MOOD_TILT && p.cls !== 'playmaker') { tx += rand(-25, 25); ty += rand(-25, 25); }   // tilted players' passes wander
   const d = Math.hypot(tx - p.x, ty - p.y), a = Math.atan2(ty - p.y, tx - p.x), k = 1.25;
   const air = mode === 'air' || (mode === 'auto' && laneOpen(p, { x: tx, y: ty }) < 20 && d > 90);
   let sp, vz = 0;
-  if (air) { T = clamp(d / 380, 0.45, 1.6); vz = GRAV() / 2 * T; sp = d / T * 1.04; }   // airtime under gravity g is vz / (g/2)
-  else sp = Math.min(780, d * k / (1 - Math.exp(-k * T)));                      // ground friction e^(-k t): arrive in T seconds
+  if (air) { T = clamp(d / (power == null ? 380 : 300 + 200 * power), 0.45, 1.9); vz = GRAV() / 2 * T; sp = d / T * 1.04; }   // airtime under gravity g is vz / (g/2)
+  else if (rest) sp = Math.min(820, d * 1.1 + 40);                               // rolls out and stops near the spot
+  else sp = Math.min(820, d * k / (1 - Math.exp(-k * T)));                      // ground friction e^(-k t): arrive in T seconds
   p.face = a; b.owner = null; b.curve = null; b.x = p.x + Math.cos(a) * 12; b.y = p.y + Math.sin(a) * 12;
   b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.vz = vz; b.lastTouch = p; b.lastPasser = p; b.passTime = S.time;
   p.pickCd = 0.35; thump(air ? 120 : 160, 0.12, 0.06);
@@ -891,23 +895,44 @@ function passTo(p, q, mode = 'auto') {
   if (hasBf(p, 'perfect') || hasBf(q, 'assistMark')) b.pierce = S.time + 1.6;
   if (p.human && !q.human && !p.human.lock) switchHuman(p.human, q);
 }
-function pickLongTarget(p, ang) {
-  // Long ball: prefer teammates further away, ahead of the aim, with space around them.
+function pickLongTarget(p, ang, want = 600) {
+  // Long ball: only team-mates you're facing (within about 30°), preferring ones near the distance your power sets, with space around them.
   let best = null, bs = 1e9;
   for (const q of S.players) {
     if (q === p || q.team !== p.team || !onPitch(q) || q.ko > 0 || q.gk) continue;
     const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy); if (d < 140 || d > 950) continue;
-    const ad = Math.abs(angDiff(ang, Math.atan2(dy, dx))); if (ad > 0.9) continue;
+    const ad = Math.abs(angDiff(ang, Math.atan2(dy, dx))); if (ad > PASS_CONE) continue;
     const no = nearestOpp(q), space = no ? Math.min(dist(no, q), 160) : 160;
-    const sc = ad * 260 - Math.min(d, 700) * 0.25 - space * 0.9 + (q.stun > 0 ? 300 : 0);
+    const sc = ad * 320 + Math.abs(d - want) * 0.3 - space * 0.9 + (q.stun > 0 ? 300 : 0);
     if (sc < bs) { bs = sc; best = q; }
   }
   return best;
 }
-function humanLongPass(p) {
-  const ang = passDir(p), q = pickLongTarget(p, ang);
-  if (q) passTo(p, q, 'air');
-  else passTo(p, { x: clamp(p.x + Math.cos(ang) * 380, 20, W - 20), y: clamp(p.y + Math.sin(ang) * 380, 20, H - 20) }, 'air');   // ball into space
+function spotAhead(p, ang, d) {   // a point d ahead along the aim, cut short at the edge of the pitch so the direction stays exact
+  const c = Math.cos(ang), sn = Math.sin(ang);
+  if (c > 1e-6) d = Math.min(d, (W - 20 - p.x) / c); else if (c < -1e-6) d = Math.min(d, (20 - p.x) / c);
+  if (sn > 1e-6) d = Math.min(d, (H - 20 - p.y) / sn); else if (sn < -1e-6) d = Math.min(d, (20 - p.y) / sn);
+  d = Math.max(30, d); return { x: p.x + c * d, y: p.y + sn * d };
+}
+// Pass distance for a ball into space, by kind and power.
+const PASS_LEN = { pass: pw => 120 + 380 * pw, lpass: pw => 260 + 640 * pw, through: pw => 170 + 520 * pw };
+function humanLongPass(p, power = 0.5) {
+  const ang = passDir(p), q = pickLongTarget(p, ang, PASS_LEN.lpass(power));
+  if (q) passTo(p, q, 'air', power);
+  else passTo(p, spotAhead(p, ang, PASS_LEN.lpass(power)), 'air', power);   // ball into space
+}
+// Through ball: no assist. Played along the ground exactly where you aim, rolling out to a distance set by the power.
+function throughBall(p, power = 0.5) {
+  const ang = passDir(p); p.face = ang;
+  passTo(p, spotAhead(p, ang, PASS_LEN.through(power)), 'ground', power, true);
+  M(p, 'throughBalls'); floatText(p, 'THROUGH BALL', '#7df0ff');
+}
+// What a pass would do right now: the assisted team-mate if there is one, else the spot it rolls or drops to.
+function passPreview(p, kind, power) {
+  const ang = passDir(p);
+  if (kind === 'through') return { ...spotAhead(p, ang, PASS_LEN.through(power)), q: null };
+  const q = kind === 'lpass' ? pickLongTarget(p, ang, PASS_LEN.lpass(power)) : pickPassTarget(p, ang, PASS_LEN.pass(power));
+  return q ? { x: q.x, y: q.y, q } : { ...spotAhead(p, ang, PASS_LEN[kind](power)), q: null };
 }
 function laneOpen(p, q) {
   let m = 999;
@@ -920,21 +945,23 @@ function laneOpen(p, q) {
   return m;
 }
 function passDir(p) { if (p.human && p.aimA != null) return p.aimA; return (p.dx || p.dy) ? Math.atan2(p.dy, p.dx) : p.face; }   // people aim with their smoothed movement direction
-function pickPassTarget(p, ang) {
-  // Best teammate inside a ±60° cone of the aim direction, favouring small angle error and open lanes.
+const PASS_CONE = 0.52;   // pass assist only picks team-mates within about 30° of where you're facing
+function pickPassTarget(p, ang, want = 260) {
+  // Best teammate inside the assist cone, favouring small angle error, the distance your power sets, and open lanes.
   let best = null, bs = 1e9;
   for (const q of S.players) {
     if (q === p || q.team !== p.team || !onPitch(q) || q.ko > 0) continue;
     const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy); if (d < 30) continue;
-    const ad = Math.abs(angDiff(ang, Math.atan2(dy, dx))); if (ad > 1.05) continue;
-    const sc = ad * 320 + d * 0.35 - Math.min(laneOpen(p, q), 60) * 1.2 + (q.gk ? 160 : 0) + (q.stun > 0 ? 200 : 0);
+    const ad = Math.abs(angDiff(ang, Math.atan2(dy, dx))); if (ad > (p.human ? PASS_CONE : 1.05)) continue;
+    const sc = ad * 320 + (p.human ? Math.abs(d - want) * 0.25 : d * 0.35) - Math.min(laneOpen(p, q), 60) * 1.2 + (q.gk ? 160 : 0) + (q.stun > 0 ? 200 : 0);
     if (sc < bs) { bs = sc; best = q; }
   }
   return best;
 }
-function humanPass(p, mode = 'ground') {
-  const best = pickPassTarget(p, passDir(p)) || S.players.filter(q => q !== p && q.team === p.team && onPitch(q) && !q.gk).sort((a, b) => dist(a, p) - dist(b, p))[0];
-  if (best) passTo(p, best, mode);
+function humanPass(p, power = 0.5) {   // assisted only towards a team-mate you're facing; otherwise into space where you aim
+  const ang = passDir(p), best = pickPassTarget(p, ang, PASS_LEN.pass(power));
+  if (best) passTo(p, best, 'ground', power);
+  else passTo(p, spotAhead(p, ang, PASS_LEN.pass(power)), 'ground', power, true);
 }
 function shoot(p, power, aimY) {
   const b = S.ball; if (b.owner !== p) return;
@@ -1005,7 +1032,7 @@ function slideContacts(p) {   // called every frame while sliding
     if (b.owner === q && q.team !== p.team && !behind && Math.random() < 0.75) {
       b.owner = null; b.vx = Math.cos(p.slideA) * 260; b.vy = Math.sin(p.slideA) * 260; b.vz = 30; b.lastTouch = p; q.pickCd = 0.6;
       p.stats.tackles++; addPop(p, 4); addMood(p, 6); addKarma(p, 2); crowdEvent(p.team, { perf: 4, drama: 2 }); bountyCollect(p, q); EV('tackle', p, { from: q.name, slide: true });
-      floatText(p, 'CLEAN SLIDE', '#7dff9b'); cheer('roar', p.x, 'WHAT A TACKLE!'); thump(140, 0.15, 0.08);
+      floatText(p, 'CLEAN SLIDE', '#7dff9b'); whack(q, 'tackle'); cheer('roar', p.x, 'WHAT A TACKLE!'); thump(140, 0.15, 0.08);
     } else slideFoul(p, q, behind);
     return;
   }
@@ -1014,7 +1041,7 @@ function slideFoul(a, t, behind) {
   t.stun = Math.max(t.stun, behind ? 1.6 : 1.2); t.hp = Math.max(1, t.hp - (behind ? 12 : 8)); t.hitT = 2; a0Anim(t, 'fall', 0.6); loseBall(t, a.slideA); addMood(t, -6);
   if (Math.random() < (behind ? 0.4 : 0.2)) injure(t, behind ? 12 : 8, a);
   a.stats.fouls++; a.lastFoulT = S.time; addKarma(a, behind ? -8 : -5); M(a, 'fouls'); M(t, 'fouledReceived'); noteGrudge(a, t);
-  floatText(t, behind ? 'FROM BEHIND!' : 'TRIPPED', '#ff9a9a'); thump(100, 0.2, 0.1); S.shake = 3; S.excite += 0.2;
+  floatText(t, behind ? 'FROM BEHIND!' : 'TRIPPED', '#ff9a9a'); thump(100, 0.2, 0.1); whack(t, 'slide'); S.shake = 3; S.excite += 0.2;
   crowdEvent(a.team, a.team === t.team ? { noob: 5, fun: 3 } : { vill: behind ? 5 : 3, drama: 2 }); if (a.team !== t.team) crowdEvent(t.team, { symp: 3 });
   if (loud(a, t)) feed(`${a.name} ${behind ? 'slid in from behind on' : 'tripped'} ${t.name}`, '#f2c9c9');
   EV('foul', a, { target: t.name, kind: 'slide', fromBehind: behind, teammate: a.team === t.team, x: Math.round(a.x), y: Math.round(a.y) });
@@ -1035,7 +1062,7 @@ function airStrike(p) {
     floatText(p, header ? 'HEADER!' : 'VOLLEY!', '#ffd23f'); cheer('roar', p.x, header ? 'WHAT A HEADER!' : 'ON THE VOLLEY!'); S.excite += 0.3;
     M(p, header ? 'headers' : 'volleys'); fxEvent('kick', p);
   } else {
-    if (A.k === 'lpass') humanLongPass(p); else humanPass(p, 'ground');
+    if (A.k === 'lpass') humanLongPass(p, 0.5); else humanPass(p, 0.5);
     if (b.owner === p) { b.owner = null; b.vx = Math.cos(p.face) * 320; b.vy = Math.sin(p.face) * 320; b.vz = 60; b.lastTouch = p; }   // nobody to pass to: knock it on
     b.z = p.z + (header ? 40 : 10); if (header) { b.vx *= 0.8; b.vy *= 0.8; }
     floatText(p, header ? 'HEADED PASS' : 'FIRST TIME', '#9fe8ff'); M(p, 'headers');
@@ -1113,7 +1140,7 @@ function doFoul(a, t, kind = 'punch') {
   addMood(t, -10);
   if (!imm) loseBall(t, ang);
   onFoulLanded(a, t);
-  burst(t.x, t.y, heavy ? '#ffcf5a' : kick ? '#ffb36b' : '#ffffff', heavy ? 18 : kick ? 16 : 10, 18);
+  burst(t.x, t.y, heavy ? '#ffcf5a' : kick ? '#ffb36b' : '#ffffff', heavy ? 18 : kick ? 16 : 10, 18); whack(t, t.hp <= 0 ? 'ko' : heavy ? 'bat' : kick ? 'kick' : 'punch');
   floatText(t, '-' + dmg, '#ff6b6b'); thump(heavy ? 70 : kick ? 85 : 110, 0.3, 0.14);
   S.shake = heavy ? 7 : kick ? 5 : 3; S.excite += heavy ? 0.35 : kick ? 0.3 : 0.2;
   let pkind = kick ? 'kick' : 'foul';
@@ -1319,7 +1346,7 @@ function showResults() {
    Every player gets a counter sheet for the whole match. At full time it becomes a report:
    raw JSON (everything, including the event timeline), a CSV (one row per player) and a
    standalone HTML page that is easy to read. The last 20 reports are kept in this browser. */
-const METRIC_KEYS = ['blocks', 'jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
+const METRIC_KEYS = ['throughBalls', 'blocks', 'jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
   'fouls', 'foulsBat', 'foulsOnTeammates', 'knockouts', 'sandThrows', 'flashUsed', 'bananasDropped', 'bananaVictims', 'unseen', 'wavedOffTrusted', 'yellows', 'reds',
   'caughtFouls', 'sneakyCaught', 'sneakyUnseen', 'fouledReceived', 'knockedOut', 'slips', 'ignoredFoulsOnMe', 'helpUps', 'helpedUp', 'cleanStreaks', 'giftsReceived', 'itemsPicked', 'setPiecesTaken', 'chargeEarned', 'chargeSpent', 'longPasses', 'dives', 'jumpKicks', 'injuries', 'injuriesCaused', 'staminaUsed', 'taunts', 'powerups', 'bountiesCollected'];
 const HISTORY_KEY = 'fpfc-history', HISTORY_MAX = 20;
@@ -1659,16 +1686,23 @@ const ANIMS = ['', 'punch', 'kick', 'swing', 'shoot', 'fall', 'plead', 'facepalm
 const animIdx = a => Math.max(0, ANIMS.indexOf(a || ''));
 
 /* ---------- big-moment effects ---------- */
+// Comic-book hit words that pop over whoever takes a hit; sent to every player like the other effects.
+const WHACKS = [['WHACK!', '#ffd23f'], ['POW!', '#ff5a5a'], ['BAM!', '#ff9a3d'], ['THWACK!', '#7df0ff'], ['BONK!', '#ffcf5a'], ['SMACK!', '#ff7ad9'], ['CRUNCH!', '#b6ff6b'], ['WHAM!', '#c9a0ff']];
+function whack(t, kind) {
+  const idx = kind === 'bat' ? 4 : kind === 'kick' ? pick([1, 7]) : kind === 'slide' ? 6 : kind === 'tackle' ? pick([2, 5]) : kind === 'skill' ? pick([1, 2, 3, 7]) : pick([0, 2, 3, 5]);
+  fxEvent('whack', t, { x: t.x, y: t.y, side: idx, team: kind === 'bat' || kind === 'kick' || kind === 'ko' ? 1 : 0 });
+}
 let FX_ID = 0;
 // Every machine plays the same effect for the same event: the host records it, players get it in snapshots.
 function fxEvent(type, p, extra) {
   const ev = Object.assign({ id: ++FX_ID, type, pid: p ? p.id : -1, x: p ? p.x : S.ball.x, y: p ? p.y : S.ball.y, t: S.time }, extra || {});
-  S.fxq.push(ev); if (S.fxq.length > 12) S.fxq.shift();
+  S.fxq.push(ev); if (S.fxq.length > 24) S.fxq.shift();
   playFx(ev, true);
 }
 const CAMFX = { zoom: 0, zoomT: 0, orbit: null, cut: null };
 function playFx(ev, host) {
   const p = S.players[ev.pid];
+  if (ev.type === 'whack') { const w = WHACKS[ev.side] || WHACKS[0]; (S.whacks || (S.whacks = [])).push({ x: ev.x, y: ev.y, t: 0, word: w[0], col: w[1], rot: rand(-0.35, 0.35), big: ev.team === 1 }); if (S.whacks.length > 14) S.whacks.shift(); return; }
   if (ev.type === 'bat') { sfx('crack'); if (host) S.slowmo = { t: 0.25, k: 0.3 }; if (p) floatText(p, 'BONK!', '#ffcf5a'); }
   if (ev.type === 'kick') { sfx('whoosh'); CAMFX.zoom = 2; CAMFX.zoomT = 0.3; }
   if (ev.type === 'ko') { sfx('bell'); CAMFX.zoom = 4; CAMFX.zoomT = 0.5; }
@@ -1682,6 +1716,21 @@ function playFx(ev, host) {
     if (p) CAMFX.orbit = { x: p.x, y: p.y, t: 1.6, a: 0 };
     startReplay(ev.t);
   }
+}
+function fxTick(dt) {
+  const b = S.ball; S.fires = S.fires || []; S.whacks = S.whacks || [];
+  // power shots leave a trail of fire on the grass
+  if (b && b.trail && !b.owner && Math.hypot(b.vx || 0, b.vy || 0) > 260) {
+    const lx = b.fireX, ly = b.fireY;
+    if (lx == null) { b.fireX = b.x; b.fireY = b.y; }
+    else { const d = Math.hypot(b.x - lx, b.y - ly), n = Math.min(8, Math.floor(d / 9));   // a flame every 9 units of travel
+      if (n > 0) { for (let i = 1; i <= n; i++) S.fires.push({ x: lx + (b.x - lx) * i / n + rand(-4, 4), y: ly + (b.y - ly) * i / n + rand(-4, 4), t: 0, life: rand(0.9, 1.4), r: rand(6, 10), ph: rand(0, 6) }); b.fireX = b.x; b.fireY = b.y; } }
+  } else if (b) b.fireX = b.fireY = null;
+  for (const f of S.fires) f.t += dt;
+  S.fires = S.fires.filter(f => f.t < f.life); if (S.fires.length > 260) S.fires.splice(0, S.fires.length - 260);
+  for (const w of S.whacks) w.t += dt;
+  S.whacks = S.whacks.filter(w => w.t < 0.8);
+  for (const h of S.humans || []) { if (h.charging || h.remote) { h.lineT = 0.35; } else if (h.lineT > 0) h.lineT -= dt; }
 }
 function updateCamFx(dt) {
   CAMFX.zoomT = Math.max(0, CAMFX.zoomT - dt); if (CAMFX.zoomT <= 0) CAMFX.zoom *= Math.exp(-8 * dt);
@@ -2559,14 +2608,14 @@ function setPieceUpdate(dt) {
       if (GFX3D || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
       else { sp.aim.y += inp.iy * 150 * dt; sp.aim.z += inp.ix * dir * 55 * dt; }
       sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
-      if (inp.switch) switchToBest(h);
-      if (sp.t < sp.minT) { if (inp.sr || inp.pass || inp.lpass) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
-      if (inp.pass) humanPass(t, 'ground');
-      else if (inp.lpass) humanLongPass(t);
+      if (sp.t < sp.minT) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
+      if (inp.passR) humanPass(t, inp.power);
+      else if (inp.lpassR) humanLongPass(t, inp.power);
+      else if (inp.thR) throughBall(t, inp.power);
       else if (inp.sr) shot = inp.power;
     } else {
       p.dx = inp.ix; p.dy = inp.iy; p.sprintWant = !!inp.sprint;
-      if (inp.switch) switchToBest(h);
+      if (inp.pass) switchToBest(h);
     }
   }
   if (!t.human && b.owner === t && sp.t > sp.wait) {   // bot taker
@@ -2874,6 +2923,7 @@ function knock(a, t, o) {
   const from = o.from || a, ang = Math.atan2(t.y - from.y, t.x - from.x) || 0;
   const dmg = Math.round((o.dmg || 0) * dmgOut(a) * dmgIn(t));
   if (dmg > 0) { t.hp = Math.max(0, t.hp - dmg); floatText(t, '-' + dmg, '#ff6b6b'); t.hitT = 2; addMood(t, -4); }
+  if (dmg > 0 || o.stun) whack(t, 'skill');
   const imm = knockImmune(t);
   if (o.stun && !imm) { t.stun = Math.max(t.stun, o.stun); a0Anim(t, 'fall', 0.6); }
   if (o.kb && !imm) { t.vx = Math.cos(ang) * o.kb; t.vy = Math.sin(ang) * o.kb; }
@@ -3371,28 +3421,36 @@ function readInput(h, dt) {
   if (h.remote) {
     const r = (NET && NET.inputs[h.id]) || {}, c = r.c || {}, lc = h.lc || (h.lc = { ...c });
     const e = a => (c[a] || 0) > (lc[a] || 0);
-    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), foul: e('foul'), switch: e('switch'), s1: e('s1'), s2: e('s2'), s3: e('s3'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
-    h.lc = { ...c }; h.charging = (c.sp || 0) > (c.sr || 0);
+    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), th: e('th'), passR: e('passR'), lpassR: e('lpassR'), thR: e('thR'), foul: e('foul'), s1: e('s1'), s2: e('s2'), s3: e('s3'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
+    h.lc = { ...c }; const held = CHARGE_KEYS.find(([, pk, rk]) => (c[pk] || 0) > (c[rk] || 0)); h.charging = !!held; h.chargeKind = held ? held[0] : null;
+    if (h.charging) h.charge = Math.min(1, (h.charge || 0) + dt * 1.4); else h.charge = 0;
     return out;
   }
   return localInput(h, dt);
 }
+const CHARGE_KEYS = [['shoot', 'sp', 'sr'], ['pass', 'pass', 'passR'], ['lpass', 'lpass', 'lpassR'], ['through', 'th', 'thR']];
 function localInput(h, dt) {
   const pr = a => (h.map[a] || []).some(c => keys.has(c)) || (h.touch && virt[a]);
   const edge = a => { const v = pr(a), e = v && !h.prev[a]; h.prev[a] = v; return e; };
   let ix = (pr('right') ? 1 : 0) - (pr('left') ? 1 : 0), iy = (pr('down') ? 1 : 0) - (pr('up') ? 1 : 0);
   if (h.touch && (virt.jx || virt.jy)) { ix = virt.jx; iy = virt.jy; }
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
-  const out = { ix, iy, sprint: pr('sprint'), pass: edge('pass'), lpass: edge('lpass'), foul: edge('foul'), switch: edge('switch'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25, taunt: -1,
+  const out = { ix, iy, sprint: pr('sprint'), pass: false, lpass: false, th: false, passR: false, lpassR: false, thR: false, foul: edge('foul'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25, taunt: -1,
     s1: edge('skill1'), s2: edge('skill2'), s3: edge('skill3'), ul: edge('ult') };
   // taunt wheel: hold the taunt key, pick a direction, release
   if (pr('taunt')) { h.tauntOpen = true; const d = tauntFromDir(ix, iy); if (d >= 0) h.tauntSel = d; out.ix = out.iy = 0; out.sprint = false; }
   else if (h.tauntOpen) { h.tauntOpen = false; out.taunt = h.tauntSel != null ? h.tauntSel : 0; h.tauntSel = null; }
-  const sh = pr('shoot');
-  if (sh && !h.prev.shoot) { out.sp = true; h.charge = 0; }
-  if (sh) { h.charge = Math.min(1, h.charge + dt * 1.4); h.charging = true; }
-  else if (h.prev.shoot) { out.sr = true; out.power = Math.max(0.25, h.charge); h.charge = 0; h.charging = false; }
-  h.prev.shoot = sh;
+  // shoot and all three passes charge while held and fire on release; the press itself jumps, switches or tackles
+  const chg = h.chg || (h.chg = {});
+  let any = null;
+  for (const [a, pk, rk] of CHARGE_KEYS) {
+    const v = pr(a);
+    if (v && !h.prev[a]) { out[pk] = true; chg[a] = 0; }
+    if (v) { chg[a] = Math.min(1, (chg[a] || 0) + dt * 1.4); if (!any || chg[a] > chg[any]) any = a; }
+    else if (h.prev[a]) { out[rk] = true; out.power = Math.max(0.25, chg[a] || 0); chg[a] = 0; }
+    h.prev[a] = v;
+  }
+  h.charging = !!any; h.chargeKind = any; h.charge = any ? chg[any] : 0;
   return out;
 }
 // Low-sensitivity steering: your direction turns at a capped rate instead of snapping between the 8 key directions,
@@ -3417,16 +3475,21 @@ function humanControl(h, dt) {
   const canAct = p.stun <= 0 && p.ko <= 0 && !(p.slide > 0) && !(p.slideRec > 0);
   const [mx, my] = canAct ? steerAim(p, inp.ix, inp.iy, dt) : [0, 0];
   p.dx = mx; p.dy = my; p.sprintWant = canAct && !!inp.sprint;
-  if (inp.switch && !own0(p)) { switchToBest(h); return; }
+  if (inp.pass && !own0(p) && p.z <= 0) { h.arm = null; switchToBest(h); return; }
   if (!canAct) return;
   const own = S.ball.owner === p, air = p.z > 0;
+  // a pass fires on release, and only if the key went down while you had the ball (so a switch never turns into a pass)
+  for (const k of ['pass', 'lpass', 'th', 'sp']) if (inp[k]) h.arm = own ? k : null;
   if (air) {   // in the air: volley or head the ball, or turn a punch into a jump kick
     if (inp.sp) p.airAct = { k: 'shoot', t: 0.4 };
-    if (inp.pass) p.airAct = { k: 'pass', t: 0.4 };
+    if (inp.pass || inp.th) p.airAct = { k: 'pass', t: 0.4 };
     if (inp.lpass) p.airAct = { k: 'lpass', t: 0.4 };
   } else {
-    if (inp.pass) { const bo = S.ball.owner; if (own) humanPass(p, 'ground'); else if (bo && bo.team !== p.team && dist(p, bo) < 45) shortTackle(p); else { switchToBest(h); return; } }
-    if (inp.lpass) { if (own) humanLongPass(p); else slideTackle(p); }
+    if (inp.lpass && !own) slideTackle(p);
+    if (inp.th && !own) shortTackle(p);
+    if (own && inp.passR && h.arm === 'pass') { humanPass(p, inp.power); h.arm = null; }
+    if (own && inp.lpassR && h.arm === 'lpass') { humanLongPass(p, inp.power); h.arm = null; }
+    if (own && inp.thR && h.arm === 'th') { throughBall(p, inp.power); h.arm = null; }
     if (inp.sr && own) { if (p.aimA != null) p.face = p.aimA; shoot(p, inp.power); }
     if (inp.sp && !own) jump(p);
   }
@@ -3604,7 +3667,7 @@ function update(dt) {
         if (Math.random() < rate * dt) {
           if (hasBf(o, 'speedDribble')) { p.stun = Math.max(p.stun, 1); floatText(p, 'TOO FAST', '#ffcc22'); continue; }
           b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3); addMood(p, 5); crowdEvent(p.team, { perf: 3 }); bountyCollect(p, o); EV('tackle', p, { from: o.name }); addCharge(p, 8); addKarma(p, 2); if (p.lunge > 0) cheer('roar', p.x, 'WHAT A TACKLE!');
-          if (p.lunge > 0) floatText(p, 'TACKLE', '#ffffff'); thump(140, 0.15, 0.08);
+          if (p.lunge > 0) { floatText(p, 'TACKLE', '#ffffff'); whack(o, 'tackle'); } thump(140, 0.15, 0.08);
           break;
         }
       }
@@ -4280,6 +4343,60 @@ function drawTauntWheel() {
   }
 }
 // Ground-level extras for the classic view (the 3D view draws its own).
+function drawFires() {   // ground fire left by a power shot: a scorch mark under flickering flames
+  for (const f of S.fires || []) {
+    const P = proj(f.x, f.y), s = P.s, k = 1 - f.t / f.life, fl = 0.75 + 0.25 * Math.sin(S.time * 22 + f.ph);
+    ctx.globalAlpha = 0.45 * k; ctx.fillStyle = '#1b0f08'; ell(P.x, P.y, f.r * 1.3 * s, f.r * 0.5 * s); ctx.fill();
+    const hgt = (8 + f.r * 1.6) * s * k * fl, wid = f.r * 0.9 * s;
+    for (let j = -1; j <= 1; j++) {
+      const x = P.x + j * wid * 0.7, hh = hgt * (j ? 0.7 : 1), g = ctx.createLinearGradient(0, P.y, 0, P.y - hh);
+      g.addColorStop(0, '#ff3b10'); g.addColorStop(0.5, '#ff9a1f'); g.addColorStop(1, 'rgba(255,230,120,0)');
+      ctx.globalAlpha = Math.min(1, k * 1.4); ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x - wid * 0.6, P.y); ctx.quadraticCurveTo(x - wid * 0.5, P.y - hh * 0.6, x + Math.sin(S.time * 9 + f.ph + j) * wid * 0.3, P.y - hh); ctx.quadraticCurveTo(x + wid * 0.5, P.y - hh * 0.6, x + wid * 0.6, P.y); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+// The direction line while you hold shoot or a pass key with the ball (and a moment after release).
+const AIM_COL = { shoot: '#ff6a3d', pass: '#ffffff', lpass: '#ffd23f', through: '#7df0ff' };
+function drawAimGuides() {
+  const list = S.net === 'client' ? (NET && NET.inH ? [[S.players.find(p => p.human && p.human.local), NET.inH]] : []) : (S.humans || []).filter(h => !h.remote).map(h => [S.players[h.pid], h]);
+  for (const [p, h] of list) {
+    if (!p || !onPitch(p) || S.ball.owner !== p || !h || !(h.charging || h.lineT > 0) || S.setPiece) continue;
+    const kind = h.charging ? h.chargeKind : h.lineKind; if (!kind) continue; h.lineKind = kind;
+    const pw = Math.max(0.25, h.charging ? h.charge : 0.5), a = h.charging ? 1 : clamp(h.lineT / 0.35, 0, 1);
+    let tx, ty, q = null;
+    if (kind === 'shoot') {
+      const ang = p.aimA != null ? p.aimA : p.face, gx = p.team === 0 ? W : 0, L = Math.cos(ang) * (gx - p.x) > 0 ? Math.min(900, Math.abs((gx - p.x) / Math.cos(ang))) : 260 + 300 * pw;
+      tx = p.x + Math.cos(ang) * L; ty = p.y + Math.sin(ang) * L;
+    } else { const pv = passPreview(p, kind, pw); tx = pv.x; ty = pv.y; q = pv.q; }
+    const A = proj(p.x, p.y), B = proj(tx, ty), col = AIM_COL[kind];
+    ctx.globalAlpha = 0.85 * a; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 5 * A.s; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = 2.4 * A.s; ctx.setLineDash(kind === 'lpass' ? [10 * A.s, 7 * A.s] : kind === 'through' ? [3 * A.s, 5 * A.s] : []);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.setLineDash([]);
+    const ang2 = Math.atan2(B.y - A.y, B.x - A.x), hs = 9 * B.s;   // arrow head, or a ring on the assisted team-mate
+    ctx.fillStyle = col;
+    if (q) { ctx.strokeStyle = col; ctx.lineWidth = 2.5 * B.s; ell(B.x, B.y, 15 * B.s, 6.5 * B.s); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(B.x - Math.cos(ang2 - 0.45) * hs, B.y - Math.sin(ang2 - 0.45) * hs); ctx.lineTo(B.x - Math.cos(ang2 + 0.45) * hs, B.y - Math.sin(ang2 + 0.45) * hs); ctx.closePath(); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+}
+// "WHACK!" bursts: pop in, wobble, drift up and fade.
+function drawWhacks() {
+  for (const w of S.whacks || []) {
+    const P = proj(w.x, w.y, 40 + w.t * 40), s = Math.max(0.7, P.s) * (w.big ? 1.3 : 1);
+    const pop = w.t < 0.1 ? 0.3 + 7 * w.t : 1 + 0.25 * Math.max(0, 0.25 - w.t) * 4, sc = s * pop, a = clamp((0.8 - w.t) / 0.3, 0, 1);
+    ctx.save(); ctx.translate(P.x, P.y); ctx.rotate(w.rot + Math.sin(w.t * 30) * 0.06 * Math.max(0, 0.4 - w.t)); ctx.globalAlpha = a;
+    ctx.beginPath(); const n = 12;
+    for (let i = 0; i <= n * 2; i++) { const r = (i % 2 ? 15 : 28 + (i % 4 === 0 ? 6 : 0)) * sc, an = i / (n * 2) * Math.PI * 2; i ? ctx.lineTo(Math.cos(an) * r * 1.35, Math.sin(an) * r) : ctx.moveTo(Math.cos(an) * r * 1.35, Math.sin(an) * r); }
+    ctx.closePath(); ctx.fillStyle = '#fff6d0'; ctx.fill(); ctx.lineWidth = 2.5 * sc; ctx.strokeStyle = '#140c06'; ctx.stroke();
+    ctx.font = `700 ${Math.round(22 * sc)}px ${DISP}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4 * sc; ctx.strokeStyle = '#140c06'; ctx.strokeText(w.word, 0, 1 * sc); ctx.fillStyle = w.col; ctx.fillText(w.word, 0, 1 * sc);
+    ctx.textBaseline = 'alphabetic'; ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
 function drawGroundExtras() {
   for (const g of S.puddles || []) { const P = proj(g.x, g.y); ctx.globalAlpha = Math.min(1, g.ttl / 2); ctx.fillStyle = 'rgba(92,207,106,.55)'; ell(P.x, P.y, 20 * P.s, 8 * P.s); ctx.fill(); ctx.fillStyle = 'rgba(200,255,200,.35)'; ell(P.x - 5 * P.s, P.y - 2 * P.s, 6 * P.s, 2.4 * P.s); ctx.fill(); }
   ctx.globalAlpha = 1;
@@ -4342,8 +4459,8 @@ function draw3d() {
 }
 // Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
 function drawOverlays3D() {
-  drawChants(); drawSetPieceWorld();
-  drawWorldExtras();
+  drawChants(); drawFires(); drawAimGuides(); drawSetPieceWorld();
+  drawWorldExtras(); drawWhacks();
   for (const p of S.players) {
     if (!onPitch(p)) continue;
     const down = p.stun > 0 || p.ko > 0;
@@ -4419,7 +4536,7 @@ function draw() {
   if (S.shake > 0) ctx.translate(rand(-1, 1) * S.shake, rand(-1, 1) * S.shake);
   drawBackdrop(); drawPitch(); drawGoal(0); drawGoal(1); drawCones();
   for (const n of S.bananas) { const P = proj(n.x, n.y); drawIcon('banana', P.x, P.y, P.s); }
-  drawGroundExtras();
+  drawGroundExtras(); drawFires(); drawAimGuides();
   drawTargets(); drawSetPieceWorld();
   const ents = [];
   for (const p of S.players) if (onPitch(p)) ents.push([p.y, () => drawPlayer(p)]);
@@ -4429,7 +4546,7 @@ function draw() {
   ents.push([S.ball.y + 0.5, drawBall]);
   ents.sort((a, b) => a[0] - b[0]).forEach(e => e[1]());
   drawBoards(H + 46, 1);
-  drawWorldExtras();
+  drawWorldExtras(); drawWhacks();
   for (const q of S.parts) { const P = proj(q.x, q.y, q.z); ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.col; ctx.fillRect(P.x - q.size / 2, P.y - q.size / 2, q.size, q.size); }
   ctx.globalAlpha = 1;
   for (const t of S.texts) { const P = proj(t.x, t.y, t.z); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
@@ -4460,7 +4577,7 @@ function renderPace() {
   el.innerHTML = PACES.map(([n, v]) => `<button id="pace-${Math.round(v * 100)}" aria-pressed="${v === PACE}" data-v="${v}">${n} · ${Math.round(v * 100)}%</button>`).join('');
   el.querySelectorAll('button').forEach(b => b.onclick = () => { PACE = +b.dataset.v; store.set('fpfc-pace', PACE); renderPace(); document.getElementById(b.id).focus(); });
 }
-const BIND_GROUPS = [['Movement', ['up', 'down', 'left', 'right', 'sprint']], ['Ball', ['shoot', 'pass', 'lpass', 'switch']], ['Fouls and tricks', ['foul', 'item', 'blind', 'taunt']], ['Class skills', ['skill1', 'skill2', 'skill3', 'ult']]];
+const BIND_GROUPS = [['Movement', ['up', 'down', 'left', 'right', 'sprint']], ['Ball', ['shoot', 'pass', 'lpass', 'through']], ['Fouls and tricks', ['foul', 'item', 'blind', 'taunt']], ['Class skills', ['skill1', 'skill2', 'skill3', 'ult']]];
 function renderBinds() {
   const t = document.getElementById('binds'), label = Object.fromEntries(ACTIONS);
   const cell = (pi, a) => {
@@ -4515,14 +4632,17 @@ function guideSections() {
     ['g-ball', 'Playing the ball', `
       <ul>
         <li><b>Move</b> with ${k('up')} ${k('left')} ${k('down')} ${k('right')}.</li>
-        <li><b>Short pass</b> with ${k('pass')}: a pass along the ground to the teammate in the direction you're pressing, or facing. A dashed line shows who will get it.</li>
-        <li><b>Long pass</b> with ${k('lpass')}: a ball in the air to a teammate further up the pitch with space around them, or into open space if nobody is there.</li>
-        <li><b>Switch player:</b> press ${k('switch')}, or ${k('pass')} when you don't have the ball and no opponent with the ball is close, to take over the team-mate nearest the ball.</li>
+        <li><b>Every pass has power:</b> hold the key and release. A line shows where it's going while you hold: a ring on the team-mate who'll get it, or an arrow to where the ball ends up. A tap plays a soft, short ball; a full hold plays it hard and far.</li>
+        <li><b>Short pass</b> with ${k('pass')}: along the ground. Pass assist finds a team-mate only if you're facing them (within about 30°); more power prefers ones further away. Nobody there, and the ball goes into space where you aim.</li>
+        <li><b>Long pass</b> with ${k('lpass')}: in the air, to a team-mate you're facing with space around them, or into space.</li>
+        <li><b>Through ball</b> with ${k('through')}: kicked forward along the ground exactly where you aim, with no assist, rolling out to a distance set by the power. Play it into space for a runner.</li>
+        <li><b>Switch player:</b> press ${k('pass')} when you don't have the ball to take over the team-mate nearest the ball.</li>
         <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
         <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
+        <li><b>Effects:</b> power shots leave a trail of fire on the grass, and every hit lands with a comic-book "WHACK!".</li>
         <li><b>Ball physics:</b> shooting while running across the ball puts a little curl on it, the ball bounces and rolls to a stop, shots can come back off the post or the bar, and a hard shot that hits someone's body or head is blocked.</li>
         <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
-        <li><b>Short tackle:</b> press ${k('pass')} without the ball when an opponent with the ball is close, for a quick lunge at them. Cheap, safe and never a foul.</li>
+        <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
         <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
         <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass. Punching in the air (${k('foul')}) becomes a jump kick.</li>
         <li><b>Sprint:</b> hold ${k('sprint')}. Sprinting uses stamina.</li>
@@ -4607,7 +4727,7 @@ function guideSections() {
         <li>When a foul is called the clock stops and everyone gets <b>15 seconds to set up</b> (10 for a penalty). In 3D the camera swings round behind the ball, facing the goal.</li>
         <li><b>The laws apply while you set up:</b> defenders stay outside the dashed 9.15 m circle around the ball, and the attacking team stays behind the offside line (the dashed line in their colour). For a penalty, everyone but the taker and the goalkeeper stays outside the box, and the keeper stays on the line.</li>
         <li><b>The wall:</b> defending bots line up between the ball and the near post and jump as the kick is taken. People on the defending team can join it or mark someone.</li>
-        <li><b>Taking it:</b> move the yellow target across the goal with left and right, and up and down for height. The dotted line shows the flight: the shot curls round the wall by itself. After the whistle, hold ${k('shoot')} and release inside the green band on the power bar to hit your target; too much power flies high, too little drops short. With 25 charge the green band is wider. You can also pass with ${k('pass')} or ${k('lpass')}.</li>
+        <li><b>Taking it:</b> move the yellow target across the goal with left and right, and up and down for height. The dotted line shows the flight: the shot curls round the wall by itself. After the whistle, hold ${k('shoot')} and release inside the green band on the power bar to hit your target; too much power flies high, too little drops short. With 25 charge the green band is wider. You can also pass with ${k('pass')}, ${k('lpass')} or ${k('through')}.</li>
         <li>If the time runs out, the kick is taken for you.</li>
       </ul>`],
     ['g-modes', 'Game modes', `
@@ -5221,7 +5341,7 @@ function humanTag(uid) {
   if (!uid || !NET) return null;
   const r = NET.roster[uid], t = tagCache[uid] || (tagCache[uid] = { id: uid });
   t.idx = colorOf(uid); t.local = uid === NET.uid; t.label = t.local ? 'YOU' : (r ? String(r.name).slice(0, 14) : 'Player');
-  t.charging = t.local && NET.charging; t.charge = NET.charge;
+  t.charging = t.local && NET.charging; t.charge = NET.charge; t.chargeKind = t.local ? NET.chargeKind : null;
   return t;
 }
 function applySnap(s) {
@@ -5314,9 +5434,10 @@ function sendInput(dt) {
   h.map = MAPSOLO; const meP = S.players.find(p => p.human && p.human.local); h.pid = meP ? meP.id : -1;
   const inp = localInput(h, dt);
   n.charge = h.charge; n.charging = h.charging;
-  for (const a of ['pass', 'lpass', 'foul', 'switch', 'blind', 'item', 'sp', 'sr', 's1', 's2', 's3', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
+  for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'foul', 'blind', 'item', 'sp', 'sr', 's1', 's2', 's3', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
   if (inp.taunt >= 0) { n.cnt.taunt = (n.cnt.taunt || 0) + 1; n.tw = inp.taunt; }
-  if (inp.sr) n.pw = r2(inp.power);
+  if (inp.sr || inp.passR || inp.lpassR || inp.thR) n.pw = r2(inp.power);
+  n.chargeKind = h.chargeKind;
   const msg = { t: 'in', ix: r2(inp.ix), iy: r2(inp.iy), c: { ...n.cnt }, pw: n.pw, run: inp.sprint ? 1 : 0, tw: n.tw || 0 };
   const key = JSON.stringify(msg), now = performance.now();
   if (key !== n.sent && now - n.sentAt > 30) { n.sent = key; n.sentAt = now; try { n.conn.send(msg); } catch (e) {} }
@@ -5536,7 +5657,7 @@ $('spec').addEventListener('click', e => {
 setInterval(updateSpecBar, 400);
 
 // Debug hook for testing: only exposed when the URL contains ?debug
-if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET, applyPowerup, useThrowable, doTaunt, goal, clockExpired, REPLAY, CAMFX, MUT: () => MUT, setMut: m => { MUT = m; }, startAnomaly, castSkill, fireWeapon };
+if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET, applyPowerup, useThrowable, doTaunt, goal, clockExpired, REPLAY, CAMFX, MUT: () => MUT, setMut: m => { MUT = m; }, startAnomaly, castSkill, fireWeapon, whack, passPreview };
 if (store.get('fpfc-gfx') !== '2d') setGraphics(true);
 let last = performance.now();
 function loop(now) {
@@ -5544,7 +5665,7 @@ function loop(now) {
   try {
     const sm = S.slowmo && S.slowmo.t > 0 ? S.slowmo.k : 1; if (S.slowmo) S.slowmo.t -= dt;
     if (S.net === 'client') clientUpdate(dt); else { update(dt * PACE * sm); if (S.net === 'host') sendSnap(false); }
-    recordFrame(); updateCamFx(dt);
+    recordFrame(); updateCamFx(dt); fxTick(dt);
     const rf = replayFrame(dt); if (rf) applyReplayFrame(rf);
     followCamera(dt); draw();
     if (rf) restoreReplayFrame();
