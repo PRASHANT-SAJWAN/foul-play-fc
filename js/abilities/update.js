@@ -92,13 +92,12 @@ function updateClasses(dt) {
     const o = S.players[pr.owner];
     const hit = S.players.find(q => q.id !== pr.owner && onPitch(q) && q.ko <= 0 && Math.hypot(q.x - pr.x, q.y - pr.y) < 11 && pr.z > (q.z || 0) && pr.z < (q.z || 0) + 48);
     if (hit) {
-      if (pr.type === 'pebble') knock(o || hit, hit, { dmg: 10, stun: 0.9, kb: 120, from: { x: pr.x - pr.vx, y: pr.y - pr.vy }, foul: true, kind: 'ranged', col: '#c9b48a' });
-      else { knock(o || hit, hit, { dmg: 4, foul: true, kind: 'ranged', col: '#ff9f43' }); hit.slowT = Math.max(hit.slowT, 1); }
+      weaponHit(o || hit, hit, pr.w ? pr : Object.assign({ w: pr.type === 'pebble' ? 'sling' : 'blaster' }, pr));
       S.projs.splice(i, 1); continue;
     }
     if (Math.hypot(b.x - pr.x, b.y - pr.y) < 9 && Math.abs((b.z || 0) - pr.z) < 22) {   // shooting the ball knocks it on
       if (b.owner) loseBall(b.owner, Math.atan2(pr.vy, pr.vx));
-      b.vx += pr.vx * (pr.type === 'pebble' ? 0.45 : 0.15); b.vy += pr.vy * (pr.type === 'pebble' ? 0.45 : 0.15); b.vz = Math.max(b.vz, 60); b.lastTouch = o || b.lastTouch; S.projs.splice(i, 1);
+      const push = (WEAPONS[pr.w] || (pr.type === 'pebble' ? WEAPONS.sling : WEAPONS.blaster)).ballPush; b.vx += pr.vx * push; b.vy += pr.vy * push; b.vz = Math.max(b.vz, 60); b.lastTouch = o || b.lastTouch; S.projs.splice(i, 1);
     }
   }
 }

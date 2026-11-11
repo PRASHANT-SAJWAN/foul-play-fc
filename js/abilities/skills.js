@@ -5,7 +5,10 @@
 
 /* ---------- casting ---------- */
 const SKILL_KEYS = ['skill1', 'skill2', 'skill3', 'ult'];
-function skillDef(p, slot) { const C = CLS[p.cls]; return C ? (slot === 3 ? C.ult : C.skills[slot]) : null; }
+function skillDef(p, slot) {   // a player's own ability for this slot (setPlayerAbility in js/player/player.js), else their class's
+  const own = p.abil && p.abil[slot]; if (own && ABILITIES[own]) return ABILITIES[own];
+  const C = CLS[p.cls]; return C ? (slot === 3 ? C.ult : C.skills[slot]) : null;
+}
 function castSkill(p, slot) {
   const C = CLS[p.cls], def = skillDef(p, slot); if (!C || !def || !able(p)) return false;
   if (hasBf(p, 'marked')) { if (p.human) floatText(p, 'MARKED: NO SKILLS', '#ff9a9a'); return false; }

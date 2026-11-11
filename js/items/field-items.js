@@ -22,11 +22,8 @@ function pickup(p, it) {
   M(p, 'itemsPicked');
   if (POWERUPS.includes(it.type)) { applyPowerup(p, it.type); thump(500, 0.08, 0.08); return; }
   if (it.type === 'medkit') { p.hp = Math.min(100, p.hp + 45); floatText(p, '+45 HP', '#7dff9b'); healInjury(p); }
-  if (it.type === 'bat') { p.items.bat += 3; floatText(p, 'BAT ×3', '#ffcf5a'); }
-  if (it.type === 'sword') { p.items.sword = (p.items.sword || 0) + 3; floatText(p, 'SWORD ×3', ITEM_COL.sword); }
+  if (WEAPONS[it.type]) giveWeapon(p, it.type);   // any weapon from js/player/player.js
   if (it.type === 'ultcharge') { p.ult = Math.min(100, (p.ult || 0) + 50); floatText(p, 'ULTIMATE +50%', ITEM_COL.ultcharge); burst(p.x, p.y, ITEM_COL.ultcharge, 12, 20); }
-  if (it.type === 'sling') { p.items.sling += 5; floatText(p, 'SLINGSHOT ×5', ITEM_COL.sling); }
-  if (it.type === 'blaster') { p.items.blaster += 10; floatText(p, 'FOAM BLASTER ×10', ITEM_COL.blaster); }
   if (it.type === 'flash') { p.items.flash += 1; floatText(p, 'FLASH', '#fff6c0'); }
   if (it.type === 'banana') { p.items.banana += 2; p.throwSel = 'banana'; floatText(p, 'BANANA ×2', '#ffe14d'); }
   if (it.for !== p && loud(p, it.for)) feed(`${p.name} grabbed the ${ITEM_LABEL[it.type]} meant for ${it.for.name}`, '#ffd23f');

@@ -538,8 +538,8 @@ export function createRenderer3D(canvas, G) {
       if (p.carry != null && !down) { R.armL.rotation.set(-3.0, 0, 0.35); R.armR.rotation.set(-3.0, 0, -0.35); }
       R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 41.5 : 37.4;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
-      R.sword.visible = !!(p.items && p.items.sword > 0) && !down;
-      R.bat.visible = !R.sword.visible && p.items && p.items.bat > 0 && !down;
+      const hand = !down && G.weaponHand ? G.weaponHand(p) : null;   // which weapon mesh to show (js/player/player.js)
+      R.sword.visible = hand === 'sword'; R.bat.visible = hand === 'bat';
       R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
     });
     for (let i = S.players.length; i < playerRigs.length; i++) playerRigs[i].g.visible = false;

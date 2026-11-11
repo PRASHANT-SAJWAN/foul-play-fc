@@ -18,6 +18,7 @@ There is one rule to follow. Code that **runs while a file loads** can only use 
 | `match/` | `state.js`: the state `S`, `makePlayer`, player predicates (`onPitch`, `onBench`, `able`), `newMatch`, `kickoff`. `feedback.js`: feed messages, floating text, particles, mood, charge, karma, cheers, animation helpers. `fouls.js`: punches and jump kicks, injuries, sand, what referees see (`sees`, `watched`), `callFoul` and cards. `scoring.js`: `goal`, full time, results. `teams.js` (team names and kit colours: `SETUP`, `applyTeams`, synced online with `teamsSnap`), `shootout.js`, `awards.js`, and `report.js` (metrics `M`/`EV` and the end-of-match report) |
 | `mechanics/` | How football is played: `passing.js` (power, assist cone, long and through balls), `shooting.js`, `tackles.js` (jumps, tackles, slides, volleys and headers), `referee-carry.js`, `setpieces.js` (free kicks and penalties), `ball-extras.js` (woodwork, body blocks), `ai.js` (bots), `control.js` (keyboard, touch and network input; human players), `referee-mode.js`, and `simulation.js`, which holds `update(dt)`: movement, ball physics, referees and collisions |
 | `abilities/` | The 12 classes: `classes.js` (data, synergies, line-ups, assigning), `buffs.js`, `aiming.js`, `skills.js` (`castSkill` and every effect in `SKILL_FX`), `weapons.js`, `update.js` (per-frame class logic), `bot-skills.js` |
+| `player/` | `player.js`: the player's loadout, one place to extend weapons and abilities. `defineWeapon` (melee or ranged: reach, damage, knockback, stun, projectile, hit effect, in-hand drawing), `weaponOf`, `giveWeapon`; `defineAbility`, `setClassAbility` (change a class's skill for everyone), `setPlayerAbility` (give one player an ability for the match), `ABILITIES` (every castable skill). The sword, bat, slingshot and foam blaster are defined here |
 | `items/` | `field-items.js`: `FIELD_ITEMS` (the five items that reach the pitch), `ITEM_COL`, crowd gifts (`throwItem`), `pickup`, power-ups and throwables. `bench.js`: the team benches for red-carded players |
 | `party/` | `mutators.js`, `effects.js` (`fxEvent`/`playFx`, whack bursts, fire trails, camera effects, `fxTick`), `replay.js`, `crowd.js`, `bounties.js`, `taunts.js`, `spectators.js`, `skins.js` |
 | `anomalies/` | `anomalies.js` (`ANOM_LIST`, `startAnomaly`, each anomaly, `anomSnap`) and `draw.js` |
@@ -41,6 +42,10 @@ One-off visual effects that every machine should play, such as goals, cards and 
 2. Say what picking it up does in `pickup`, or for a timed effect in `applyPowerup` (and add it to `POWERUPS`).
 3. Draw it: a 2D icon in `drawIcon` (`render/world2d.js`) and a mesh in `makeItem` (`render/render3d.js`). Without a mesh you get a glowing gem in its colour.
 4. If it stores a count on the player (like `p.items.sword`), add it to `makePlayer` and to the snapshot.
+
+**Add a weapon:** one `defineWeapon({ id, name, kind: 'melee' | 'ranged', ... })` call in `player/player.js` (the comment at the top lists every option). Fouls, the hotbar, bots, pick-ups, online sync and the 3D hand mesh all read the registry. To let it land on the pitch, also add its id to `FIELD_ITEMS`, and give it an icon in `drawIcon` if you like.
+
+**Add an ability:** `defineAbility({ id, name, cd, aim, range, desc }, effect)` in `player/player.js`, then put it in a class with `setClassAbility(classId, slot, id)` or give it to one player with `setPlayerAbility(p, slot, id)`.
 
 **Add an anomaly:** in `anomalies/anomalies.js`, add `[id, name, description]` to `ANOM_LIST`, a start function to the table in `startAnomaly`, its per-frame logic in `updateAnomalies` and its fields in `anomSnap`. Draw it in `anomalies/draw.js`. The settings screen picks it up from `ANOM_LIST` automatically.
 

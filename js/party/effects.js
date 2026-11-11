@@ -7,8 +7,9 @@
 // Comic-book hit words that pop over whoever takes a hit; sent to every player like the other effects.
 const WHACKS = [['SLASH!', '#d9e2ec'], ['WHACK!', '#ffd23f'], ['POW!', '#ff5a5a'], ['BAM!', '#ff9a3d'], ['THWACK!', '#7df0ff'], ['BONK!', '#ffcf5a'], ['SMACK!', '#ff7ad9'], ['CRUNCH!', '#b6ff6b'], ['WHAM!', '#c9a0ff']];
 function whack(t, kind) {
-  const idx = kind === 'sword' ? 0 : kind === 'bat' ? 5 : kind === 'kick' ? pick([2, 8]) : kind === 'slide' ? 7 : kind === 'tackle' ? pick([3, 6]) : kind === 'skill' ? pick([2, 3, 4, 8]) : pick([1, 3, 4, 6]);
-  fxEvent('whack', t, { x: t.x, y: t.y, side: idx, team: kind === 'sword' || kind === 'bat' || kind === 'kick' || kind === 'ko' ? 1 : 0 });
+  const Wd = WEAPONS[kind];
+  const idx = Wd ? Wd.whack : kind === 'sword' ? 0 : kind === 'bat' ? 5 : kind === 'kick' ? pick([2, 8]) : kind === 'slide' ? 7 : kind === 'tackle' ? pick([3, 6]) : kind === 'skill' ? pick([2, 3, 4, 8]) : pick([1, 3, 4, 6]);
+  fxEvent('whack', t, { x: t.x, y: t.y, side: idx, team: Wd || kind === 'kick' || kind === 'ko' ? 1 : 0 });
 }
 let FX_ID = 0;
 // Every machine plays the same effect for the same event: the host records it, players get it in snapshots.

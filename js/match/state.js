@@ -21,7 +21,7 @@ const onBench = p => p.sentOff > 0 && !p.goneWhy;   // red-carded: sitting it ou
 const isLocalHuman = p => !!(p && p.human && (S.net === 'client' ? p.human.local : !p.human.remote));
 const able = p => onPitch(p) && p.ko <= 0 && p.stun <= 0;
 const canBall = p => able(p) && p.carry == null && !(p.slideRec > 0);   // carrying the referee or getting up from a slide: no ball
-const reachOf = p => p.items.sword > 0 ? 66 : p.items.bat > 0 ? 60 : 42;      // punch (or sword / bat swing) reach
+const reachOf = p => { const W = weaponOf(p, 'melee'); return W ? W.reach : 42; };   // punch, or the melee weapon's reach (js/player/player.js)
 const KICK_REACH = 72;                                  // jump kick lunges further
 const targetReach = p => Math.max(reachOf(p), KICK_REACH);
 const MOOD_ZONE = 40, MOOD_TILT = -40, MOOD_MELT = -70;

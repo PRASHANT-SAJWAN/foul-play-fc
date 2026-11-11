@@ -88,7 +88,7 @@ function update(dt) {
     else {
       const want = Math.hypot(p.dx, p.dy) * spd, cur = Math.hypot(p.vx, p.vy);
       const turn = cur > 60 && want > 0 ? (p.vx * p.dx + p.vy * p.dy) / (cur * Math.hypot(p.dx, p.dy)) : 1;   // cosine of the turn
-      const grip = (want > cur ? 7.5 : 11) * (turn < 0 ? 0.55 : turn < 0.5 ? 0.8 : 1) * (p.sprinting ? 0.85 : 1);   // slower to speed up than to stop; sharp turns at pace take longer
+      const grip = (want > cur ? 7.5 : 11) * (turn < -0.7 ? 1.15 : turn < 0 ? 0.7 : turn < 0.5 ? 0.8 : 1) * (p.sprinting ? 0.85 : 1);   // slower to speed up than to stop; sharp turns at pace take longer
       const k = Math.min(1, dt * (p.lunge > 0 || p.slide > 0 ? 20 : p.z > 0 ? 1.5 : wk === 'ice' ? 2 : grip));
       p.vx += (p.dx * spd - p.vx) * k; p.vy += (p.dy * spd - p.vy) * k;
       if (p.dx || p.dy) p.face += angDiff(p.face, Math.atan2(p.dy, p.dx)) * Math.min(1, dt * 14);

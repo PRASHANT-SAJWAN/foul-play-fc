@@ -13,10 +13,10 @@ function admin(act) {
   if (act === 'injure') { injure(p, 20, null); return; }
   if (act === 'ult') { p.ult = 100; return; }
   if (act === 'cds') { p.cd = [0, 0, 0]; S.teamCd = [{}, {}]; return; }
-  if (act.startsWith('w:')) { const w = act.slice(2); p.items[w] = (p.items[w] || 0) + (w === 'sling' ? 5 : 10); return; }
+  if (act.startsWith('w:')) { giveWeapon(p, act.slice(2)); return; }
   if (act === 'bounty') { S.bountyOn = true; S.bountyT = 0; S.bounty = null; return; }
   const b = S.ball;
-  if (act === 'bat') { p.items.bat += 3; floatText(p, 'BAT ×3', '#ffcf5a'); }
+  if (act === 'bat') giveWeapon(p, 'bat');
   if (act === 'flash') { p.items.flash += 1; floatText(p, 'FLASH', '#fff6c0'); }
   if (act === 'banana') { p.items.banana += 2; floatText(p, 'BANANA ×2', '#ffe14d'); }
   if (act === 'sand') { p.blind = 2; p.blindT = 0; floatText(p, 'SAND ×2', '#d8c08a'); }

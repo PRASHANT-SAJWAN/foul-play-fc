@@ -199,8 +199,7 @@ function drawPlayer(p) {
     ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(P.x - w / 2, P.y - 43 * s, w * p.hp / 100, 3 * s);
   }
   if (p.yellows > 0) { ctx.fillStyle = '#ffd23f'; ctx.fillRect(P.x + 8 * s, P.y - 40 * s, 3.5 * s, 5 * s); }
-  if (p.items.sword > 0 && !down) { ctx.lineCap = 'round'; ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 2.2 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 17 * s); ctx.lineTo(P.x + 15 * s, P.y - 35 * s); ctx.stroke(); ctx.strokeStyle = '#c9a050'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(P.x + 4 * s, P.y - 19 * s); ctx.lineTo(P.x + 11 * s, P.y - 16 * s); ctx.stroke(); }
-  else if (p.items.bat > 0 && !down) { ctx.strokeStyle = '#a0682f'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 18 * s); ctx.lineTo(P.x + 13 * s, P.y - 30 * s); ctx.stroke(); }
+  const HW = !down && weaponOf(p, 'melee'); if (HW && HW.draw2d) HW.draw2d(P, s);   // the melee weapon in hand
   if (p.human) {
     const col = HUMAN_COL[p.human.idx % HUMAN_COL.length], y = P.y - (down ? 26 : 50) * s;
     drawLabelPill(P.x, y, s, col, p.human.label || 'P' + (p.human.idx + 1));

@@ -43,12 +43,14 @@ function localInput(h, dt) {
 // Low-sensitivity steering: your direction turns at a capped rate instead of snapping between the 8 key directions,
 // so passes, shots, skills and fouls aim steadily, and a quick tap nudges the aim a few degrees.
 const AIM_TURN = 5.5;   // radians per second while running; faster when standing still
+const TURNAROUND = 2.4;   // asking for more than ~135° from your aim turns you straight round (a 180° turn)
 function steerAim(p, ix, iy, dt) {
   if (p.aimA == null) p.aimA = p.face;
   const mag = Math.hypot(ix, iy);
   if (mag < 0.05) return [0, 0];
-  const rate = (Math.hypot(p.vx, p.vy) < 40 ? 12 : AIM_TURN) * dt;
-  p.aimA += clamp(angDiff(p.aimA, Math.atan2(iy, ix)), -rate, rate);
+  const want = Math.atan2(iy, ix), d = angDiff(p.aimA, want);
+  if (Math.abs(d) > TURNAROUND) { p.aimA = want; p.face = want; }   // pressing the opposite way: turn straight round
+  else { const rate = (Math.hypot(p.vx, p.vy) < 40 ? 12 : AIM_TURN) * dt; p.aimA += clamp(d, -rate, rate); }
   p.aimA = Math.atan2(Math.sin(p.aimA), Math.cos(p.aimA));
   return [Math.cos(p.aimA) * mag, Math.sin(p.aimA) * mag];
 }
@@ -81,7 +83,7 @@ function humanControl(h, dt) {
     if (inp.sr && own) { if (p.aimA != null) p.face = p.aimA; shoot(p, inp.power); }
     if (inp.sp && !own) jump(p);
   }
-  if (inp.foul) { if (p.items.sling > 0 || p.items.blaster > 0) fireWeapon(p); else if (p.target) doFoul(p, p.target, air ? 'kick' : 'punch'); else floatText(p, 'No one in reach', '#c8c8c8'); }
+  if (inp.foul) { if (weaponOf(p, 'ranged')) fireWeapon(p); else if (p.target) doFoul(p, p.target, air ? 'kick' : 'punch'); else floatText(p, 'No one in reach', '#c8c8c8'); }
   if (inp.blind) doBlind(p, true);
   if (inp.item) { if (p.carry != null) throwRef(p); else if (!air && refNextTo(p)) liftRef(p); else useThrowable(p); }
   if (inp.s1) castSkill(p, 0); if (inp.s2) castSkill(p, 1); if (inp.s3) castSkill(p, 2); if (inp.ul) castSkill(p, 3);

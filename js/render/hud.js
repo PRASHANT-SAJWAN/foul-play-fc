@@ -152,7 +152,7 @@ function drawPanel(h, x) {
   const slots = [
     { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0, off: p.items.flash > 0 },
     { icon: 'flash', n: p.items.flash, key: bind.blind[0], hot: p.items.flash > 0 },
-    p.items.sling > 0 || p.items.blaster > 0 ? { icon: p.items.sling > 0 ? 'sling' : 'blaster', n: p.items.sling > 0 ? p.items.sling : p.items.blaster, key: bind.foul[0], hot: true } : p.items.sword > 0 ? { icon: 'sword', n: p.items.sword, key: bind.foul[0], hot: true } : { icon: 'bat', n: p.items.bat, key: bind.foul[0], hot: p.items.bat > 0 },
+    (Wd => Wd ? { icon: Wd.id, n: p.items[Wd.id], key: bind.foul[0], hot: true } : { icon: 'sword', n: 0, key: bind.foul[0], hot: false })(weaponOf(p, 'ranged') || weaponOf(p, 'melee')),
     { icon: thr, n: p.items[thr] || 0, key: bind.item[0], extra: throwCount(p) > (p.items[thr] || 0) ? '+' : '' }
   ];
   slots.forEach((sl, i) => {

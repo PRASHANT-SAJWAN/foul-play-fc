@@ -66,7 +66,7 @@ function botAggro(p, dt) {
   }
   if (!target) return;
   if (p.gk) rate *= 0.4;
-  if (p.items.bat > 0 || p.items.sword > 0) rate *= 1.5;
+  if (weaponOf(p, 'melee')) rate *= 1.5;
   rate *= (1 + Math.max(0, -target.karma) / 40) * (1 + S.heat);   // low karma draws revenge; a dirty match heats everyone up
   const ws = S.refs.filter(r => sees(r, p.x, p.y));
   if (ws.length && p.items.smoke > 0 && Math.random() < dt) { p.throwSel = 'smoke'; useThrowable(p); return; }
@@ -107,7 +107,7 @@ function botControl(p, dt, info) {
   if (S.admin && S.admin.bots === 'frozen') return;
   const b = S.ball;
   if (p.cls && (p.aiT = (p.aiT || 0) - dt) <= 0) { p.aiT = rand(0.5, 0.9); botSkills(p);
-    if ((p.items.sling > 0 || p.items.blaster > 0) && b.owner && b.owner.team !== p.team && dist(p, b.owner) < 380 && Math.random() < 0.5) { p.face = Math.atan2(b.owner.y - p.y, b.owner.x - p.x); p.dx = p.dy = 0; fireWeapon(p); } }
+    if (weaponOf(p, 'ranged') && b.owner && b.owner.team !== p.team && dist(p, b.owner) < 380 && Math.random() < 0.5) { p.face = Math.atan2(b.owner.y - p.y, b.owner.x - p.x); p.dx = p.dy = 0; fireWeapon(p); } }
   if (hasBf(p, 'confused')) { p.dx = Math.cos(S.time * 3 + p.id); p.dy = Math.sin(S.time * 2.3 + p.id); return; }
   if (b.owner === p) { botWithBall(p, dt); return; }
   if (p.carry != null) {   // carrying the referee: walk them away from the ball, then throw them further
