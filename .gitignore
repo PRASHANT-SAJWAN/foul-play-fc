@@ -1,3 +1,6 @@
 # Match metrics written by server.py stay on this machine
 data-metric/*
 !data-metric/README.md
+
+# macOS folder metadata
+.DS_Store

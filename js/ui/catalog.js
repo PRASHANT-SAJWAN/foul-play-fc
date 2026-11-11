@@ -27,7 +27,7 @@ function classPortrait(C) {   // a little blocky bust in the class colours
   if (L.acc === 1) { g.fillStyle = C.col; g.fillRect(30, 38, 60, 6); }
   return (PORTRAITS[C.id] = c.toDataURL());
 }
-function classKeyLabels() { return SKILL_KEYS.map(k => keyLabel(BINDS[0][k])); }
+function classKeyLabels() { return SKILL_KEYS.map(k => k ? keyLabel(BINDS[0][k]) : ''); }
 function openRoles(from) {
   rolesFrom = from;
   const nav = $('rl-tabs'), body = $('rl-body'), keysL = classKeyLabels();
@@ -38,7 +38,7 @@ function openRoles(from) {
       <div><h3 style="color:${c.col};margin:0">${c.name}</h3><p class="lede" style="margin:2px 0 8px">${c.title} · <span class="role-chip" style="color:${R.col}">${R.name}</span></p>
       ${c.id === MY_CLASS ? '<p class="hint">✓ This is your class</p>' : `<button class="btn sm" data-play="${c.id}">Play as ${c.name}</button>`}</div></div>
     <p><b>Passive · ${esc(c.passive[0])}.</b> ${esc(c.passive[1])}</p>
-    <ul class="cls-skills">${c.skills.map((k, i) => `<li><kbd>${esc(keysL[i])}</kbd><span><b>${esc(k.name)}.</b> ${esc(k.desc)}</span><span class="cd">${k.cd} s${k.shared ? ' · team' : ''}</span></li>`).join('')}
+    <ul class="cls-skills">${c.skills.slice(0, 2).map((k, i) => `<li><kbd>${esc(keysL[i])}</kbd><span><b>${esc(k.name)}.</b> ${esc(k.desc)}</span><span class="cd">${k.cd} s${k.shared ? ' · team' : ''}</span></li>`).join('')}
       <li class="cls-ult"><kbd>${esc(keysL[3])}</kbd><span><b>Ultimate · ${esc(c.ult.name)}.</b> ${esc(c.ult.desc)}</span><span class="cd">100%</span></li></ul></section>`; }).join('') +
     `<section class="guide-sec role-card" id="rp-syn" role="tabpanel" aria-labelledby="rt-syn" hidden><h3>Class synergies</h3><p>A team that fields every class in a synergy gets its bonus for the whole match.</p>
       <ul class="cls-skills">${SYNERGIES.map(y => `<li><span>★</span><span><b>${y.name}</b> (${y.need.map(n => CLS[n].name).join(' + ')}${y.id === 'sustain' ? ' + any' : ''}). ${esc(y.desc)}</span><span></span></li>`).join('')}</ul></section>

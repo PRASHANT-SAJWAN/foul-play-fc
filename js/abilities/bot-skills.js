@@ -24,7 +24,7 @@ function botSkills(p) {
     clone: own && enemyNear(140), trap: enemyBall && dist(p, carrier) < 300, jammer: p.aggr > 0.6 && enemyNear(70), illusion: own || (carrier && carrier.team === p.team && dist(carrier, p) < 300),
     projPass: own && enemyNear(110), gravity: enemyBall && dist(p, carrier) < 400, slowBomb: enemyBall && dist(p, carrier) < 420, orbital: enemyBall && dist(p, carrier) < 600
   };
-  const order = [3, 0, 1, 2];
+  const order = [3, 0, 1];   // ultimate, spell 1, spell 2 (same as people)
   for (const slot of order) {
     const def = slot === 3 ? C.ult : C.skills[slot];
     if (!want[def.id] && !(def.bot && def.bot(p, { own, carrier, enemyBall, dg, enemyNear }))) continue;   // abilities from js/player/ bring their own bot rule

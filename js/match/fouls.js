@@ -1,46 +1,48 @@
 /* Foul Play FC · js/match/fouls.js
-   Fouls and the referee: punches and jump kicks, injuries, help-ups, sand, bananas, what referees see, and calling fouls and cards.
+   Fouls and the referee: base attacks landing, injuries, help-ups, sand, bananas, what referees see, and calling fouls and cards.
    Classic script sharing one global scope with the rest of js/; index.html loads them in order. */
 'use strict';
 
-// kind: 'punch' (fast, short) or 'kick' (jump kick: longer reach, costs stamina, hurts more, draws the referee's eye)
-function doFoul(a, t, kind = 'punch') {
+// The base attack landing (js/abilities/weapons.js aims it), with a melee weapon if one is held.
+function doFoul(a, t) {
   if (a.foulCd > 0 || !t || t.ko > 0 || !onPitch(t)) return false;
   const d = dist(a, t);
-  if (t.stun > 0 && d <= targetReach(a) + 6) { helpUp(a, t); return false; }
-  if (kind === 'kick' && a.stamina < 15) { if (a.human) floatText(a, 'Too tired to kick', '#c8c8c8'); return false; }
-  if (d > (kind === 'kick' ? KICK_REACH : reachOf(a)) + 6) { if (a.human) floatText(a, kind === 'kick' ? 'Too far' : 'Too far to punch: jump and punch for a jump kick', '#c8c8c8'); return false; }
+  if (t.stun > 0 && d <= reachOf(a) + 6) { helpUp(a, t); return false; }
+  if (d > reachOf(a) + 6) { if (a.human) floatText(a, 'Too far', '#c8c8c8'); return false; }
   if (S.admin && S.admin.god && t.human) { a.foulCd = 1.0; floatText(t, 'IMMUNE', '#9fe8ff'); return false; }
-  if (t.fx && t.fx.shield > 0) { t.fx.shield = 0; a.stun = Math.max(a.stun, 1); a.foulCd = 1; floatText(t, 'SHIELD!', '#9fe8ff'); burst(t.x, t.y, '#9fe8ff', 14, 20); feed(`${t.name}'s shield bounced ${a.name}'s foul`, '#9fe8ff'); return false; }
-  const kick = kind === 'kick', W = kick ? null : weaponOf(a, 'melee'), heavy = !!(W && W.heavy); if (W) a.items[W.id]--;   // melee weapons: js/player/player.js
-  if (kick) { a.stamina = Math.max(0, a.stamina - 15); M(a, 'jumpKicks'); a.vx = (t.x - a.x) * 4; a.vy = (t.y - a.y) * 4; if (a.z <= 0) { a.vz = 200; a.z = 0.01; } }
-  a.foulCd = kick ? 1.6 : 1.0; a.stats.fouls++; a.lastFoulT = S.time; a.anim = kick ? 'kick' : W ? W.anim : 'punch'; a.animT = 0.45;
-  addKarma(a, heavy ? -14 : kick ? -12 : -8); S.heat = Math.min(1.5, S.heat + 0.08);
+  if (t.fx && t.fx.shield > 0) { t.fx.shield = 0; a.stun = Math.max(a.stun, 1); a.foulCd = 1; floatText(t, 'SHIELD!', '#9fe8ff'); burst(t.x, t.y, '#9fe8ff', 14, 20); feed(`${t.name}'s shield bounced ${a.name}'s attack`, '#9fe8ff'); return false; }
+  const W = weaponOf(a, 'melee'), heavy = !!(W && W.heavy) || !!t.gk; if (W) a.items[W.id]--;   // melee weapons: js/player/player.js; fouling a keeper is a straight red if seen
+  const wasGlowing = glowing(a), od = overdrive(a, t), odK = od ? 1.8 : 1;   // a full rage meter: this one's an Overdrive
+  a.foulCd = 1.0; a.stats.fouls++; a.lastFoulT = S.time; a.anim = W ? W.anim : 'punch'; a.animT = 0.45;
+  addKarma(a, heavy ? -14 : -8); S.heat = Math.min(1.5, S.heat + 0.08);
   M(a, 'fouls'); if (W) M(a, 'foulsBat'); if (a.team === t.team) M(a, 'foulsOnTeammates'); M(t, 'fouledReceived');
   noteGrudge(a, t);
-  const ang = Math.atan2(t.y - a.y, t.x - a.x), kb = W ? W.kb : kick ? 230 : 170;
+  let ang = Math.atan2(t.y - a.y, t.x - a.x); const kb = (W ? W.kb : 170) * odK * (t.gk ? 1.8 : 1);
+  if (t.gk) { const gx = t.team === 0 ? 0 : W_(); ang = Math.atan2(H / 2 - t.y, gx - t.x) * 0.6 + ang * 0.4; }   // a keeper gets knocked back toward their own net
   t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb;
-  const dmg = Math.round((W ? W.dmg : kick ? 24 : 16) * dmgOut(a) * dmgIn(t)), imm = knockImmune(t);
-  t.hp = Math.max(0, t.hp - dmg); t.hitT = 2; if (!imm) { t.stun = Math.max(t.stun, W ? W.stun : kick ? 1.8 : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, 'UNSTOPPABLE', '#ffd23f');
+  const dmg = Math.round((W ? W.dmg : 16) * odK * dmgOut(a) * dmgIn(t)), imm = knockImmune(t);
+  t.hp = Math.max(0, t.hp - dmg); t.hitT = 2; if (!imm) { t.stun = Math.max(t.stun, W ? W.stun : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, 'UNSTOPPABLE', '#ffd23f');
   addMood(t, -10);
-  if (!imm) loseBall(t, ang);
+  if (!imm) { loseBall(t, ang); if (t.gk && S.ball.lastTouch === t) { S.ball.vx = Math.cos(ang) * 230; S.ball.vy = Math.sin(ang) * 230; } }   // the keeper's ball spills toward goal
+  t.lastHitBy = a.id; t.lastHitT = S.time;
+  if (!imm) afterHit(a, t, { foul: true, heavy: !!W || od || dmg >= 20 || t.gk, rage: od ? 0 : RAGE.foul });
   onFoulLanded(a, t);
-  burst(t.x, t.y, W ? W.col : kick ? '#ffb36b' : '#ffffff', W ? 18 : kick ? 16 : 10, 18); whack(t, t.hp <= 0 ? 'ko' : W ? W.id : kick ? 'kick' : 'punch');
-  floatText(t, '-' + dmg, '#ff6b6b'); thump(W ? 70 : kick ? 85 : 110, 0.3, 0.14);
-  S.shake = W ? 7 : kick ? 5 : 3; S.excite += W ? 0.35 : kick ? 0.3 : 0.2;
-  let pkind = kick ? 'kick' : 'foul';
+  burst(t.x, t.y, W ? W.col : '#ffffff', W ? 18 : 10, 18); whack(t, t.hp <= 0 ? 'ko' : W ? W.id : 'punch');
+  floatText(t, '-' + dmg, '#ff6b6b'); thump(W ? 70 : 110, 0.3, 0.14);
+  S.shake = W ? 7 : 3; S.excite += W ? 0.35 : 0.2;
+  let pkind = 'foul';
   if (t.hp <= 0) { t.ko = 6; t.stun = 6; pkind = 'ko'; addKarma(a, -12); M(a, 'knockouts'); M(t, 'knockedOut'); cheer('roar', t.x, 'WHAT A HIT!'); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); fxEvent('ko', t); injure(t, 25, a); }
   else {
-    if (loud(a, t)) feed(`${a.name} ${W ? W.verb : kick ? 'jump-kicked' : 'punched'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
-    const chance = W ? W.injury[0] : kick ? 0.5 : 0.1;
-    if (Math.random() < chance) injure(t, W ? W.injury[1] : kick ? 14 : 8, a);
+    if (loud(a, t)) feed(`${a.name} ${W ? W.verb : 'hit'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
+    const chance = W ? W.injury[0] : 0.1;
+    if (Math.random() < chance) injure(t, W ? W.injury[1] : 8, a);
   }
-  if ((W || kick) && pkind !== 'ko') { cheer('roar', t.x, kick ? 'KUNG FU!' : 'OOOH!'); fxEvent(W ? (W.fx || 'kick') : 'kick', a); }
-  crowdEvent(a.team, a.team === t.team ? { noob: 6, fun: 4 } : { vill: kick ? 6 : 4, fun: kick ? 5 : 2, drama: 2 });
+  if (W && pkind !== 'ko') { cheer('roar', t.x, 'OOOH!'); fxEvent(W.fx || 'kick', a); }
+  crowdEvent(a.team, a.team === t.team ? { noob: 6, fun: 4 } : { vill: 4, fun: 2, drama: 2 });
   if (a.team !== t.team) crowdEvent(t.team, { symp: 4 });
-  EV('foul', a, { target: t.name, kind: pkind, bat: heavy, weapon: W ? W.id : null, jumpKick: kick, teammate: a.team === t.team, x: Math.round(a.x), y: Math.round(a.y) });
+  EV('foul', a, { target: t.name, kind: pkind, bat: heavy, weapon: W ? W.id : null, teammate: a.team === t.team, x: Math.round(a.x), y: Math.round(a.y) });
   S.pend.push({ a, t, x: a.x, y: a.y, kind: pkind, heavy: heavy || pkind === 'ko', ttl: (S.refHuman ? 2.2 : 0.75) * (a.mood <= MOOD_MELT ? 1.5 : 1), inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
-  alertRefs(a.x, a.y, kick ? 450 : 330, kick ? 0.85 : 0.55);
+  alertRefs(a.x, a.y, wasGlowing ? 650 : 330, wasGlowing ? 1 : 0.55);   // glowing players draw every referee's eye
   return true;
 }
 // Injuries cut a player's maximum stamina until a med kit heals them, and sour their mood.
@@ -118,11 +120,12 @@ const watched = p => !refIgnores(p) && S.refs.some(r => sees(r, p.x, p.y));
 
 function callFoul(f, r) {
   const a = f.a;
-  whistle(1); a.stats.caught++; if (a.cls === 'brawler') a.stk = 0; addPop(a, -8); addCharge(a, -30); addKarma(a, -10); cheer('boo', a.x, 'BOOO!');
+  if (!f.varDone && wouldBeRed(f) && varStart(f, r)) return;   // the offender can contest a red card (js/match/var.js)
+  whistle(wouldBeRed(f) ? 3 : 2, 0.3, wouldBeRed(f) ? 0.2 : 0.15); a.stats.caught++; if (a.cls === 'brawler') a.stk = 0; addPop(a, -8); addCharge(a, -30); addKarma(a, -10); cheer('boo', a.x, 'BOOO!');
   let red = f.heavy;
   if (!red) { a.yellows++; if (a.yellows >= 2) red = true; }
   M(a, red ? 'reds' : 'yellows'); M(a, ['foul', 'kick', 'ko'].includes(f.kind) ? 'caughtFouls' : 'sneakyCaught'); EV('card', a, { card: red ? 'red' : 'yellow', kind: f.kind, by: r.name });
-  const what = { skill: 'dirty use of a skill', ranged: 'shooting a player', slide: 'reckless sliding tackle', foul: 'foul', kick: 'jump kick', ko: 'knockout', blind: 'blinding the referee', banana: 'banana drop', throw: 'unsporting throw' }[f.kind] || 'foul';
+  const what = { skill: 'dirty use of a skill', ranged: 'shooting a player', slide: 'reckless sliding tackle', pound: 'ground pound', lasso: 'tripping', foul: 'foul', kick: 'jump kick', ko: 'knockout', blind: 'blinding the referee', banana: 'banana drop', throw: 'unsporting throw' }[f.kind] || 'foul';
   addMood(a, -10);
   feed(`${red ? 'RED CARD' : 'Yellow card'}: ${a.name} (${what}), seen by the ${r.name.toLowerCase()}`, red ? '#ff4d4d' : '#ffd23f');
   r.att = { x: a.x, y: a.y }; r.attT = 1.5; r.card = { red, t: 1.8 };

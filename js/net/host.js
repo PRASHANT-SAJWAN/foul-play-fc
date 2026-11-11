@@ -21,7 +21,7 @@ async function createRoom() {
     if (!peer && !RELAY_HERE) throw peerErr;
     if (!peer) { code = randomCode(); peer = { id: 'host-' + code, destroy() {}, on() {}, destroyed: false }; }   // link-only room
     NET = newNet(code, true, peer);
-    NET.roster[peer.id] = { name, team: 0, joined: Date.now(), ready: true, skin: MY_SKIN, cls: MY_CLASS, lock: LOCK_PLAYER, useSkin: USE_MY_LOOK };
+    NET.roster[peer.id] = { name, team: 0, joined: Date.now(), ready: false, skin: MY_SKIN, cls: MY_CLASS, lock: LOCK_PLAYER, useSkin: USE_MY_LOOK };
     if (!peerErr) {
       peer.on('connection', hostAccept);
       peer.on('error', e => console.warn('peer', e.type, e));
@@ -62,7 +62,7 @@ function hostData(conn, d) {
   } else if (d.t === 'skin') {
     const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.skin = uniqueNumber(sanitizeSkin(d.skin), r.team, id); rosterChanged(); }
   } else if (d.t === 'cls') {
-    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.cls = CLS[d.cls] ? d.cls : 'striker'; r.lock = !!d.lock; r.useSkin = !!d.useSkin; rosterChanged(); }
+    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { if (r.cls !== d.cls || r.lock !== !!d.lock) r.ready = false; r.cls = CLS[d.cls] ? d.cls : 'striker'; r.lock = !!d.lock; r.useSkin = !!d.useSkin; rosterChanged(); }
   } else if (d.t === 'ready') {
     const r = n.roster[id]; if (r) { r.ready = !!d.ready; rosterChanged(); }
   } else if (d.t === 'rematch') {
@@ -72,7 +72,7 @@ function hostData(conn, d) {
   } else if (d.t === 'sgift') {
     if (n.roster[id] && S.phase === 'play') spectatorGift(d.team === 1 ? 1 : 0, id);
   } else if (d.t === 'team') {
-    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.team = r.team === 1 ? 0 : 1; rosterChanged(); }
+    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.team = r.team === 1 ? 0 : 1; r.ready = false; rosterChanged(); }
   }
 }
 function hostDrop(conn) {
@@ -89,7 +89,9 @@ function hostPing() {
 }
 function startOnline() {
   if (!NET || !NET.isHost) return;
+  if (NET.meta.status === 'lobby' && !allReady()) { renderRoster(); return; }   // everyone readies up first
   NET.meta.status = 'playing';
+  for (const r of Object.values(NET.roster)) r.ready = false;   // the next lobby starts unready
   initAudio(); if (AC && AC.state === 'suspended') AC.resume();
   S.net = 'host'; S.phase = 'play'; newMatch('online'); whistle(1); showOverlay(null);
   rosterChanged();

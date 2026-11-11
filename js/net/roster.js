@@ -42,23 +42,59 @@ function rosterList() {
     .sort((a, b) => a.joined - b.joined || (a.uid < b.uid ? -1 : 1));
 }
 function colorOf(uid) { const i = rosterList().findIndex(r => r.uid === uid); return i < 0 ? 0 : i; }
+// Which spots bots fill on a team: the outfield spots no person has taken (in the order people fill them), and the goalkeeper.
+function botSpots(t) {
+  const people = Math.min(rosterList().filter(r => r.team === t).length, HUMAN_SLOTS.length);
+  return [...HUMAN_SLOTS.slice(people), 0];
+}
+const allReady = () => rosterList().every(r => (NET.roster[r.uid] || {}).ready);
+function classChip(id, extra) {   // portrait, name and role of a character
+  const C = CLS[id]; if (!C) return '';
+  const R2 = ROLE_INFO[C.role] || {};
+  return `<img class="lb-por" alt="" src="${classPortrait(C)}"><span class="lb-txt"><b style="color:${C.col}">${esc(C.name)}</b><small>${esc(R2.name || C.role)}${extra || ''}</small></span>`;
+}
+let rosterDeferred = false;
 function renderRoster() {
   if (!NET) return;
-  const list = rosterList(), host = NET.meta && NET.meta.host;
+  // don't rebuild the rows under an open bot picker; redraw once it closes
+  const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains('lb-bot-cls')) { rosterDeferred = true; return; }
+  rosterDeferred = false;
+  const list = rosterList(), host = NET.meta && NET.meta.host, lobby = NET.meta.status === 'lobby', picks = NET.meta.bots || [{}, {}];
   for (const t of [0, 1]) {
     const mine = list.filter(r => r.team === t);
-    const rows = mine.map((r, i) => `<li data-uid="${esc(r.uid)}" title="${r.uid === NET.uid ? 'You' : 'Click to mute or unmute their taunts'}" style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]};cursor:${r.uid === NET.uid ? 'default' : 'pointer'}"><img class="skinicon" alt="" src="${skinIcon(r.skin, t)}">${n_ready(r)}${esc(r.name)}${r.cls && CLS[r.cls] ? ` <span style="color:${CLS[r.cls].col}">· ${CLS[r.cls].name}${r.lock ? ' (locked)' : ''}</span>` : ''}${NET.muted && NET.muted.has(r.uid) ? ' · muted' : ''}${r.uid === host ? ' · host' : ''}${r.uid === NET.uid ? ' (you)' : ''}${r.uid.startsWith('relay-') ? ' · via link' : ''}${i >= TEAM_SIZE - 1 ? ' · watching' : ''}${SHOW_PING && NET.pings[r.uid] != null ? ' · ' + NET.pings[r.uid] + ' ms' : ''}</li>`);
-    $('on-t' + t).innerHTML = rows.join('') + '<li class="bot">Bot</li>'.repeat(Math.max(0, TEAM_SIZE - 1 - mine.length)) + '<li class="bot">Bot · goalkeeper</li>';
+    const rows = mine.map((r, i) => {
+      const tags = [r.uid === NET.uid ? 'you' : '', r.uid === host ? 'host' : '', r.uid.startsWith('relay-') ? 'via link' : '', i >= TEAM_SIZE - 1 ? 'watching' : '', NET.muted && NET.muted.has(r.uid) ? 'muted' : '', SHOW_PING && NET.pings[r.uid] != null ? NET.pings[r.uid] + ' ms' : ''].filter(Boolean).join(' · ');
+      return `<li class="lb-row${r.ready ? ' ready' : ''}" data-uid="${esc(r.uid)}" title="${r.uid === NET.uid ? 'You' : 'Click to mute or unmute their taunts'}" style="cursor:${r.uid === NET.uid ? 'default' : 'pointer'}">
+        ${lobby ? `<span class="lb-ready" aria-label="${r.ready ? 'Ready' : 'Not ready'}">${r.ready ? '✓' : '…'}</span>` : ''}
+        <span class="lb-who"><img class="skinicon" alt="" src="${skinIcon(r.skin, t)}"><span style="color:${HUMAN_COL[colorOf(r.uid) % HUMAN_COL.length]}">${esc(r.name)}</span>${tags ? `<small>${esc(tags)}</small>` : ''}</span>
+        <span class="lb-cls">${classChip(r.cls, r.lock ? ' · locked' : '')}</span></li>`;
+    });
+    const bots = botSpots(t).map(i => {
+      const pk = CLS[picks[t] && picks[t][i]] ? picks[t][i] : '', role = ROLE_NAMES[i] || 'Bot';
+      const pickUI = NET.isHost && lobby
+        ? `<select class="field lb-bot-cls" data-t="${t}" data-i="${i}" aria-label="Class for the ${esc(TEAM[t].name)} bot ${esc(role.toLowerCase())}"><option value="">Auto (line-up)</option>${CLASSES.map(C => `<option value="${C.id}"${C.id === pk ? ' selected' : ''}>${esc(C.name)}</option>`).join('')}</select>`
+        : '';
+      return `<li class="lb-row bot"><span class="lb-ready">⚙</span><span class="lb-who"><span>Bot</span><small>${esc(role)}</small></span><span class="lb-cls">${pk ? classChip(pk) : `<span class="lb-txt"><b>Auto</b><small>from the line-up</small></span>`}${pickUI}</span></li>`;
+    });
+    $('on-t' + t).innerHTML = rows.join('') + bots.join('');
   }
-  $('on-swap').disabled = NET.meta.status !== 'lobby';
+  document.querySelectorAll('.lb-bot-cls').forEach(sel => {
+    sel.onchange = () => { const t = +sel.dataset.t, i = +sel.dataset.i; NET.meta.bots = NET.meta.bots || [{}, {}]; if (sel.value) NET.meta.bots[t][i] = sel.value; else delete NET.meta.bots[t][i]; sel.blur(); rosterChanged(); };
+    sel.onblur = () => { if (rosterDeferred) setTimeout(renderRoster, 0); };
+  });
+  $('on-swap').disabled = !lobby;
   const me = NET.roster[NET.uid], rb = $('on-ready');
-  rb.hidden = NET.isHost || NET.meta.status !== 'lobby';
-  if (me) rb.textContent = me.ready ? 'Ready ✓' : "I'm ready";
-  if (NET.isHost) { const waiting = rosterList().filter(r => r.uid !== NET.uid && !(NET.roster[r.uid] || {}).ready).length; $('on-start').textContent = waiting ? `Start anyway (${waiting} not ready)` : 'Start match'; }
+  rb.hidden = !lobby;
+  if (me) { rb.textContent = me.ready ? 'Ready ✓ (click to cancel)' : "I'm ready"; rb.setAttribute('aria-pressed', me.ready ? 'true' : 'false'); }
+  if (NET.isHost) {
+    const waiting = list.filter(r => !(NET.roster[r.uid] || {}).ready).length, st = $('on-start');
+    st.disabled = lobby && waiting > 0;
+    st.textContent = !lobby ? 'Start match' : waiting ? `Waiting for ${waiting} to get ready` : 'Start match';
+  }
 }
 function swapTeam() {
   if (!NET || NET.meta.status !== 'lobby') return;
-  if (NET.isHost) { const r = NET.roster[NET.uid]; r.team = r.team === 1 ? 0 : 1; rosterChanged(); }
+  if (NET.isHost) { const r = NET.roster[NET.uid]; r.team = r.team === 1 ? 0 : 1; r.ready = false; rosterChanged(); }
   else if (NET.conn && NET.conn.open) NET.conn.send({ t: 'team' });
 }
 

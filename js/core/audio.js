@@ -17,15 +17,15 @@ function initAudio() {
     src.connect(bp).connect(crowdGain).connect(AC.destination); src.start(); NOISE = buf;
   } catch (e) { AC = null; }
 }
-function whistle(n = 1, len = 0.32) {
+function whistle(n = 1, len = 0.32, vol = 0.1) {
   if (!AC || muted) return;
   for (let k = 0; k < n; k++) {
     const t0 = AC.currentTime + k * (len + 0.1);
     const o = AC.createOscillator(), l = AC.createOscillator(), lg = AC.createGain(), g = AC.createGain();
     o.type = 'triangle'; o.frequency.value = 2600; l.frequency.value = 26; lg.gain.value = 140;
     l.connect(lg).connect(o.frequency);
-    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.1, t0 + 0.02);
-    g.gain.setValueAtTime(0.1, t0 + len - 0.05); g.gain.linearRampToValueAtTime(0, t0 + len);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+    g.gain.setValueAtTime(vol, t0 + len - 0.05); g.gain.linearRampToValueAtTime(0, t0 + len);
     o.connect(g).connect(AC.destination); o.start(t0); l.start(t0); o.stop(t0 + len); l.stop(t0 + len);
   }
 }
@@ -45,6 +45,11 @@ function crowdSound(kind) {
     bp.frequency.setValueAtTime(380, t0); bp.frequency.linearRampToValueAtTime(950, t0 + 0.5); bp.frequency.linearRampToValueAtTime(600, t0 + 1.3);
     const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.5);
     s.connect(bp).connect(g).connect(AC.destination); s.start(t0); s.stop(t0 + 1.6);
+  } else if (kind === 'gasp') {   // the whole stadium sucking air in
+    const s = AC.createBufferSource(); s.buffer = NOISE; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(500, t0); bp.frequency.exponentialRampToValueAtTime(1500, t0 + 0.35);
+    const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
+    s.connect(bp).connect(g).connect(AC.destination); s.start(t0); s.stop(t0 + 0.75);
   } else if (kind === 'boo') {
     const o = AC.createOscillator(), lp = AC.createBiquadFilter(), g = AC.createGain(), l = AC.createOscillator(), lg = AC.createGain();
     o.type = 'sawtooth'; o.frequency.setValueAtTime(150, t0); o.frequency.linearRampToValueAtTime(105, t0 + 1.2);

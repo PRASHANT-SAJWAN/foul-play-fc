@@ -32,8 +32,7 @@ function applyTeams(teams) {
   document.documentElement.style.setProperty('--hounds', TEAM[0].col); document.documentElement.style.setProperty('--vipers', TEAM[1].col);
   for (const i of [0, 1]) { const h = document.getElementById('on-tname' + i); if (h) h.textContent = TEAM[i].name; }
   if (colChanged) {
-    if (typeof buildCrowd2D === 'function') buildCrowd2D();
-    if (typeof R3 !== 'undefined' && R3) { try { R3.dispose(); } catch (e) {} R3 = null; if (GFX3D) setGraphics(true); }   // kits are baked into the 3D models
+    if (typeof R3 !== 'undefined' && R3) { try { R3.dispose(); } catch (e) {} R3 = null; GFX3D = false; setGraphics(); }   // kits are baked into the 3D models
   }
   return colChanged;
 }

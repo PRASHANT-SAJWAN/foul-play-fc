@@ -6,14 +6,14 @@
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['sprint', 'Sprint'],
   ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass (hold for power) · switch player without the ball'], ['lpass', 'Long pass (hold for power) · sliding tackle'], ['through', 'Through ball along the ground (hold for power) · tackle'], ['view', 'Free kicks: switch between the view behind the ball and the side view'],
-  ['foul', 'Punch · jump kick in the air · fire a weapon'], ['item', 'Item: lift or throw the referee when next to them, otherwise throwables'], ['blind', 'Sand at the referee'],
-  ['skill1', 'Skill 1'], ['skill2', 'Skill 2'], ['skill3', 'Skill 3'], ['ult', 'Ultimate'], ['taunt', 'Taunt (hold + direction)']];
-const BINDS_VERSION = 7;
+  ['foul', 'Base attack (hold to aim, release to strike) · fires a held weapon'], ['item', 'Item: lift or throw the referee when next to them, otherwise throwables'], ['blind', 'Sand at the referee'],
+  ['skill1', 'Spell 1 (hold to aim, release to cast)'], ['skill2', 'Spell 2 (hold to aim, release to cast)'], ['ult', 'Ultimate (hold to aim, release to cast)'], ['taunt', 'Taunt (hold + direction)']];
+const BINDS_VERSION = 8;
 const DEFAULT_BINDS = [
   { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', sprint: 'ShiftLeft', shoot: 'Space', pass: 'KeyL', lpass: 'KeyJ', through: 'KeyK', view: 'KeyV',
-    foul: 'KeyQ', item: 'KeyE', blind: 'KeyR', skill1: 'KeyU', skill2: 'KeyI', skill3: 'KeyO', ult: 'KeyP', taunt: 'KeyT' },
+    foul: 'KeyU', item: 'KeyE', blind: 'KeyR', skill1: 'KeyI', skill2: 'KeyO', ult: 'KeyP', taunt: 'KeyT' },
   { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', sprint: 'ShiftRight', shoot: 'Slash', pass: 'Period', lpass: 'Comma', through: 'KeyN', view: 'Backslash',
-    foul: 'Semicolon', item: 'Quote', blind: 'BracketLeft', skill1: 'Digit8', skill2: 'Digit9', skill3: 'Digit0', ult: 'Minus', taunt: 'BracketRight' }
+    foul: 'Digit8', item: 'Quote', blind: 'BracketLeft', skill1: 'Digit9', skill2: 'Digit0', ult: 'Minus', taunt: 'BracketRight' }
 ];
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -24,10 +24,12 @@ const RESERVED_KEYS = new Set(['Escape']);
 const validCode = c => typeof c === 'string' && /^[A-Za-z0-9]{2,24}$/.test(c) && !RESERVED_KEYS.has(c);
 function loadBinds() {
   const ver = store.get('fpfc-binds-v');
-  if (ver === 5 || ver === 6) {   // v6: skills on U I O P; v7: L short pass, J long pass, K through ball. Keys still on old defaults follow, custom ones stay
-    const sv = store.get('fpfc-binds'), was = [{ pass: 'KeyJ', lpass: 'KeyK', switch: 'KeyL' }, { pass: 'Period', lpass: 'Comma', switch: 'KeyN' }];
+  if (ver === 5 || ver === 6 || ver === 7) {   // v6: skills on U I O P; v7: L short pass, J long pass, K through ball; v8: attack U, spells I O, ultimate P. Keys still on old defaults follow, custom ones stay
+    const sv = store.get('fpfc-binds'), was = ver === 7 ? [{}, {}] : [{ pass: 'KeyJ', lpass: 'KeyK', switch: 'KeyL' }, { pass: 'Period', lpass: 'Comma', switch: 'KeyN' }];
     if (ver === 5) { Object.assign(was[0], { skill1: 'Digit1', skill2: 'Digit2', skill3: 'Digit3', ult: 'KeyF' }); was[1].blind = 'KeyP'; }
     if (Array.isArray(sv)) sv.forEach((m, i) => { if (m && was[i]) for (const a in was[i]) if (m[a] === was[i][a]) delete m[a]; });
+    const v7 = [{ foul: 'KeyQ', skill1: 'KeyU', skill2: 'KeyI' }, { foul: 'Semicolon', skill1: 'Digit8', skill2: 'Digit9' }];   // the punch key and skill 3 are gone
+    if (Array.isArray(sv)) sv.forEach((m, i) => { if (!m || !v7[i]) return; delete m.skill3; for (const a in v7[i]) if (m[a] === v7[i][a]) delete m[a]; });
     store.set('fpfc-binds', sv || null); store.set('fpfc-binds-v', BINDS_VERSION);
   } else if (ver !== BINDS_VERSION) {   // older than v5: a new, smaller layout; keep a copy of older custom keys and start fresh once
     const old = store.get('fpfc-binds'); if (old) store.set('fpfc-binds-old', old);

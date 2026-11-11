@@ -46,6 +46,7 @@ function cloakAlpha(p) {   // cloaked enemies are barely visible to you; cloaked
   return mine ? 0.45 : 0.12;
 }
 const SKILL_GLYPH = { powerShot: '💥', curveDrive: '↪', aerial: '⤴', meteor: '☄', cloak: '◐', blink: '⚡', phantom: '👤', dimension: '◈', dash: '»', afterimage: '⧉', speedDribble: '⚽', timeRush: '⏱', bodyBlock: '▮', bullRush: '➜', quake: '≋', titan: '⛨', intervene: '⇥', zoneLock: '⊘', tackleCharge: '✶', absoluteMark: '◎', diveSave: '⤵', wideGuard: '↔', aerialGrab: '✋', infinity: '∞', precision: '➶', tactical: '⬡', assistMark: '★', perfect: '✦', healBurst: '✚', cleanse: '❋', revive: '♥', lifeweaver: '❦', morale: '♪', statAura: '◉', surge: '⚡', awaken: '☀', heavyPunch: '✊', grabThrow: '⇪', groundSlam: '✹', rage: '♨', clone: '⧉', trap: '⌖', jammer: '⊗', illusion: '❖', projPass: '➹', gravity: '◍', slowBomb: '●', orbital: '✺' };
+const HOTBAR_SLOTS = [-1, 0, 1, 3];
 function drawHotbar(h, right) {
   const p = S.players[h.pid]; if (!p || !p.cls) return;
   const C = CLS[p.cls], map = h.map || MAPSOLO, n = 4, sz = 46, gap = 6, w = n * sz + (n - 1) * gap + 20, x = right ? LW - w - 14 : 14, y = LH - sz - 40;
@@ -53,16 +54,21 @@ function drawHotbar(h, right) {
   ctx.strokeStyle = C.col; ctx.globalAlpha = 0.6; ctx.lineWidth = 1.5; rrs(x + 0.5, y - 23.5, w - 1, sz + 33, 10); ctx.globalAlpha = 1;
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.font = `700 13px ${UI}`; ctx.fillStyle = C.col; ctx.fillText(C.name.toUpperCase(), x + 10, y - 11);
   ctx.textAlign = 'right'; ctx.fillStyle = ROLE_INFO[C.role].col; ctx.font = `700 11px ${UI}`; ctx.fillText(ROLE_INFO[C.role].name.toUpperCase() + (p.cls === 'speedster' ? ` · ${p.stk || 0}/3` : p.cls === 'brawler' ? ` · ADRENALINE ${p.stk || 0}` : ''), x + w - 10, y - 11);
-  for (let i = 0; i < n; i++) {
-    const def = skillDef(p, i), sx = x + 10 + i * (sz + gap), sy = y;
-    const cd = i === 3 ? 0 : Math.max(p.cd[i], def.shared && S.teamCd ? ((S.teamCd[p.team] || {})[def.id] || 0) - S.time : 0), ready = i === 3 ? p.ult >= 100 : cd <= 0;
-    ctx.fillStyle = ready ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.04)'; rr(sx, sy, sz, sz, 7);
-    ctx.strokeStyle = ready ? (i === 3 ? '#ffd23f' : C.col) : 'rgba(255,255,255,.18)'; ctx.lineWidth = i === 3 && ready ? 2 + Math.sin(S.time * 8) : 1.5; rrs(sx + 0.5, sy + 0.5, sz - 1, sz - 1, 7);
-    ctx.globalAlpha = ready ? 1 : 0.45; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.font = `600 20px ${UI}`; ctx.fillText(SKILL_GLYPH[def.id] || def.glyph || def.name[0], sx + sz / 2, sy + sz / 2 - 3); ctx.globalAlpha = 1;
+  const aimS = h.aiming != null ? h.aiming : S.net === 'client' && NET && NET.inH && NET.inH.pid === h.pid ? NET.inH.aiming : null;
+  HOTBAR_SLOTS.forEach((i, k) => {   // base attack, spell 1, spell 2, ultimate
+    const sx = x + 10 + k * (sz + gap), sy = y, atk = i < 0, def = atk ? null : skillDef(p, i); if (!atk && !def) return;
+    const W = atk ? (weaponOf(p, 'ranged') || weaponOf(p, 'melee')) : null;
+    const cd = atk ? Math.max(0, p.foulCd || 0) : i === 3 ? 0 : Math.max(p.cd[i], def.shared && S.teamCd ? ((S.teamCd[p.team] || {})[def.id] || 0) - S.time : 0), ready = i === 3 ? p.ult >= 100 : cd <= 0;
+    ctx.fillStyle = aimS === i ? 'rgba(255,255,255,.22)' : ready ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.04)'; rr(sx, sy, sz, sz, 7);
+    ctx.strokeStyle = aimS === i ? '#ffffff' : ready ? (i === 3 ? '#ffd23f' : atk ? '#ff8095' : C.col) : 'rgba(255,255,255,.18)'; ctx.lineWidth = aimS === i ? 2.5 : i === 3 && ready ? 2 + Math.sin(S.time * 8) : 1.5; rrs(sx + 0.5, sy + 0.5, sz - 1, sz - 1, 7);
+    ctx.globalAlpha = ready ? 1 : 0.45; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.font = `600 20px ${UI}`;
+    if (atk && W) drawIcon(W.id, sx + sz / 2, sy + sz / 2 - 1, 1.4); else ctx.fillText(atk ? '⚔' : SKILL_GLYPH[def.id] || def.glyph || def.name[0], sx + sz / 2, sy + sz / 2 - 3);
+    ctx.globalAlpha = 1;
+    if (atk) { if (W) { ctx.fillStyle = '#ffd23f'; ctx.font = `700 11px ${UI}`; ctx.textAlign = 'right'; ctx.fillText('×' + p.items[W.id], sx + sz - 4, sy + sz - 8); } if (!ready) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(sx + 1, sy + 1, sz - 2, (sz - 2) * clamp(cd, 0, 1)); } const key = (map.foul || [])[0]; ctx.font = `700 10px ${UI}`; ctx.fillStyle = '#c9d3cb'; ctx.textAlign = 'left'; ctx.fillText(keyLabel(key), sx + 4, sy + 8); return; }
     if (i === 3) { const f = clamp((p.ult || 0) / 100, 0, 1); ctx.fillStyle = 'rgba(255,210,63,.25)'; ctx.fillRect(sx + 2, sy + sz - 2 - (sz - 4) * f, sz - 4, (sz - 4) * f); if (!ready) { ctx.fillStyle = '#ffd23f'; ctx.font = `700 11px ${UI}`; ctx.fillText(Math.floor(p.ult) + '%', sx + sz / 2, sy + sz - 9); } }
     else if (!ready) { const f = clamp(cd / def.cd, 0, 1); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(sx + 1, sy + 1, sz - 2, (sz - 2) * f); ctx.fillStyle = '#ffffff'; ctx.font = `700 15px ${UI}`; ctx.fillText(Math.ceil(cd), sx + sz / 2, sy + sz / 2); }
     const key = (map[SKILL_KEYS[i]] || [])[0]; ctx.font = `700 10px ${UI}`; ctx.fillStyle = '#c9d3cb'; ctx.textAlign = 'left'; ctx.fillText(keyLabel(key), sx + 4, sy + 8);
-  }
+  });
   // the skill name under the cursor slot is too much detail here; the catalog and guide explain each one
   ctx.textBaseline = 'alphabetic';
 }

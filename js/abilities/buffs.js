@@ -23,6 +23,7 @@ function speedMul(p) {
   if (b.marked > 0 && S.ball.owner === p) m *= 0.6;
   if (nearAura(p)) m *= 1.06;
   const CM = CLS[p.cls] && CLS[p.cls].mods; if (CM && CM.speed) m *= CM.speed(p);   // passives of classes from js/player/
+  m *= traitSpeed(p) * groundSpeed(p) * ballModSpeed(p);   // roles, mud, the iron ball (combat.js, arenas.js, ball-mods.js)
   if (inZone(p, 'tactical', true)) m *= 1.15;
   if (inZone(p, 'zoneLock') || inZone(p, 'gravity') || inZone(p, 'slowBomb')) m *= 0.6;
   if (S.players.some(q => q.team !== p.team && q.bf && q.bf.timeRush > 0 && dist(q, p) < 90)) m *= 0.7;
@@ -59,6 +60,7 @@ const refIgnores = p => !!p && (hasBf(p, 'cloak') || hasBf(p, 'stealth') || hasB
 function tackleMul(stealer, carrier) {
   let m = 1;
   if (stealer.cls === 'defender') m *= 1.15;
+  m *= traitTackle(stealer);   // enforcers and enraged teams win more tackles
   if (carrier.cls === 'speedster' && carrier.stk >= 3) m *= 0.85;
   if (inZone(carrier, 'zoneLock')) m *= 1.3;
   return m;
@@ -79,12 +81,15 @@ function knock(a, t, o) {
   const dmg = Math.round((o.dmg || 0) * dmgOut(a) * dmgIn(t));
   if (dmg > 0) { t.hp = Math.max(0, t.hp - dmg); floatText(t, '-' + dmg, '#ff6b6b'); t.hitT = 2; addMood(t, -4); }
   if (dmg > 0 || o.stun) whack(t, 'skill');
-  const imm = knockImmune(t);
+  const imm = knockImmune(t) || shrugsOff(t, o);   // enforcers shrug off light shoves
+  if (shrugsOff(t, o) && !knockImmune(t)) floatText(t, 'SHRUGGED IT OFF', '#c9a070');
   if (o.stun && !imm) { t.stun = Math.max(t.stun, o.stun); a0Anim(t, 'fall', 0.6); }
   const kbIn = (CLS[t.cls] && CLS[t.cls].mods && CLS[t.cls].mods.kbIn) || 1;
   if (o.kb && !imm) { t.vx = Math.cos(ang) * o.kb * kbIn; t.vy = Math.sin(ang) * o.kb * kbIn; }
   if (imm && (o.stun || o.kb)) floatText(t, 'UNSTOPPABLE', '#ffd23f');
   if (S.ball.owner === t && (o.stun || o.kb) && !imm) loseBall(t, ang);
+  t.lastHitBy = a.id; t.lastHitT = S.time;
+  if (!imm) afterHit(a, t, { foul: o.foul, heavy: o.heavy != null ? o.heavy : (o.stun || 0) >= 1.2 || (o.kb || 0) >= 260, rage: o.rage != null ? o.rage : RAGE.shove });
   if (t.hp <= 0) { t.ko = 6; t.stun = 6; injure(t, 20, a); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); fxEvent('ko', t); if (a.cls === 'assassin') { BF(a, 'stealth', 1.5); BF(a, 'shadow', 1.5); } }
   else if (o.injure && Math.random() < o.injure) injure(t, 10, a);
   burst(t.x, t.y, o.col || '#ffffff', 10, 18); thump(100, 0.2, 0.1);

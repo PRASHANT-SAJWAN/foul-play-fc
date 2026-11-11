@@ -33,7 +33,8 @@ function sendSnap(force) {
     it: S.items.map(i => [i.type, r1(i.x), r1(i.y), r1(i.z), i.landed ? 1 : 0, r1(i.age), i.for ? i.for.id : -1]),
     bn: S.bananas.map(n => [r1(n.x), r1(n.y)]),
     fd: S.feed.slice(0, 4).map(f => [f.text, f.col, r1(f.t)]),
-    tx: S.texts.map(t => [r1(t.x), r1(t.y), r1(t.z), t.text, t.col, r1(t.life)]) };
+    tx: S.texts.map(t => [r1(t.x), r1(t.y), r1(t.z), t.text, t.col, r1(t.life)]),
+    cb: Object.assign(combatSnap(), ballModSnap(), { ar: arenaSnap(), vr: varSnap() }) };   // rage, patches, crates, ball, pitch, VAR
   if (S.phase === 'over') s.st = S.players.map(p => [p.stats.goals, p.stats.assists, p.stats.tackles, p.stats.fouls, p.stats.caught, p.stats.saves]);
   broadcast({ t: 'state', s });
 }
@@ -65,6 +66,7 @@ function applySnap(s) {
   S.shoot = s.so ? { goals: s.so[0], taken: s.so[1], done: s.so[2] >= 0, winner: s.so[2] } : null;
   S.smokes = (s.sm || []).map(z => ({ x: z[0], y: z[1], r: z[2], ttl: z[3] })); S.puddles = (s.pu || []).map(g => ({ x: g[0], y: g[1], ttl: g[2] }));
   S.decoys = (s.de || []).map(d => ({ x: d[0], y: d[1], team: d[2], run: d[3], src: d[4] })); S.megaBall = +s.mb || 0; S.an = s.an || newAnomState();
+  if (s.cb) { combatApply(s.cb); ballModApply(s.cb); arenaApply(s.cb.ar); varApply(s.cb.vr); }
   S.zones = s.zn || []; S.walls = (s.wl || []).map(a => ({ x1: a[0], y1: a[1], x2: a[2], y2: a[3], ttl: a[4], team: a[5] })); S.projs = (s.pj || []).map(a => ({ type: a[0], x: a[1], y: a[2], z: a[3], vx: a[4], vy: a[5] }));
   (s.dx || []).forEach((f, i) => { if (S.decoys[i]) { S.decoys[i].ball = !!f[0]; S.decoys[i].solid = !!f[1]; } }); S.syn = s.sy || [[], []];
   S.teamCd = s.tc ? s.tc.map(o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + S.time]))) : [{}, {}];
@@ -139,7 +141,7 @@ function sendInput(dt) {
   h.map = MAPSOLO; const meP = S.players.find(p => p.human && p.human.local); h.pid = meP ? meP.id : -1;
   const inp = localInput(h, dt);
   n.charge = h.charge; n.charging = h.charging;
-  for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'view', 'foul', 'blind', 'item', 'sp', 'sr', 's1', 's2', 's3', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
+  for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'view', 'foul', 'atk', 'blind', 'item', 'sp', 'sr', 's1', 's2', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
   if (inp.taunt >= 0) { n.cnt.taunt = (n.cnt.taunt || 0) + 1; n.tw = inp.taunt; }
   if (inp.sr || inp.passR || inp.lpassR || inp.thR) n.pw = r2(inp.power);
   n.chargeKind = h.chargeKind;

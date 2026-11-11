@@ -39,12 +39,12 @@ function guideSections() {
         <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
         <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
         <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
-        <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass. Punching in the air (${k('foul')}) becomes a jump kick.</li>
+        <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass.</li>
         <li><b>Sprint:</b> hold ${k('sprint')}. Sprinting uses stamina.</li>
       </ul>`],
     ['g-fouls', 'Fouls and referees', `
       <ul>
-        <li><b>Punch</b> with ${k('foul')}: quick and short-range. <b>Jump kick:</b> jump with ${k('shoot')}, then punch in the air. It reaches further and hurts more, but costs 15 stamina and makes the referee look your way. The red ring shows who you'd hit; the target is picked for you: whoever in reach is most in front of you, including your own team-mates.</li>
+        <li><b>Base attack:</b> hold ${k('foul')} to aim and let go to strike. While you hold it, the guide shows your reach and rings the player you'd hit: aim assist picks whoever is closest to your aim, opponents first. If they're just out of reach you lunge in. With no one there you swing at thin air. Hitting your own team-mates still counts.</li>
         <li>Hard fouls can <b>injure</b>: an injured player's stamina is capped until a med kit heals them, and their mood drops.</li>
         <li><b>Carry the referee:</b> stand next to them and press ${k('item')} to hoist them onto your shoulders. They keep watching wherever you face, so point them at the other team's dirty work, or away from your own. Press ${k('item')} again to throw them across the pitch in the direction you're facing. They wriggle free after 8 seconds, and you can't play the ball while carrying.</li>
         <li>A foul knocks the player down, takes the ball off them and costs them health. At zero health they are knocked out for 6 seconds.</li>
@@ -83,7 +83,7 @@ function guideSections() {
       <h4>Stamina</h4>
       <p>The green bar. Sprinting (${k('sprint')}) drains it, and every shot costs some: a tired player's shots are weaker. It refills on its own, fastest when you stand still.</p>
       <h4>Injuries</h4>
-      <p>Jump kicks, bat hits and knockouts can injure. The striped part of the stamina bar is lost until a med kit heals the injury, and a bandage shows over the player's head.</p>
+      <p>Sword hits and knockouts can injure. The striped part of the stamina bar is lost until a med kit heals the injury, and a bandage shows over the player's head.</p>
       <h4>Mood</h4>
       <p>Every player has one. Goals, saves, tackles and helping people up lift it; being fouled, injured, caught or conceding lowers it.</p>
       <ul><li><b>In the zone</b> (+40): sharper shots and faster charge. A gold sparkle shows over the player.</li>
@@ -99,11 +99,12 @@ function guideSections() {
       <h4>Playground extras</h4>
       <p>The Playground's admin panel can still hand out the older items (bats, bananas, glue, smoke bombs, decoys, slingshots and more) for testing; they no longer appear in matches.</p>`],
     ['g-classes', 'Classes, skills and aiming', `
-      <p>Every player has one of 12 classes (see <b>Classes &amp; skills</b> in the menu). Each has a passive, three skills and an ultimate, shown on the hotbar at the bottom of the screen.</p>
-      <ul><li><b>Skills:</b> ${k('skill1')} ${k('skill2')} ${k('skill3')}. Each has a cooldown shown on its slot.</li>
-        <li><b>Ultimate:</b> ${k('ult')}. It charges over time and faster with good play; the slot glows when it's ready.</li>
-        <li><b>Aiming:</b> passes, shots, skills, fouls and weapons all go the way the arrow under your player points. It turns smoothly rather than snapping, so hold a direction to line up and tap a key to nudge it a few degrees.</li>
-        <li><b>Sword:</b> pick one up from the crowd or a bench and ${k('foul')} slashes instead of punching, harder and from further away. A sword foul the referee sees is a straight red. (Slingshots and foam blasters are Playground-only now.)</li>
+      <p>Every player has one of 12 classes (see <b>Classes &amp; skills</b> in the menu). Each has a passive, a base attack, two spells and an ultimate, shown on the hotbar at the bottom of the screen.</p>
+      <ul><li><b>Hold to aim, release to cast:</b> ${k('foul')} attack, ${k('skill1')} spell 1, ${k('skill2')} spell 2, ${k('ult')} ultimate. While you hold the key, a guide shows the range, the player it would hit, or where it would land. Steer with the movement keys and let go to fire.</li>
+        <li><b>Aim assist:</b> a targeted spell or attack locks onto the player closest to your aim (within about 35°). Spells that land on a spot snap onto an opponent you're aiming at.</li>
+        <li><b>Spells</b> have a cooldown shown on their slot. The <b>ultimate</b> charges over time and faster with good play; the slot glows when it's ready.</li>
+        <li><b>Aiming:</b> passes, shots, spells, attacks and weapons all go the way the arrow under your player points. It turns smoothly rather than snapping, so hold a direction to line up and tap a key to nudge it a few degrees.</li>
+        <li><b>Sword:</b> pick one up from the crowd or a bench and your base attack (${k('foul')}) slashes instead, harder and from further away. A sword foul the referee sees is a straight red. (Slingshots and foam blasters are Playground-only now.)</li>
         <li><b>Play as one character:</b> in Pace and controls → Game you can stop switching between team-mates and stay as your chosen class all match.</li>
         <li><b>Dirty skills</b> like Heavy Punch, Grab &amp; Throw or Bull Rush count as fouls when they hit someone. Cloak, stealth and Team Awakening hide your fouls from the referee.</li></ul>`],
     ['g-anomalies', 'Anomalies', `
@@ -147,7 +148,23 @@ function guideSections() {
         <li>Save some charge for a power shot near goal.</li>
         <li>Helping players up builds trust, and a trusted player gets away with more.</li>
         <li>Low karma makes you a target. Expect revenge.</li>
-      </ul>`]
+      </ul>`],
+    ['g-rough', 'Rough play, hazards and crates', `
+      <ul>
+        <li><b>Rage meter:</b> the bars beside the scoreboard. Tackles, shoves and fouls fill your team's. When it's full your whole team glows and your next hit or tackle is an <b>Overdrive</b>: double power and a shockwave that flattens everyone nearby. The catch: glowing players are spotted by referees from much further away.</li>
+        <li><b>Character tackles</b> (${k('lpass')} without the ball): Brawler, Tank and Brawn <b>ground pound</b> (jump and slam: everyone close is knocked down). Hollow, Ranger and Trickster <b>lasso</b> someone from a short distance. Cinderwyrm and Striker slide on <b>fire</b>, leaving a scorch patch opponents hop off in panic. Bulwark slides on <b>ice</b>, leaving a slick that sends sprinters skidding. Everyone else slides as normal.</li>
+        <li><b>Enforcers</b> (Brawler, Tank, Brawn, Bulwark) win more tackles and shrug off light shoves, but run slower and shoot less accurately. <b>Speedsters</b> (Speedster, Ronin, Shogun, Assassin) are quicker flat out and keep the ball closer, but a heavy hit sends them flying and keeps them down longer.</li>
+        <li><b>Keepers:</b> foul one and they're knocked back toward their own net and drop the ball, but if a referee sees it, it's a straight red.</li>
+        <li><b>VAR:</b> about to get a red? The match freezes for 3 seconds. Mash ${k('foul')} to argue it down to a yellow, or press ${k('item')} to bribe the referee with ${VAR.bribe} charge (a referee who likes you takes it more often).</li>
+        <li><b>Dizzy:</b> players hit by a foul get up seeing stars and spin on the spot until they recover.</li>
+        <li><b>Pitches</b> (on the match setup screen): Volcano (steam vents and lava pits: shove someone in and they're out for 10 seconds), Power Plant (electric fences), Swamp (mud).</li>
+        <li><b>Crates</b> drop in when the match gets frantic. Run into one: a <b>volt ball</b> charges with hard kicks and tackles and explodes on the next player to touch it, an <b>iron ball</b> barely moves or bounces for 14 seconds.</li>
+        <li><b>Bicycle kicks:</b> a high ball dropping into the box shows a red ring. Jump and strike it there for a shot the keeper can't hold.</li>
+      </ul>`],
+    ['g-credits', 'Credits', `
+      <p>Foul Play FC uses these 3D models:</p>
+      <ul>${Object.entries(CLASS_MODELS).filter(([, m]) => m.credit).map(([id, m]) => `<li><b>${esc((CLS[id] || {}).name || id)}:</b> ${esc(m.credit)}</li>`).join('') || '<li>None yet.</li>'}</ul>
+      <p>3D rendering by three.js (MIT licence).</p>`]
   ];
 }
 function renderGuide() {

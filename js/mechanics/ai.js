@@ -76,7 +76,7 @@ function botAggro(p, dt) {
     if (canBlind && Math.random() < p.aggr * 1.6 * dt) { doBlind(p, false); return; }
     rate *= 0.04;
   }
-  if (Math.random() < rate * dt * (S.admin && S.admin.bots === 'savage' ? 6 : 1)) doFoul(p, target, p.stamina >= 15 && (dist(p, target) > reachOf(p) || Math.random() < 0.3) ? 'kick' : 'punch');
+  if (Math.random() < rate * dt * (S.admin && S.admin.bots === 'savage' ? 6 : 1)) baseAttack(p, { target, reach: reachOf(p) });
 }
 function gkLogic(p) {
   const gx = p.team === 0 ? 18 : W - 18, b = S.ball;
@@ -135,7 +135,7 @@ function botControl(p, dt, info) {
     steer(p, b.x + vx * 0.25, b.y + vy * 0.25, 1, 6);
     p.sprintWant = p.stamina > 35 && dist(p, b) > 70;
     if (b.owner && b.owner.team !== p.team && dist(p, b) < 34 && p.lungeCd <= 0 && Math.random() < dt * 2) { p.lunge = 0.2; p.lungeCd = 1.2; }
-    else if (b.owner && b.owner.team !== p.team && dist(p, b) < 70 && dist(p, b) > 34 && p.slideCd <= 0 && p.stamina > 30 && Math.random() < dt * 0.5) { p.face = Math.atan2(b.y - p.y, b.x - p.x); p.dx = Math.cos(p.face); p.dy = Math.sin(p.face); slideTackle(p); }
+    else if (b.owner && b.owner.team !== p.team && dist(p, b) < 70 && dist(p, b) > 34 && p.slideCd <= 0 && p.stamina > 30 && Math.random() < dt * 0.5) { p.face = Math.atan2(b.y - p.y, b.x - p.x); p.dx = Math.cos(p.face); p.dy = Math.sin(p.face); tackleMove(p); }
     return;
   }
   const gift = S.items.find(i => i.landed && i.for === p && dist(i, p) < 240);

@@ -1,5 +1,5 @@
 // Foul Play FC · 3D view (three.js)
-// Draws the same game state as the classic 2.5D canvas, in 3D. Game logic is untouched:
+// Draws the game in 3D (the only view). Game logic is untouched:
 // world x (0..W) maps to three.js X, world y (0..H) to Z, and height z to Y.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
@@ -84,14 +84,26 @@ function buildRig(look, canvasTex) {
   return { g, body, headG, legL, legR, armL, armR, bat, sword, card, birds, m };
 }
 // Short animations layered over the running pose: fouls, shots, celebrations and taunts.
-function applyAnim(R, anim, time) {
+// age: seconds since the move started, so strikes have a wind-up, the hit and a follow-through.
+function applyAnim(R, anim, time, age) {
   if (!anim) return;
-  const S2 = (o, x, y, z) => o.rotation.set(x, y, z);
+  const S2 = (o, x, y, z) => o.rotation.set(x, y, z), a = age == null ? 0.15 : age, ease = u => u < 0 ? 0 : u > 1 ? 1 : u * u * (3 - 2 * u);
   switch (anim) {
-    case 'punch': S2(R.armR, -1.6, 0, -0.1); R.body.rotation.x += 0.15; break;
+    case 'punch': {   // a jab: shoulder turns in, arm snaps out, then comes back
+      const out = a < 0.07 ? ease(a / 0.07) : 1 - ease((a - 0.22) / 0.2);
+      S2(R.armR, -0.3 - 1.35 * out, 0, -0.1); S2(R.armL, -0.6, 0, 0.35); R.body.rotation.x += 0.12 * out; R.body.rotation.y -= 0.32 * out; R.headG.rotation.y += 0.2 * out; break;
+    }
+    case 'touch': { const u = Math.sin(Math.min(1, a / 0.2) * Math.PI); R.legR.rotation.x = -0.55 * u; R.body.rotation.x += 0.06 * u; break; }   // a dribbling touch
     case 'kick': R.body.position.y += 6; R.legR.rotation.x = -1.5; R.legL.rotation.x = 0.4; R.body.rotation.x = -0.35; S2(R.armL, -1.2, 0, 0.6); break;
     case 'swing': { const ph = Math.sin(time * 18); S2(R.armR, -1.4 + ph, 0, -0.3); S2(R.armL, -1.4 + ph, 0, 0.3); break; }
-    case 'shoot': R.legR.rotation.x = -1.1; R.armL.rotation.z = 0.8; break;
+    case 'shoot': {   // back-lift, strike through the ball, follow-through; arms out for balance
+      let leg, lean;
+      if (a < 0.09) { const u = ease(a / 0.09); leg = 0.25 + 0.75 * u; lean = -0.12 * u; }
+      else if (a < 0.2) { const u = ease((a - 0.09) / 0.11); leg = 1.0 - 2.65 * u; lean = -0.12 + 0.3 * u; }
+      else { const u = ease((a - 0.2) / 0.35); leg = -1.65 + 1.4 * u; lean = 0.18 * (1 - u); }
+      R.legR.rotation.x = leg; R.legL.rotation.x = 0.15; R.body.rotation.x += lean;
+      S2(R.armL, -0.4, 0, 0.95); S2(R.armR, 0.3, 0, -0.6); break;
+    }
     case 'plead': R.body.position.y = -6; R.legL.rotation.x = -1.5; R.legR.rotation.x = -1.5; S2(R.armL, -1.4, 0, 0.2); S2(R.armR, -1.4, 0, -0.2); break;
     case 'facepalm': S2(R.armR, -2.7, 0, -0.5); R.headG.rotation.x = 0.3; break;
     case 'cel0': R.body.position.y = -5; R.body.rotation.x = -0.35; R.legL.rotation.x = -1.5; R.legR.rotation.x = -1.5; S2(R.armL, -0.4, 0, 1.6); S2(R.armR, -0.4, 0, -1.6); break;
@@ -108,8 +120,49 @@ function applyAnim(R, anim, time) {
     case 'thumbs': S2(R.armR, -1.5, 0, -0.2); break;
   }
 }
-// Turntable preview for the character creator.
-export function createPreview(canvas) {
+/* ---------- real models (js/player/models.js): shared by matches and previews ---------- */
+const MODELS = {}; let gltfKit = null;
+const LIMITS = { minHeight: 30, maxHeight: 56, maxWidth: 52 };   // overridden by MODEL_LIMITS in js/player/models.js
+const clampN = (v, a, b) => v < a ? a : v > b ? b : v;
+// The loaded model, or null while it loads (onReady runs once it's in) or if it failed.
+function loadModel(MD, onReady) {
+  let c = MODELS[MD.file];
+  if (!c) {
+    c = MODELS[MD.file] = { ready: false, waiters: [] };
+    gltfKit = gltfKit || Promise.all([import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js'), import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/SkeletonUtils.js')]);
+    gltfKit.then(([L, SU]) => new L.GLTFLoader().loadAsync(MD.file).then(gl => {
+      const box = new THREE.Box3().setFromObject(gl.scene), size = box.getSize(new THREE.Vector3());
+      Object.assign(c, { ready: true, gl, SU, size, minY: box.min.y });
+      c.waiters.splice(0).forEach(f => { try { f(c); } catch (e) { console.warn(e); } });
+    })).catch(e => { c.failed = true; c.waiters.length = 0; console.warn('Model failed to load, keeping the blocky one:', MD.file, e); });
+  }
+  if (c.ready) return c;
+  if (onReady && !c.failed) c.waiters.push(onReady);
+  return null;
+}
+// Fit a model to player size: its height kept between the limits, and never wider or longer than maxWidth
+// (wings, tails and capes count), so a big creature can't cover half the pitch.
+function modelScale(MD, M, lim) {
+  const L = Object.assign({}, LIMITS, lim || {}), maxW = MD.maxWidth || L.maxWidth;
+  const s = clampN(MD.height || 42, L.minHeight, L.maxHeight) / Math.max(0.001, M.size.y);
+  const wide = Math.max(M.size.x, M.size.z) * s;
+  return wide > maxW ? s * maxW / wide : s;
+}
+// A copy of the model, sized and recoloured, with its clips ready to play.
+function instModel(MD, M, jersey, lim) {
+  const inst = M.SU.clone(M.gl.scene), sc = modelScale(MD, M, lim);
+  inst.scale.setScalar(sc); inst.position.y = -M.minY * sc + (MD.y || 0); inst.rotation.y = MD.rotY || 0;
+  inst.traverse(o => { if (o.isMesh) { o.castShadow = true; if (MD.teamMaterial && o.material && o.material.name === MD.teamMaterial) { o.material = o.material.clone(); o.material.color.set(jersey); } } });
+  const mixer = new THREE.AnimationMixer(inst), acts = {};
+  for (const clip of M.gl.animations) acts[clip.name] = mixer.clipAction(clip);
+  for (const n of MD.loops || []) if (acts[n]) acts[n].play();
+  const pivot = new THREE.Group(); pivot.add(inst);   // tilts and bobs the whole model when it has no clip for a move
+  return { inst: pivot, mixer, acts, height: M.size.y * sc, width: Math.max(M.size.x, M.size.z) * sc };
+}
+
+// Turntable preview for the character creator and the match setup screen.
+// opts.modelLimits: MODEL_LIMITS from js/player/models.js.
+export function createPreview(canvas, opts = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
@@ -118,11 +171,27 @@ export function createPreview(canvas) {
   const plinth = new THREE.Mesh(new THREE.CylinderGeometry(18, 20, 3, 40), stdM('#1d2a24')); plinth.position.y = -1.5; scene.add(plinth);
   const cam = new THREE.PerspectiveCamera(30, 1, 1, 1000); cam.position.set(0, 30, 112); cam.lookAt(0, 22, 0);
   const tex = makeCanvasTex(renderer.capabilities.getMaxAnisotropy());
-  let R = null, lastKey = '', raf = 0, anim = '', animUntil = 0;
+  let R = null, lastKey = '', raf = 0, anim = '', animUntil = 0, look = null, MD = null, mdl = null, lastT = 0;
   const t0 = performance.now();
+  function frameTo(h, w = 0) {   // keep the whole character in shot (wingspan too), from a small player to the size limit
+    const H = Math.max(40, h * 1.25, w * 1.15), d = (H / 2) / Math.tan(THREE.MathUtils.degToRad(15)) + w * 0.3;
+    cam.position.set(0, h * 0.62, d); cam.lookAt(0, h * 0.48, 0);
+  }
+  function build() {
+    if (R) scene.remove(R.g);
+    R = buildRig(look, tex); mdl = null;
+    let h = Math.max(30, new THREE.Box3().setFromObject(R.g).max.y + 2), w = 0;   // the blocky player's real height, hair and hats included
+    if (MD) {
+      const want = MD, M = loadModel(MD, () => { if (MD === want) build(); });
+      if (M) { mdl = instModel(MD, M, look.jersey, opts.modelLimits); R.body.visible = false; R.g.add(mdl.inst); h = mdl.height; w = mdl.width;
+        const idle = MD.anims && MD.anims.idle && mdl.acts[MD.anims.idle]; if (idle) idle.play(); mdl.idle = !!idle; }
+    }
+    scene.add(R.g); frameTo(h, w);
+  }
   function frame() {
-    const now = performance.now(), time = (now - t0) / 1000;
-    if (R) {
+    const now = performance.now(), time = (now - t0) / 1000, dt = Math.min(0.1, time - lastT); lastT = time;
+    if (mdl) { R.g.rotation.y = time * 0.6; mdl.mixer.update(dt); if (!mdl.idle) mdl.inst.scale.y = 1 + Math.sin(time * 2.2) * 0.012; }
+    else if (R) {
       R.g.rotation.y = time * 0.6;
       R.body.rotation.set(0, 0, 0); R.body.position.y = 0; R.headG.rotation.set(0, 0, 0);
       R.legL.rotation.set(0, 0, 0); R.legR.rotation.set(0, 0, 0);
@@ -135,7 +204,7 @@ export function createPreview(canvas) {
     raf = requestAnimationFrame(frame);
   }
   return {
-    setLook(look) { const k = JSON.stringify(look); if (k === lastKey) return; lastKey = k; if (R) scene.remove(R.g); R = buildRig(look, tex); scene.add(R.g); },
+    setLook(l, md) { const k = JSON.stringify(l) + '|' + (md ? md.file : ''); if (k === lastKey) return; lastKey = k; look = l; MD = md || null; build(); },
     play(a, seconds = 2.5) { anim = a; animUntil = performance.now() + seconds * 1000; },
     start() { if (!raf) frame(); }, stop() { cancelAnimationFrame(raf); raf = 0; }
   };
@@ -189,7 +258,10 @@ export function createRenderer3D(canvas, G) {
     c.fillStyle = '#165029'; c.fillRect(0, 0, W + 2 * M, H + 2 * M);
     c.translate(M, M);
     for (let i = 0; i < 12; i++) { c.fillStyle = i % 2 ? '#1f7a40' : '#1b6d38'; c.fillRect(i * W / 12, 0, W / 12, H); }
+    for (let j = 0; j < 8; j++) { c.fillStyle = j % 2 ? 'rgba(255,255,255,.025)' : 'rgba(0,0,0,.03)'; c.fillRect(0, j * H / 8, W, H / 8); }   // cross-mowing
+    for (let i = 0; i < 70; i++) { const g = c.createRadialGradient(0, 0, 0, 0, 0, 1), x = rand(0, W), y = rand(0, H), r = rand(40, 140); g.addColorStop(0, `rgba(${Math.random() < 0.5 ? '40,60,20' : '120,150,60'},.07)`); g.addColorStop(1, 'rgba(0,0,0,0)'); c.save(); c.translate(x, y); c.scale(r, r * rand(0.5, 1)); c.fillStyle = g; c.fillRect(-1, -1, 2, 2); c.restore(); }   // worn and lush patches
     for (let i = 0; i < 9000; i++) { c.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; c.fillRect(rand(-M, W + M), rand(-M, H + M), 1.5, 1.5); }
+    c.lineWidth = 0.6; for (let i = 0; i < 14000; i++) { const x = rand(-M, W + M), y = rand(-M, H + M), l = rand(1.2, 2.6); c.strokeStyle = Math.random() < 0.5 ? 'rgba(160,210,110,.10)' : 'rgba(10,40,15,.12)'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + rand(-0.6, 0.6), y - l); c.stroke(); }   // blade flecks
     c.strokeStyle = 'rgba(255,255,255,.92)'; c.lineWidth = 2.4; c.lineJoin = 'round'; c.fillStyle = '#fff';
     const seg = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
     const arc = (x, y, r, a0 = 0, a1 = Math.PI * 2) => { c.beginPath(); c.arc(x, y, r, a0, a1); c.stroke(); };
@@ -314,48 +386,66 @@ export function createRenderer3D(canvas, G) {
 
   /* ---------- people: a jointed low-poly rig ---------- */
   function makeRig(look) { const R = buildRig(look, canvasTex); scene.add(R.g); return R; }
+  // Running: legs and opposite arms swing, the body bobs twice a stride, twists with the hips and
+  // leans into the pace; turning banks the body into the turn; standing still breathes and sways.
+  let poseT = 0;
+  const angD = (a, b) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
   function pose(R, x, y, face, run, moving, down, lean) {
     R.g.position.set(x - W / 2, 0, y - H / 2);
     R.g.rotation.y = Math.PI / 2 - face;
-    R.headG.rotation.set(0, 0, 0);
-    const sw = Math.sin(run) * 0.85 * moving;
+    const turn = R.lastFace == null ? 0 : angD(R.lastFace, face); R.lastFace = face;
+    R.bank = (R.bank || 0) + (clamp(turn * 9 * moving, -0.28, 0.28) - (R.bank || 0)) * 0.18;
+    // ease between standing, running and sprinting so the stride and lean never jump
+    R.mvS = R.mvS == null ? moving : R.mvS + (moving - R.mvS) * 0.12; R.lnS = R.lnS == null ? (lean || 0) : R.lnS + ((lean || 0) - R.lnS) * 0.08;
+    moving = R.mvS; lean = R.lnS;
+    const stride = 0.85 + lean * 0.8, sw = Math.sin(run) * stride * moving, idle = 1 - moving, br = Math.sin(poseT * 2.1 + x * 0.013);
     R.legL.rotation.set(sw, 0, 0); R.legR.rotation.set(-sw, 0, 0);
-    R.armL.rotation.set(-sw * 0.9, 0, 0.1); R.armR.rotation.set(sw * 0.9, 0, -0.1);
-    if (down) { R.body.rotation.set(Math.PI / 2 * 0.97, 0, 0); R.body.position.y = 3.6; R.legL.rotation.x = 0.25; R.legR.rotation.x = -0.15; R.armL.rotation.z = 1.1; R.armR.rotation.z = -1.1; }
-    else { R.body.rotation.set(lean || 0, 0, 0); R.body.position.y = 0; }
+    R.armL.rotation.set(-sw * 0.95, 0, 0.1 + 0.08 * moving + br * 0.03 * idle); R.armR.rotation.set(sw * 0.95, 0, -0.1 - 0.08 * moving - br * 0.03 * idle);
+    if (down) { R.headG.rotation.set(0, 0, 0); R.body.rotation.set(Math.PI / 2 * 0.97, 0, 0); R.body.position.y = 3.6; R.legL.rotation.x = 0.25; R.legR.rotation.x = -0.15; R.armL.rotation.z = 1.1; R.armR.rotation.z = -1.1; }
+    else {
+      R.body.rotation.set((lean || 0) + 0.1 * moving, Math.sin(run) * 0.14 * moving, -R.bank);
+      R.body.position.y = Math.abs(Math.cos(run)) * 1.9 * moving + br * 0.35 * idle;
+      R.headG.rotation.set(-0.08 * moving, -Math.sin(run) * 0.12 * moving + Math.sin(poseT * 0.7 + x) * 0.12 * idle, R.bank * 0.6);
+    }
   }
 
   const playerRigs = [];
+  const animAge = (R, p, time) => { const a = p.animT > 0 ? p.anim : ''; if (R.an !== a) { R.an = a; R.anT0 = time; } return time - R.anT0; };
   /* ---------- real models (js/player/models.js): loaded in the background, blocky until ready ---------- */
-  const MODELS = {}; let gltfKit = null;
-  function modelFor(MD) {
-    const c = MODELS[MD.file]; if (c) return c.ready ? c : null;
-    MODELS[MD.file] = { ready: false };
-    gltfKit = gltfKit || Promise.all([import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js'), import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/SkeletonUtils.js')]);
-    gltfKit.then(([L, SU]) => new L.GLTFLoader().loadAsync(MD.file).then(gl => {
-      const box = new THREE.Box3().setFromObject(gl.scene), h = Math.max(0.001, box.max.y - box.min.y);
-      Object.assign(MODELS[MD.file], { ready: true, gl, SU, scale: (MD.height || 42) / h, base: -box.min.y });
-    })).catch(e => { MODELS[MD.file].failed = true; console.warn('Model failed to load, keeping the blocky one:', MD.file, e); });
-    return null;
-  }
+  const modelFor = MD => loadModel(MD);
   function attachModel(R, MD, M, L) {
-    const inst = M.SU.clone(M.gl.scene); inst.scale.setScalar(M.scale); inst.position.y = M.base * M.scale + (MD.y || 0); inst.rotation.y = MD.rotY || 0;
-    inst.traverse(o => { if (o.isMesh) { o.castShadow = true; if (MD.teamMaterial && o.material && o.material.name === MD.teamMaterial) { o.material = o.material.clone(); o.material.color.set(L.jersey); } } });
-    R.body.visible = false; R.g.add(inst); R.model = inst; R.MD = MD;
-    R.mixer = new THREE.AnimationMixer(inst); R.acts = {};
-    for (const clip of M.gl.animations) R.acts[clip.name] = R.mixer.clipAction(clip);
-    for (const n of MD.loops || []) if (R.acts[n]) R.acts[n].play();
+    const m = instModel(MD, M, L.jersey, G.modelLimits);
+    R.body.visible = false; R.g.add(m.inst); R.model = m.inst; R.MD = MD; R.mixer = m.mixer; R.acts = m.acts; R.mh = m.height;
+    if (!MD.teamMaterial) {   // nothing on the model takes the kit colour: a team-coloured ring at its feet tells the sides apart
+      R.teamRing = new THREE.Mesh(new THREE.RingGeometry(11, 14, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: L.jersey, transparent: true, opacity: 0.85, depthWrite: false }));
+      R.teamRing.position.y = 0.5; R.g.add(R.teamRing);
+    }
   }
   const ANIM_FALLBACK = { sprint: 'run', attack: 'kick', slide: 'fall', fall: 'idle', sit: 'idle', celebrate: 'idle', jump: 'idle', kick: 'idle', run: 'idle' };
   function animateModel(R, p, dt, benched) {
     const down = p.stun > 0 || p.ko > 0, spd = Math.hypot(p.vx, p.vy), a = p.anim || '';
     let st = benched ? 'sit' : down ? 'fall' : p.slide > 0 ? 'slide' : p.z > 0 ? 'jump' : a === 'shoot' || a === 'kick' ? 'kick' : a === 'punch' || a === 'swing' ? 'attack' : a.startsWith('cel') ? 'celebrate' : spd > 150 ? 'sprint' : spd > 20 ? 'run' : 'idle';
-    const anims = R.MD.anims || {}; let name = anims[st];
+    const anims = R.MD.anims || {}, st0 = st; let name = anims[st];
     while (!name && ANIM_FALLBACK[st]) { st = ANIM_FALLBACK[st]; name = anims[st]; }
     const act = name && R.acts[name];
     if (act && R.cur !== act) { if (R.cur) R.cur.fadeOut(0.15); act.reset().fadeIn(0.15).play(); R.cur = act; }
     if (act) act.timeScale = st === 'run' || st === 'sprint' ? clamp(spd / (st === 'sprint' ? 190 : 130), 0.6, 1.6) : 1;
     R.mixer.update(dt);
+    // No clip for this exact move (or no clips at all): move the whole model instead, so it never just slides around.
+    const P = R.model, own = anims[st0] && R.acts[anims[st0]], k = Math.min(1, dt * 12), hh = R.mh || 42;
+    let lean = 0, roll = 0, bob = 0, sq = 1;
+    if (!own) {
+      R.ph = (R.ph || 0) + dt * Math.max(4, spd * 0.075);
+      if (st0 === 'run' || st0 === 'sprint') { bob = Math.abs(Math.sin(R.ph)) * hh * (st0 === 'sprint' ? 0.075 : 0.055); lean = st0 === 'sprint' ? 0.22 : 0.12; roll = Math.sin(R.ph) * 0.07; }
+      else if (st0 === 'fall' || st0 === 'slide') lean = Math.PI / 2 * 0.92;
+      else if (st0 === 'attack' || st0 === 'kick') { lean = 0.38; roll = st0 === 'kick' ? -0.25 : 0.15; }
+      else if (st0 === 'jump') { lean = -0.15; sq = 1.05; }
+      else if (st0 === 'celebrate') { bob = Math.abs(Math.sin(R.ph * 1.6)) * hh * 0.12; roll = Math.sin(R.ph) * 0.18; }
+      else if (st0 === 'sit') { lean = -0.25; bob = -hh * 0.12; }
+      else sq = 1 + Math.sin(R.ph * 0.5) * 0.012;   // idle: breathing
+    }
+    P.rotation.x += (lean - P.rotation.x) * k; P.rotation.z += (roll - P.rotation.z) * k;
+    P.position.y += (bob - P.position.y) * k; P.scale.y += (sq - P.scale.y) * k;
   }
   const playerLook = p => {
     const L = { jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : TEAM[p.team].col, shorts: TEAM[p.team].shorts, socks: TEAM[p.team].socks,
@@ -377,6 +467,7 @@ export function createRenderer3D(canvas, G) {
   });
   const ball = new THREE.Mesh(new THREE.SphereGeometry(4.4, 22, 16), std('#ffffff', { map: ballTex, roughness: 0.45 }));
   ball.castShadow = true; scene.add(ball);
+  const ballPrev = {}, ballAxis = new THREE.Vector3(), ballQ = new THREE.Quaternion(), ballW = new THREE.Vector3();
 
   /* ---------- items and bananas (pooled meshes) ---------- */
   function makeItem(type) {
@@ -463,7 +554,9 @@ export function createRenderer3D(canvas, G) {
 
   const trailMat = new THREE.LineBasicMaterial({ color: '#4fd6ff', transparent: true, opacity: 0.85 });
   const trailLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 18 }, () => new THREE.Vector3())), trailMat); trailLine.visible = false; scene.add(trailLine);
-  const puddles = [], decoyRigs = [];
+  const puddles = [], decoyRigs = [], decals = [];
+  const decalGeo = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2);
+  function decal(i) { if (!decals[i]) { const m = new THREE.Mesh(decalGeo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false })); m.renderOrder = 1; scene.add(m); decals[i] = m; } return decals[i]; }
   function puddle(i) { if (!puddles[i]) { const m = new THREE.Mesh(new THREE.CircleGeometry(20, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4fbf5f', transparent: true, opacity: 0.7, roughness: 0.2 })); m.renderOrder = 2; scene.add(m); puddles[i] = m; } return puddles[i]; }
   const ghost = mat => { const c = mat.clone(); c.transparent = true; c.opacity = 0.45; c.depthWrite = false; return c; };
 
@@ -504,7 +597,7 @@ export function createRenderer3D(canvas, G) {
   let last = null, lastWx = null, fkB = 0, lastFk = null;
   const fkPos = new THREE.Vector3(), fkLook = new THREE.Vector3(), camLook = new THREE.Vector3();
   function render(time) {
-    const S = G.S, dt = last == null ? 0.016 : clamp(time - last, 0, 0.1); last = time;
+    const S = G.S, dt = last == null ? 0.016 : clamp(time - last, 0, 0.1); last = time; poseT = time;
     const b = S.ball;
 
     // camera: broadcast angle from the near side, with the focused player in the middle of the screen
@@ -535,7 +628,7 @@ export function createRenderer3D(canvas, G) {
         R.mats = []; R.g.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(mm => { if (!R.mats.includes(mm)) R.mats.push(mm); }); } });
         R.ring = new THREE.Mesh(new THREE.RingGeometry(9, 10.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })); R.ring.position.y = 0.6; R.g.add(R.ring);
       }
-      const cc = G.classCol && G.classCol(p); R.ring.visible = !!cc; if (cc) R.ring.material.color.set(cc);
+      const cc = G.classCol && G.classCol(p); R.ring.visible = !!cc; if (cc) R.ring.material.color.set(cc); if (R.teamRing) R.teamRing.visible = true;
       const al = G.cloakAlpha ? G.cloakAlpha(p) : 1;
       if (R.alpha !== al) { R.alpha = al; R.mats.forEach(mm => { mm.transparent = al < 1; mm.opacity = al; mm.depthWrite = al >= 1; mm.needsUpdate = true; }); }
       const benched = G.onBench && G.onBench(p);
@@ -543,19 +636,23 @@ export function createRenderer3D(canvas, G) {
       if (!R.g.visible) return;
       if (R.mixer) animateModel(R, p, dt, benched);
       if (benched) {   // sitting on the bench: legs forward, a slow fidget, arms up for a taunt or throw
-        pose(R, p.x, p.y, p.face, 0, 0, false, 0); applyAnim(R, p.anim, time);
+        pose(R, p.x, p.y, p.face, 0, 0, false, 0); applyAnim(R, p.anim, time, animAge(R, p, time));
         R.body.position.y -= 7; R.legL.rotation.x = -1.45; R.legR.rotation.x = -1.45 + Math.sin(time * 2 + i) * 0.08;
-        R.g.scale.setScalar(1); R.birds.visible = false; R.bat.visible = false; R.sword.visible = false; R.ring.visible = false;
+        R.g.scale.setScalar(1); R.birds.visible = false; R.bat.visible = false; R.sword.visible = false; R.ring.visible = false; if (R.teamRing) R.teamRing.visible = false;
         return;
       }
-      const down = p.stun > 0 || p.ko > 0 || p.slide > 0;
+      const dizzy = G.dizzy && G.dizzy(p), down = (p.stun > 0 || p.ko > 0 || p.slide > 0) && !dizzy;
       pose(R, p.x, p.y, p.face, p.run, Math.min(1, Math.hypot(p.vx, p.vy) / 120), down, p.sprinting ? 0.32 : 0);
       if (p.dive > 0 || p.diveDown > 0 || p.diveState) {   // goalkeeper dive: roll sideways, arms stretched
         const s = p.diveDir || p.diveState || 1;
         R.body.rotation.set(0, 0, Math.sign(s * Math.cos(p.face) || 1) * Math.PI / 2 * 0.92); R.body.position.y = 6;
         R.armL.rotation.set(-2.9, 0, 0.2); R.armR.rotation.set(-2.9, 0, -0.2); R.legL.rotation.x = 0.3; R.legR.rotation.x = -0.2;
       }
-      applyAnim(R, p.anim, time);
+      applyAnim(R, p.anim, time, animAge(R, p, time));
+      if (dizzy) {   // back on their feet but seeing stars: spinning on the spot, arms flailing
+        R.g.rotation.y += time * 7; R.body.rotation.z = Math.sin(time * 5) * 0.25; R.headG.rotation.z = Math.sin(time * 6) * 0.35;
+        R.armL.rotation.set(-0.6 + Math.sin(time * 9) * 0.6, 0, 1.2); R.armR.rotation.set(-0.6 - Math.sin(time * 9) * 0.6, 0, -1.2);
+      }
       R.g.position.y += liftOf(S.an, 'p', i) + (p.z || 0);
       R.g.scale.setScalar(p.bf && p.bf.rage > 0 ? 1.3 : 1);
       if (down && !(p.slide > 0) && !(p.dive > 0 || p.diveDown > 0 || p.diveState)) {   // ragdoll: limbs flop as they hit the ground, then settle
@@ -573,7 +670,9 @@ export function createRenderer3D(canvas, G) {
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       const hand = !down && G.weaponHand ? G.weaponHand(p) : null;   // which weapon mesh to show (js/player/player.js)
       R.sword.visible = hand === 'sword'; R.bat.visible = hand === 'bat';
-      R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
+      const glow = G.glow && G.glow(p);   // an enraged team glows (js/mechanics/combat.js)
+      if (glow) { R.m.jersey.emissive.set(glow); R.m.jersey.emissiveIntensity = 0.6 + 0.4 * Math.sin(time * 10 + i); if (R.teamRing) R.teamRing.material.opacity = 0.6 + 0.4 * Math.sin(time * 10 + i); }
+      else { R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0); R.m.jersey.emissiveIntensity = 1; }
     });
     for (let i = S.players.length; i < playerRigs.length; i++) playerRigs[i].g.visible = false;
 
@@ -600,8 +699,18 @@ export function createRenderer3D(canvas, G) {
 
     // ball
     ball.position.set(b.x - W / 2, (b.z || 0) + 4.4, b.y - H / 2);
-    ball.rotation.set((b.spin || 0) * 0.9, 0, (b.spin || 0) * 0.35);
+    {   // the ball rolls without slipping on the grass and keeps spinning in the air
+      const dx = b.x - (ballPrev.x == null ? b.x : ballPrev.x), dz = b.y - (ballPrev.y == null ? b.y : ballPrev.y), d = Math.hypot(dx, dz);
+      ballPrev.x = b.x; ballPrev.y = b.y;
+      if (d > 0.001 && d < 90 && (b.z || 0) < 1.5 && dt > 0) { ballAxis.set(dz, 0, -dx).normalize(); ballQ.setFromAxisAngle(ballAxis, d / 4.4); ball.quaternion.premultiply(ballQ); ballW.copy(ballAxis).multiplyScalar(d / 4.4 / dt); }
+      else if ((b.z || 0) >= 1.5) { const w = ballW.length(); if (w > 0.01) { ballAxis.copy(ballW).normalize(); ballQ.setFromAxisAngle(ballAxis, w * dt); ball.quaternion.premultiply(ballQ); ballW.multiplyScalar(Math.exp(-0.4 * dt)); } }
+      else ballW.multiplyScalar(0.8);
+    }
     ball.scale.setScalar(V0.mega ? 2 : 1);
+    const bm = V0.ballMod || '';   // volt ball: yellow and humming (flashing when armed); iron ball: dark metal
+    if (bm.startsWith('volt')) { ball.material.color.set('#ffe14d'); ball.material.emissive.set('#ffcc00'); ball.material.emissiveIntensity = bm.endsWith('!') ? (Math.sin(time * 30) > 0 ? 1.2 : 0.2) : 0.35; ball.material.metalness = 0; }
+    else if (bm === 'iron') { ball.material.color.set('#6a737b'); ball.material.emissive.set('#000000'); ball.material.metalness = 0.85; ball.material.roughness = 0.3; }
+    else { ball.material.color.set('#ffffff'); ball.material.emissive.set('#000000'); ball.material.metalness = 0; ball.material.roughness = 0.45; }
     const land = V0.land, inAir = !!land;
     airRing.visible = landMark.visible = airLine.visible = inAir;
     if (inAir) {
@@ -649,6 +758,9 @@ export function createRenderer3D(canvas, G) {
     // glue puddles
     (V0.puddles || []).forEach((g2, i) => { const m = puddle(i); m.visible = true; m.position.set(g2.x - W / 2, 0.8, g2.y - H / 2); m.material.opacity = Math.min(0.75, g2.ttl / 2); });
     puddles.forEach((m, i) => { if (i >= (V0.puddles || []).length) m.visible = false; });
+    // hazards and patches on the grass (js/render/view.js groundDecals)
+    (V0.decals || []).forEach((d, i) => { const m = decal(i); m.visible = true; m.position.set(d.x - W / 2, 0.55 + i * 0.002, d.y - H / 2); m.scale.setScalar(d.r); m.material.color.set(d.col); m.material.opacity = clamp(d.op, 0, 1); m.material.blending = d.glow ? THREE.AdditiveBlending : THREE.NormalBlending; });
+    decals.forEach((m, i) => { if (i >= (V0.decals || []).length) m.visible = false; });
     // decoys: see-through copies of the player who threw them
     (V0.decoys || []).forEach((d, i) => {
       const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' }, key = JSON.stringify(L) + (d.solid ? 's' : 'g');

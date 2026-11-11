@@ -9,6 +9,13 @@ function updateClasses(dt) {
   const b = S.ball;
   if (b.pierce && b.pierce < S.time) b.pierce = 0;
   for (const p of S.players) {
+    if (p.atkLunge) {   // a base attack stepping in to its target
+      const t = S.players[p.atkLunge.t], L = p.atkLunge; L.ttl -= dt;
+      if (!t || !onPitch(p) || !onPitch(t) || t.ko > 0 || p.stun > 0 || L.ttl <= 0) p.atkLunge = null;
+      else { const d = dist(p, t), a = Math.atan2(t.y - p.y, t.x - p.x), reach = reachOf(p); p.face = a;
+        if (d <= reach) { p.atkLunge = null; doFoul(p, t); }
+        else { const st = Math.min(d - reach + 2, 320 * dt); p.x = clamp(p.x + Math.cos(a) * st, 8, W - 8); p.y = clamp(p.y + Math.sin(a) * st, 8, H - 8); } }
+    }
     if (!p.cls) continue;
     for (let i = 0; i < 3; i++) if (p.cd[i] > 0) p.cd[i] = Math.max(0, p.cd[i] - dt);
     for (const k in p.bf) { p.bf[k] -= dt; if (p.bf[k] <= 0) delete p.bf[k]; }

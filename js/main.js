@@ -20,7 +20,8 @@ setInterval(updateSpecBar, 400);
 
 // Debug hook for testing: only exposed when the URL contains ?debug
 if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET, applyPowerup, useThrowable, doTaunt, goal, clockExpired, REPLAY, CAMFX, MUT: () => MUT, setMut: m => { MUT = m; }, startAnomaly, castSkill, fireWeapon, whack, passPreview, setPiece, isLocalHuman };
-if (store.get('fpfc-gfx') !== '2d') setGraphics(true);
+try { localStorage.removeItem('fpfc-gfx'); } catch (e) {}   // the old 2D/3D choice
+setGraphics();
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000); last = now;

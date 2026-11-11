@@ -5,6 +5,7 @@
 
 /* ---------------- update ---------------- */
 function update(dt) {
+  if (S.hitstop > 0) { S.hitstop -= dt; return; }   // impact freeze (js/mechanics/combat.js)
   S.time += dt;
   S.excite = Math.max(0, Math.min(1.5, S.excite) - dt * 0.22);
   S.shake = Math.max(0, S.shake - dt * 20);
@@ -26,6 +27,7 @@ function update(dt) {
     if (S.pause <= 0 && S.pauseCb) { const cb = S.pauseCb; S.pauseCb = null; cb(); }
     return;
   }
+  if (S.varCheck) { updateVar(dt); return; }   // VAR check on a red card (js/match/var.js)
   if (S.shoot) updateShootout(dt);
   if (S.setPiece) { setPieceUpdate(dt); return; }
   if (!S.shoot) S.clock -= dt / PACE;
@@ -53,7 +55,7 @@ function update(dt) {
     if (S.admin && S.admin.inf && p.human) { p.items.bat = Math.max(p.items.bat, 3); p.items.banana = Math.max(p.items.banana, 2); p.blind = 2; }
   }
 
-  updatePowerups(dt); updateCrowdOpinion(dt); updateBounty(dt); updateAnomalies(dt); updateClasses(dt);
+  updatePowerups(dt); updateCrowdOpinion(dt); updateBounty(dt); updateAnomalies(dt); updateClasses(dt); updateCombat(dt); updateArena(dt); updateBallMods(dt);
   const b = S.ball, info = [];
   for (let t = 0; t < 2; t++) {
     const attacking = !!(b.owner && b.owner.team === t);
@@ -77,7 +79,8 @@ function update(dt) {
     if (p.heatT > 0 && (p.dx || p.dy)) { const m = Math.hypot(p.dx, p.dy), a = Math.atan2(p.dy, p.dx) + Math.sin(S.time * 5 + p.id) * 0.9; p.dx = Math.cos(a) * m; p.dy = Math.sin(a) * m; spd *= 0.8; }
     if (p.freezeT > 0) { p.dx = p.dy = 0; }
     const superSprint = MUT.sprint;
-    p.sprinting = !!(p.sprintWant && p.stamina > 2 && !down && (p.dx || p.dy));
+    if (p.stamina <= 2) p.winded = true; else if (p.stamina >= 20) p.winded = false;   // out of breath: no sprint until you've got some back
+    p.sprinting = !!(p.sprintWant && !p.winded && !down && (p.dx || p.dy));
     if (p.sprinting) { spd *= superSprint ? 1.8 : 1.4; const ds = Math.min(p.stamina, (superSprint ? 13 : 26) * (wk === 'heat' ? 2 : 1) * dt); p.stamina -= ds; M(p, 'staminaUsed', ds); }
     else if (!down) p.stamina = Math.min(p.staminaMax, p.stamina + ((p.dx || p.dy) ? 10 : 18) * (wk === 'heat' ? 0.5 : 1) * dt);
     if (p.carry != null) spd *= 0.8;
@@ -89,7 +92,7 @@ function update(dt) {
       const want = Math.hypot(p.dx, p.dy) * spd, cur = Math.hypot(p.vx, p.vy);
       const turn = cur > 60 && want > 0 ? (p.vx * p.dx + p.vy * p.dy) / (cur * Math.hypot(p.dx, p.dy)) : 1;   // cosine of the turn
       const grip = (want > cur ? 7.5 : 11) * (turn < -0.7 ? 1.15 : turn < 0 ? 0.7 : turn < 0.5 ? 0.8 : 1) * (p.sprinting ? 0.85 : 1);   // slower to speed up than to stop; sharp turns at pace take longer
-      const k = Math.min(1, dt * (p.lunge > 0 || p.slide > 0 ? 20 : p.z > 0 ? 1.5 : wk === 'ice' ? 2 : grip));
+      const k = Math.min(1, dt * (p.lunge > 0 || p.slide > 0 ? 20 : p.z > 0 ? 1.5 : p.skidT > 0 ? 0.25 : wk === 'ice' ? 2 : grip));
       p.vx += (p.dx * spd - p.vx) * k; p.vy += (p.dy * spd - p.vy) * k;
       if (p.dx || p.dy) p.face += angDiff(p.face, Math.atan2(p.dy, p.dx)) * Math.min(1, dt * 14);
     }
@@ -133,18 +136,18 @@ function update(dt) {
   if (b.owner) {
     const o = b.owner;
     if (!onPitch(o) || o.stun > 0 || o.ko > 0 || o.carry != null) loseBall(o, o.face);
-    else {
-      const tch = 11 + (o.sprinting ? 5 : 0) + Math.max(0, Math.sin(o.run * 1.6)) * 3.5 * Math.min(1, Math.hypot(o.vx, o.vy) / 120);
-      b.x = clamp(o.x + Math.cos(o.face) * tch, 2, W - 2); b.y = clamp(o.y + Math.sin(o.face) * tch, 2, H - 2); b.z = 0; b.vx = o.vx; b.vy = o.vy;
-      b.spin += Math.hypot(o.vx, o.vy) * dt * 0.2;
+    else if (dribble(o, b, dt)) {   // close control: js/mechanics/dribbling.js
+      b.z = 0; b.vz = 0;
+      b.spin += Math.hypot(b.vx, b.vy) * dt * 0.2;
       for (const p of S.players) {
         if (p.team === o.team || !canBall(p) || p.slide > 0 || p.z > 10 || p.pickCd > 0 || dist(p, b) > 15) continue;
         if (o.bf && o.bf.timeRush > 0) continue;   // Time Rush: nobody can take it off you
         const rate = tackleMul(p, o) * (p.lunge > 0 ? 6 : 1.4) * (p.gk ? 2 : 1) * (p.mood <= MOOD_TILT ? 0.8 : 1) * (o.fx && o.fx.magnet > 0 ? 0.5 : 1) * (p.firedUpAt === o && p.firedUpT > 0 ? 1.2 : 1);
-        if (Math.random() < rate * dt) {
+        if (glowing(p) || Math.random() < rate * dt) {   // an enraged team's tackle always wins: an Overdrive
           if (hasBf(o, 'speedDribble')) { p.stun = Math.max(p.stun, 1); floatText(p, 'TOO FAST', '#ffcc22'); continue; }
           b.owner = p; b.lastTouch = p; o.pickCd = 0.7; o.hold = 0; p.hold = 0; p.stats.tackles++; addPop(p, 3); addMood(p, 5); crowdEvent(p.team, { perf: 3 }); bountyCollect(p, o); EV('tackle', p, { from: o.name }); addCharge(p, 8); addKarma(p, 2); if (p.lunge > 0) cheer('roar', p.x, 'WHAT A TACKLE!');
           if (p.lunge > 0) { floatText(p, 'TACKLE', '#ffffff'); whack(o, 'tackle'); } thump(140, 0.15, 0.08);
+          if (!overdrive(p, o)) addRage(p.team, RAGE.tackle);
           break;
         }
       }
@@ -153,9 +156,8 @@ function update(dt) {
     if (b.curve && b.z > 0 && b.curve.t > 0) { b.curve.t -= dt; b.vx += b.curve.ax * dt; b.vy += b.curve.ay * dt; }   // spin bends the flight
     b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.vz -= GRAV() * dt;
     b.spin += Math.hypot(b.vx, b.vy) * dt * 0.2;
-    if (b.z <= 0) { b.z = 0; b.curve = null; if (b.vz < -90) { b.vz = -b.vz * 0.52; b.vx *= 0.86; b.vy *= 0.86; } else b.vz = 0; }   // bounce: loses height and pace
-    const ice = wxKind() === 'ice', fr = b.z > 0 ? AIR_K : ice ? 0.4 : 1.1; b.vx *= Math.exp(-fr * dt); b.vy *= Math.exp(-fr * dt);
-    if (b.z <= 0) { const v0 = Math.hypot(b.vx, b.vy), roll = (ice ? 4 : 16) * dt; if (v0 <= roll) b.vx = b.vy = 0; else { b.vx -= b.vx / v0 * roll; b.vy -= b.vy / v0 * roll; } }   // rolling resistance brings it to a stop
+    if (b.z <= 0) { b.z = 0; b.curve = null; if (b.vz < 0) bounceBall(b); }   // bounce: loses height and pace, then skids (js/mechanics/dribbling.js)
+    rollBall(b, dt, false);   // air drag in flight; skid, then rolling resistance on the grass
     bodyBlock(b);
     if (b.y < 4) { b.y = 4; b.vy = Math.abs(b.vy) * 0.7; }
     if (b.y > H - 4) { b.y = H - 4; b.vy = -Math.abs(b.vy) * 0.7; }
@@ -181,7 +183,7 @@ function update(dt) {
         if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { addPop(b.lastPasser, 1); addCharge(b.lastPasser, 4); M(b.lastPasser, 'passesCompleted'); }
         if (b.lastPasser && b.lastPasser.team !== p.team && S.time - b.passTime < 3) { M(p, 'interceptions'); EV('interception', p, { from: b.lastPasser.name }); }
         if (b.lastPasser && b.lastPasser.team === p.team && b.lastPasser !== p && S.time - b.passTime < 3) { if (b.lastPasser.cls === 'playmaker') BF(p, 'boost', 2); if (hasBf(p, 'assistMark')) { BF(p, 'assist', 3); p.bf.assistMark = 0; floatText(p, 'ASSISTED', '#3a7bff'); } }
-        b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0; b.curve = null; b.pierce = 0;
+        b.owner = p; b.lastTouch = p; p.hold = 0; b.z = 0; b.vz = 0; b.curve = null; b.pierce = 0; b.skid = 0;
       }
     }
   }
@@ -218,7 +220,7 @@ function update(dt) {
   for (let i = S.pend.length - 1; i >= 0; i--) {
     const f = S.pend[i]; f.ttl -= dt;
     if (S.refHuman && (sees(S.refs[0], f.a.x, f.a.y) || sees(S.refs[0], f.x, f.y))) f.seenH = true;
-    const r = onPitch(f.a) && !refIgnores(f.a) ? S.refs.find(r => !r.human && (sees(r, f.a.x, f.a.y) || sees(r, f.x, f.y))) : null;
+    const r = onPitch(f.a) && !refIgnores(f.a) ? S.refs.find(r => !r.human && seesFoul(r, f)) : null;
     if (r) {
       S.pend.splice(i, 1);
       const why = leniency(f);
@@ -238,10 +240,9 @@ function update(dt) {
       if (loud(f.a) && f.kind !== 'banana') feed(`Unseen! ${f.a.name} got away with it`, '#ffd23f');
     }
   }
-  // human foul targets
+  // who each person's base attack would hit (aim assist), shown with a ring
   for (const h of S.humans) {
     const p = S.players[h.pid]; if (!p) continue;
-    const a = p.aimA != null ? p.aimA : p.face, score = q => Math.abs(angDiff(a, Math.atan2(q.y - p.y, q.x - p.x))) * 40 + dist(q, p);
-    p.target = inReach(p).sort((u, v) => score(u) - score(v))[0] || null;
+    p.target = onPitch(p) ? attackPlan(p).target : null;
   }
 }

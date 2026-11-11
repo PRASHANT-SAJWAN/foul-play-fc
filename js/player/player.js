@@ -11,7 +11,7 @@
 
      melee:  reach, dmg, kb (knockback), stun, injury: [chance, amount], heavy (seen = red card),
              verb (for the feed), whack (comic word index in WHACKS), fx ('bat' = slow-mo crack),
-             anim, hand ('sword' | 'bat': which 3D mesh to show), draw2d(P, s) for the classic view
+             anim, hand ('sword' | 'bat': which 3D mesh to show)
      ranged: proj ('pebble' | 'dart': how the shot looks), speed, cd (seconds between shots), ttl,
              anim, sound (pitch), hit: { dmg, stun, kb, slow } or onHit(owner, target, proj),
              ballPush (how hard a hit knocks the ball on)
@@ -50,10 +50,8 @@ function giveWeapon(p, id, n) {
 }
 const weaponCounts = p => { const o = {}; for (const id in WEAPONS) if (p.items[id]) o[id] = p.items[id]; return o; };
 
-defineWeapon({ id: 'sword', name: 'Sword', kind: 'melee', uses: 3, priority: 2, col: '#d9e2ec', reach: 66, dmg: 30, kb: 260, stun: 2.2, injury: [0.7, 22], verb: 'slashed at', whack: 0, fx: 'bat', hand: 'sword',
-  draw2d: (P, s) => { ctx.lineCap = 'round'; ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 2.2 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 17 * s); ctx.lineTo(P.x + 15 * s, P.y - 35 * s); ctx.stroke(); ctx.strokeStyle = '#c9a050'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(P.x + 4 * s, P.y - 19 * s); ctx.lineTo(P.x + 11 * s, P.y - 16 * s); ctx.stroke(); } });
-defineWeapon({ id: 'bat', name: 'Bat', kind: 'melee', uses: 3, priority: 1, col: '#ffcf5a', reach: 60, dmg: 34, kb: 260, stun: 2.2, injury: [0.7, 22], verb: 'swung a bat at', whack: 5, fx: 'bat', hand: 'bat',
-  draw2d: (P, s) => { ctx.strokeStyle = '#a0682f'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 18 * s); ctx.lineTo(P.x + 13 * s, P.y - 30 * s); ctx.stroke(); } });
+defineWeapon({ id: 'sword', name: 'Sword', kind: 'melee', uses: 3, priority: 2, col: '#d9e2ec', reach: 66, dmg: 30, kb: 260, stun: 2.2, injury: [0.7, 22], verb: 'slashed at', whack: 0, fx: 'bat', hand: 'sword' });
+defineWeapon({ id: 'bat', name: 'Bat', kind: 'melee', uses: 3, priority: 1, col: '#ffcf5a', reach: 60, dmg: 34, kb: 260, stun: 2.2, injury: [0.7, 22], verb: 'swung a bat at', whack: 5, fx: 'bat', hand: 'bat' });
 defineWeapon({ id: 'sling', name: 'Slingshot', kind: 'ranged', uses: 5, priority: 2, col: '#c9b48a', proj: 'pebble', speed: 720, cd: 0.6, ttl: 0.8, anim: 'swing', sound: 260, hit: { dmg: 10, stun: 0.9, kb: 120 }, ballPush: 0.45 });
 defineWeapon({ id: 'blaster', name: 'Foam blaster', kind: 'ranged', uses: 10, priority: 1, col: '#ff9f43', proj: 'dart', speed: 580, cd: 0.2, ttl: 0.6, anim: 'punch', sound: 600, hit: { dmg: 4, slow: 1 }, ballPush: 0.15 });
 

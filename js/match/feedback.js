@@ -33,5 +33,5 @@ function cheer(kind, x, text) {
 
 /* ---------- small helpers ---------- */
 function a0Anim(p, anim, t) { if (p) { p.anim = anim; p.animT = t; } }
-const ANIMS = ['', 'punch', 'kick', 'swing', 'shoot', 'fall', 'plead', 'facepalm', 'cel0', 'cel1', 'cel2', 'cel3', 'cel4', 'cel5', 'shrug', 'point', 'sorry', 'wave', 'chest', 'thumbs'];
+const ANIMS = ['', 'punch', 'kick', 'swing', 'shoot', 'fall', 'plead', 'facepalm', 'cel0', 'cel1', 'cel2', 'cel3', 'cel4', 'cel5', 'shrug', 'point', 'sorry', 'wave', 'chest', 'thumbs', 'touch'];
 const animIdx = a => Math.max(0, ANIMS.indexOf(a || ''));

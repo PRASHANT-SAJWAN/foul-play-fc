@@ -30,7 +30,7 @@ function slideContacts(p) {   // called every frame while sliding
     if (b.owner === q && q.team !== p.team && !behind && Math.random() < 0.75) {
       b.owner = null; b.vx = Math.cos(p.slideA) * 260; b.vy = Math.sin(p.slideA) * 260; b.vz = 30; b.lastTouch = p; q.pickCd = 0.6;
       p.stats.tackles++; addPop(p, 4); addMood(p, 6); addKarma(p, 2); crowdEvent(p.team, { perf: 4, drama: 2 }); bountyCollect(p, q); EV('tackle', p, { from: q.name, slide: true });
-      floatText(p, 'CLEAN SLIDE', '#7dff9b'); whack(q, 'tackle'); cheer('roar', p.x, 'WHAT A TACKLE!'); thump(140, 0.15, 0.08);
+      addRage(p.team, RAGE.slide); floatText(p, 'CLEAN SLIDE', '#7dff9b'); whack(q, 'tackle'); cheer('roar', p.x, 'WHAT A TACKLE!'); thump(140, 0.15, 0.08);
     } else slideFoul(p, q, behind);
     return;
   }
@@ -43,7 +43,8 @@ function slideFoul(a, t, behind) {
   crowdEvent(a.team, a.team === t.team ? { noob: 5, fun: 3 } : { vill: behind ? 5 : 3, drama: 2 }); if (a.team !== t.team) crowdEvent(t.team, { symp: 3 });
   if (loud(a, t)) feed(`${a.name} ${behind ? 'slid in from behind on' : 'tripped'} ${t.name}`, '#f2c9c9');
   EV('foul', a, { target: t.name, kind: 'slide', fromBehind: behind, teammate: a.team === t.team, x: Math.round(a.x), y: Math.round(a.y) });
-  S.pend.push({ a, t, x: a.x, y: a.y, kind: 'slide', heavy: false, ttl: (S.refHuman ? 2.2 : 0.75) * (behind ? 1.4 : 1), inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
+  t.lastHitBy = a.id; t.lastHitT = S.time; afterHit(a, t, { foul: true, heavy: behind || t.gk, rage: RAGE.slide });
+  S.pend.push({ a, t, x: a.x, y: a.y, kind: 'slide', heavy: !!t.gk, ttl: (S.refHuman ? 2.2 : 0.75) * (behind ? 1.4 : 1), inBox: t.team !== a.team && inBox(t.x, t.y, a.team), mate: a.team === t.team });
   alertRefs(a.x, a.y, 330, behind ? 0.7 : 0.5);
 }
 // A mid-air strike: once the ball is within reach of a jumping player who pressed shoot or pass.
@@ -54,6 +55,7 @@ function airStrike(p) {
   b.owner = p; b.x = p.x; b.y = p.y;   // borrow the normal shot and pass aiming, then fix up the height
   if (A.k === 'shoot') {
     const st = p.stamina; shoot(p, header ? 0.7 : 0.9); p.stamina = Math.max(0, st - (header ? 4 : 8));
+    if (!header && bicycleKick(p)) { b.z = p.z + 10; b.lastTouch = p; M(p, 'volleys'); return; }   // inside a target ring (js/party/ball-mods.js)
     b.z = p.z + (header ? 40 : 10);
     if (header) { b.vx *= 0.82; b.vy *= 0.82; b.vz = rand(-40, 40); }
     else b.vz = rand(40, 140);

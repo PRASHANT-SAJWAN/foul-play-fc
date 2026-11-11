@@ -21,9 +21,9 @@ const onBench = p => p.sentOff > 0 && !p.goneWhy;   // red-carded: sitting it ou
 const isLocalHuman = p => !!(p && p.human && (S.net === 'client' ? p.human.local : !p.human.remote));
 const able = p => onPitch(p) && p.ko <= 0 && p.stun <= 0;
 const canBall = p => able(p) && p.carry == null && !(p.slideRec > 0);   // carrying the referee or getting up from a slide: no ball
-const reachOf = p => { const W = weaponOf(p, 'melee'); return W ? W.reach : 42; };   // punch, or the melee weapon's reach (js/player/player.js)
-const KICK_REACH = 72;                                  // jump kick lunges further
-const targetReach = p => Math.max(reachOf(p), KICK_REACH);
+const reachOf = p => { const W = weaponOf(p, 'melee'); return W ? W.reach : 42; };   // the base attack, or the melee weapon's reach (js/player/player.js)
+const LUNGE = 46;                                       // a base attack steps in this far to reach the player you aimed at
+const targetReach = p => reachOf(p) + LUNGE;
 const MOOD_ZONE = 40, MOOD_TILT = -40, MOOD_MELT = -70;
 const moodName = m => m >= MOOD_ZONE ? 'IN THE ZONE' : m <= MOOD_MELT ? 'MELTDOWN' : m <= MOOD_TILT ? 'TILTED' : 'STEADY';
 const inBox = (x, y, team) => Math.abs(y - H / 2) < BOX_HALF && (team === 0 ? x < BOX_D : x > W - BOX_D);
@@ -44,6 +44,7 @@ function newMatch(mode) {
   S.golden = false; S.shoot = null; S.lastGoal = null; S.recentUnseen = []; S.slowmo = null; S.specCd = {}; S.specGift = {}; S.rematch = {};
   S.crowd = { op: [newOpinion(), newOpinion()], support: 0.5, chantT: 10, bannerT: 15, banners: [], press: null };
   S.an = newAnomState(); S.zones = []; S.walls = []; S.projs = []; S.teamCd = [{}, {}];
+  if (typeof resetCombat === 'function') resetCombat(mode);   // rage, patches, VAR, hazard pitch, crates (js/mechanics/combat.js)
   REPLAY.buf = []; REPLAY.active = null;
   if (mode !== 'client') applyMutators();
   S.metrics = newMetrics(mode); S.lastReport = null; S.reportSaved = false;
@@ -60,7 +61,7 @@ function newMatch(mode) {
                                   { idx: 1, team: me, map: MAP2, pid: P(me, MID).id, prev: {}, charge: 0, charging: false }];
   if (mode === 'playground') S.humans = [{ idx: 0, team: me, map: MAPSOLO, pid: P(me, FWD).id, prev: {}, charge: 0, charging: false, touch: true }];
   if (mode === 'ref') { S.refHuman = { map: MAPSOLO, prev: {}, charge: 0, charging: false, touch: true, track: true, correct: 0, missed: 0, wrong: 0 }; S.refs[0].human = true; }
-  assignClasses();
+  assignClasses(mode);
   for (const h of S.humans) if ((h.idx || 0) === 0 && mode !== 'online') {   // your class, your player, your controls
     if (MY_CLASS === 'goalkeeper') h.pid = P(h.team, 0).id;
     S.players[h.pid].cls = MY_CLASS; h.lock = LOCK_PLAYER;

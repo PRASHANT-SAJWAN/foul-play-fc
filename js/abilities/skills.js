@@ -4,7 +4,7 @@
 'use strict';
 
 /* ---------- casting ---------- */
-const SKILL_KEYS = ['skill1', 'skill2', 'skill3', 'ult'];
+const SKILL_KEYS = ['skill1', 'skill2', null, 'ult'];   // by slot; the third class skill has no key (put it in a spell slot with setClassAbility)
 function skillDef(p, slot) {   // a player's own ability for this slot (setPlayerAbility in js/player/player.js), else their class's
   const own = p.abil && p.abil[slot]; if (own && ABILITIES[own]) return ABILITIES[own];
   const C = CLS[p.cls]; return C ? (slot === 3 ? C.ult : C.skills[slot]) : null;
@@ -15,10 +15,8 @@ function castSkill(p, slot) {
   S.teamCd = S.teamCd || [{}, {}];
   if (slot === 3) { if ((p.ult || 0) < 100) { if (p.human) floatText(p, `ULTIMATE ${Math.floor(p.ult || 0)}%`, '#c8c8c8'); return false; } }
   else if (p.cd[slot] > 0 || (def.shared && (S.teamCd[p.team][def.id] || 0) > S.time)) { if (p.human) floatText(p, `${def.name} in ${Math.ceil(Math.max(p.cd[slot], ((S.teamCd[p.team][def.id] || 0) - S.time)))}s`, '#c8c8c8'); return false; }
-  const range = (def.range || 300) * (p.cls === 'ranger' ? 1.15 : 1);
-  const u = def.aim === 'enemy' || def.aim === 'ally' ? skillTarget(p, def, range) : null;
+  const { u, pt } = castAim(p, def);
   if ((def.aim === 'enemy' || def.aim === 'ally') && !u) { if (p.human) floatText(p, def.aim === 'enemy' ? 'No enemy in range' : 'No team-mate in range', '#c8c8c8'); return false; }
-  const pt = u ? { x: u.x, y: u.y } : aimFor(p, range);
   const fn = SKILL_FX[def.id]; if (!fn) return false;
   if (fn(p, pt, u) === false) return false;
   if (slot === 3) { p.ult = 0; fxEvent('kick', p); cheer('roar', p.x, def.name.toUpperCase() + '!'); feed(`${p.name} unleashed ${def.name}!`, C.col); S.excite += 0.5; }

@@ -20,12 +20,11 @@
     <div id="stick"><div id="knob" hidden></div></div>
     <div id="tbtns">
       <button class="tb" data-act="blind">SAND</button>
-      <button class="tb hot" data-act="foul">PUNCH</button>
+      <button class="tb hot" data-act="foul">ATTACK</button>
       <button class="tb" data-act="through">THROUGH</button>
       <button class="tb" data-act="view">FK VIEW</button>
-      <button class="tb hot" data-act="skill1">SKILL 1</button>
-      <button class="tb hot" data-act="skill2">SKILL 2</button>
-      <button class="tb hot" data-act="skill3">SKILL 3</button>
+      <button class="tb hot" data-act="skill1">SPELL 1</button>
+      <button class="tb hot" data-act="skill2">SPELL 2</button>
       <button class="tb hot" data-act="ult">ULT</button>
       <button class="tb" data-act="item">ITEM / REF</button>
       <button class="tb" data-act="pass">PASS / SWITCH</button>
@@ -189,10 +188,6 @@
           <div class="field-group">
             <div><h3>Match format</h3><p class="hint">5v5 plays on a pitch with four times the area of 3v3, marked like a full-size pitch. Applies from the next match; online, the host's choice is used.</p></div>
             <div class="seg" id="fmtopt"></div>
-          </div>
-          <div class="field-group">
-            <div><h3>Graphics</h3><p class="hint" id="gfx-note">3D uses WebGL and loads three.js the first time. Classic is the original 2.5D view and runs anywhere.</p></div>
-            <div class="seg" id="gfxopt"></div>
           </div>
           <div class="field-group">
             <div><h3>Game pace</h3><p class="hint">Slows players, ball, referees and bots together. The match clock still runs in real time.</p></div>
@@ -363,6 +358,7 @@
 <script src="js/mechanics/tackles.js"></script>
 <script src="js/mechanics/referee-carry.js"></script>
 <script src="js/match/fouls.js"></script>
+<script src="js/match/var.js"></script>
 <script src="js/items/field-items.js"></script>
 <script src="js/match/scoring.js"></script>
 <script src="js/match/report.js"></script>
@@ -379,6 +375,8 @@
 <script src="js/party/skins.js"></script>
 <script src="js/anomalies/anomalies.js"></script>
 <script src="js/anomalies/draw.js"></script>
+<script src="js/party/arenas.js"></script>
+<script src="js/party/ball-mods.js"></script>
 <script src="js/mechanics/setpieces.js"></script>
 <script src="js/mechanics/ball-extras.js"></script>
 <script src="js/render/setpieces-draw.js"></script>
@@ -396,8 +394,10 @@
 <script src="js/mechanics/ai.js"></script>
 <script src="js/mechanics/control.js"></script>
 <script src="js/mechanics/referee-mode.js"></script>
+<script src="js/mechanics/dribbling.js"></script>
+<script src="js/mechanics/combat.js"></script>
 <script src="js/mechanics/simulation.js"></script>
-<script src="js/render/world2d.js"></script>
+<script src="js/render/canvas.js"></script>
 <script src="js/render/hud.js"></script>
 <script src="js/render/view.js"></script>
 <script src="js/ui/shell.js"></script>

@@ -27,7 +27,19 @@ function playFx(ev, host) {
   if (ev.type === 'ko') { sfx('bell'); CAMFX.zoom = 4; CAMFX.zoomT = 0.5; }
   if (ev.type === 'power') { sfx('whoosh'); CAMFX.zoom = 3; CAMFX.zoomT = 0.3; }
   if (ev.type === 'save') { sfx('slap'); if (host) S.slowmo = { t: 0.4, k: 0.35 }; }
-  if (ev.type === 'card') { CAMFX.cut = { x: ev.x, y: ev.y, t: 0.6 }; }
+  if (ev.type === 'card') { CAMFX.cut = { x: ev.x, y: ev.y, t: 0.6 }; if (!host) whistle(2, 0.3, 0.16); }
+  if (ev.type === 'gasp') crowdSound('gasp');
+  if (ev.type === 'overdrive' || ev.type === 'bicycle') { sfx('siren'); CAMFX.zoom = 4; CAMFX.zoomT = 0.45; if (host && ev.type === 'bicycle') S.slowmo = { t: 0.5, k: 0.3 }; }
+  if (ev.type === 'enraged') { sfx('siren'); crowdSound('roar'); }
+  if (ev.type === 'wave') (S.waves || (S.waves = [])).push({ x: ev.x, y: ev.y, r: ev.side > 0 ? ev.side : 60, t: 0 });
+  if (ev.type === 'boom') { sfx('boom'); (S.waves || (S.waves = [])).push({ x: ev.x, y: ev.y, r: ev.side > 0 ? ev.side : 90, t: 0, col: '#ffe14d' }); CAMFX.zoom = 4; CAMFX.zoomT = 0.5; }
+  if (ev.type === 'zap') sfx('zap');
+  if (ev.type === 'vent') sfx('whoosh');
+  if (ev.type === 'lava') { sfx('whoosh'); crowdSound('gasp'); }
+  if (ev.type === 'crate') sfx('pop');
+  if (ev.type === 'var') whistle(2, 0.4, 0.18);
+  if (ev.type === 'varok') crowdSound('roar');
+  if (ev.type === 'varno') crowdSound('boo');
   if (ev.type === 'goal' || ev.type === 'owngoal') {
     sfx(ev.type === 'goal' ? 'horn' : 'laugh');
     const gx = ev.side === 1 ? W + 10 : -10, cols = ev.type === 'goal' ? [TEAM[ev.team].col, '#ffffff', '#ffd23f'] : ['#bbbbbb', '#ffffff'];
@@ -46,6 +58,7 @@ function fxTick(dt) {
       if (n > 0) { for (let i = 1; i <= n; i++) S.fires.push({ x: lx + (b.x - lx) * i / n + rand(-4, 4), y: ly + (b.y - ly) * i / n + rand(-4, 4), t: 0, life: rand(0.9, 1.4), r: rand(6, 10), ph: rand(0, 6) }); b.fireX = b.x; b.fireY = b.y; } }
   } else if (b) b.fireX = b.fireY = null;
   for (const f of S.fires) f.t += dt;
+  S.waves = (S.waves || []).filter(w => (w.t += dt) < 0.5);   // shockwave rings
   S.fires = S.fires.filter(f => f.t < f.life); if (S.fires.length > 260) S.fires.splice(0, S.fires.length - 260);
   for (const w of S.whacks) w.t += dt;
   S.whacks = S.whacks.filter(w => w.t < 0.8);
@@ -68,4 +81,7 @@ function sfx(kind) {
   if (kind === 'horn') { tone('sawtooth', 233, 233, 1.0, 0.09); tone('sawtooth', 294, 294, 1.0, 0.07); }
   if (kind === 'laugh') { for (let i = 0; i < 5; i++) { const o = AC.createOscillator(), gg = AC.createGain(), st = t0 + i * 0.13; o.frequency.setValueAtTime(320 - i * 20, st); gg.gain.setValueAtTime(0.0001, st); gg.gain.exponentialRampToValueAtTime(0.06, st + 0.03); gg.gain.exponentialRampToValueAtTime(0.0001, st + 0.11); o.connect(gg).connect(AC.destination); o.start(st); o.stop(st + 0.12); } }
   if (kind === 'pop') tone('sine', 900, 300, 0.12, 0.12);
+  if (kind === 'siren') { const o = AC.createOscillator(), gg = AC.createGain(); o.type = 'sawtooth'; for (let i = 0; i < 4; i++) { o.frequency.setValueAtTime(i % 2 ? 1250 : 620, t0 + i * 0.22); o.frequency.linearRampToValueAtTime(i % 2 ? 620 : 1250, t0 + (i + 1) * 0.22); } gg.gain.setValueAtTime(0.08, t0); gg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.9); o.connect(gg).connect(AC.destination); o.start(t0); o.stop(t0 + 0.9); }
+  if (kind === 'zap') { noise(0.25, 0.4, 3200, 2); tone('square', 90, 60, 0.25, 0.12); }
+  if (kind === 'boom') { noise(0.6, 0.6, 180, 0.5); tone('sine', 90, 30, 0.6, 0.35); }
 }

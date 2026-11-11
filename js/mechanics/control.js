@@ -8,13 +8,14 @@ function readInput(h, dt) {
   if (h.remote) {
     const r = (NET && NET.inputs[h.id]) || {}, c = r.c || {}, lc = h.lc || (h.lc = { ...c });
     const e = a => (c[a] || 0) > (lc[a] || 0);
-    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), th: e('th'), passR: e('passR'), lpassR: e('lpassR'), thR: e('thR'), foul: e('foul'), view: e('view'), s1: e('s1'), s2: e('s2'), s3: e('s3'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
+    const out = { ix: clamp(+r.ix || 0, -1, 1), iy: clamp(+r.iy || 0, -1, 1), sprint: !!r.run, pass: e('pass'), lpass: e('lpass'), th: e('th'), passR: e('passR'), lpassR: e('lpassR'), thR: e('thR'), foul: e('foul'), atk: e('atk'), view: e('view'), s1: e('s1'), s2: e('s2'), ul: e('ul'), blind: e('blind'), item: e('item'), sp: e('sp'), sr: e('sr'), power: clamp(+r.pw || 0.5, 0.25, 1), taunt: e('taunt') ? clamp(Math.round(+r.tw || 0), 0, TAUNTS.length - 1) : -1 };
     h.lc = { ...c }; const held = CHARGE_KEYS.find(([, pk, rk]) => (c[pk] || 0) > (c[rk] || 0)); h.charging = !!held; h.chargeKind = held ? held[0] : null;
     if (h.charging) h.charge = Math.min(1, (h.charge || 0) + dt * 1.4); else h.charge = 0;
     return out;
   }
   return localInput(h, dt);
 }
+const AIM_KEYS = [['foul', 'atk', -1], ['skill1', 's1', 0], ['skill2', 's2', 1], ['ult', 'ul', 3]];   // action, input field, slot (-1 = base attack)
 const CHARGE_KEYS = [['shoot', 'sp', 'sr'], ['pass', 'pass', 'passR'], ['lpass', 'lpass', 'lpassR'], ['through', 'th', 'thR']];
 function localInput(h, dt) {
   const pr = a => (h.map[a] || []).some(c => keys.has(c)) || (h.touch && virt[a]);
@@ -23,7 +24,17 @@ function localInput(h, dt) {
   if (h.touch && (virt.jx || virt.jy)) { ix = virt.jx; iy = virt.jy; }
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
   const out = { ix, iy, sprint: pr('sprint'), pass: false, lpass: false, th: false, passR: false, lpassR: false, thR: false, foul: edge('foul'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25, taunt: -1,
-    view: edge('view'), s1: edge('skill1'), s2: edge('skill2'), s3: edge('skill3'), ul: edge('ult') };
+    view: edge('view'), atk: false, s1: false, s2: false, ul: false };
+  // attack, spells and ultimate: hold to aim (the guide shows who or where), release to strike or cast
+  let aiming = null;
+  for (const [a, rk, slot] of AIM_KEYS) {
+    const v = pr(a), k = 'aim_' + a;
+    if (v && !h.prev[k]) h.aimLast = slot;
+    if (v && (aiming == null || h.aimLast === slot)) aiming = slot;
+    else if (!v && h.prev[k]) out[rk] = true;
+    h.prev[k] = v;
+  }
+  h.aiming = aiming;
   // taunt wheel: hold the taunt key, pick a direction, release
   if (pr('taunt')) { h.tauntOpen = true; const d = tauntFromDir(ix, iy); if (d >= 0) h.tauntSel = d; out.ix = out.iy = 0; out.sprint = false; }
   else if (h.tauntOpen) { h.tauntOpen = false; out.taunt = h.tauntSel != null ? h.tauntSel : 0; h.tauntSel = null; }
@@ -70,12 +81,12 @@ function humanControl(h, dt) {
   const own = S.ball.owner === p, air = p.z > 0;
   // a pass fires on release, and only if the key went down while you had the ball (so a switch never turns into a pass)
   for (const k of ['pass', 'lpass', 'th', 'sp']) if (inp[k]) h.arm = own ? k : null;
-  if (air) {   // in the air: volley or head the ball, or turn a punch into a jump kick
+  if (air) {   // in the air: volley or head the ball
     if (inp.sp) p.airAct = { k: 'shoot', t: 0.4 };
     if (inp.pass || inp.th) p.airAct = { k: 'pass', t: 0.4 };
     if (inp.lpass) p.airAct = { k: 'lpass', t: 0.4 };
   } else {
-    if (inp.lpass && !own) slideTackle(p);
+    if (inp.lpass && !own) tackleMove(p);   // each character's own tackle (js/mechanics/combat.js)
     if (inp.th && !own) shortTackle(p);
     if (own && inp.passR && h.arm === 'pass') { humanPass(p, inp.power); h.arm = null; }
     if (own && inp.lpassR && h.arm === 'lpass') { humanLongPass(p, inp.power); h.arm = null; }
@@ -83,9 +94,9 @@ function humanControl(h, dt) {
     if (inp.sr && own) { if (p.aimA != null) p.face = p.aimA; shoot(p, inp.power); }
     if (inp.sp && !own) jump(p);
   }
-  if (inp.foul) { if (weaponOf(p, 'ranged')) fireWeapon(p); else if (p.target) doFoul(p, p.target, air ? 'kick' : 'punch'); else floatText(p, 'No one in reach', '#c8c8c8'); }
+  if (inp.atk) baseAttack(p);
   if (inp.blind) doBlind(p, true);
   if (inp.item) { if (p.carry != null) throwRef(p); else if (!air && refNextTo(p)) liftRef(p); else useThrowable(p); }
-  if (inp.s1) castSkill(p, 0); if (inp.s2) castSkill(p, 1); if (inp.s3) castSkill(p, 2); if (inp.ul) castSkill(p, 3);
+  if (inp.s1) castSkill(p, 0); if (inp.s2) castSkill(p, 1); if (inp.ul) castSkill(p, 3);
   if (inp.taunt >= 0) doTaunt(p, inp.taunt);
 }

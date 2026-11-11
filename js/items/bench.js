@@ -43,17 +43,7 @@ function leaveBench(p) {
   p.x = clamp(benchX(p.team), 30, W - 30); p.y = H - 12; p.vx = p.vy = 0; p.face = -Math.PI / 2; p.benchItem = null;
   feed(`${p.name} is back on from the bench`); burst(p.x, p.y, TEAM[p.team].col, 10, 18);
 }
-// Bench drawing (both views): the dugouts, and a countdown plus the item over each benched player.
-function drawBenches2D1(t) {
-  {
-    const cx = benchX(t), y = BENCH_Y(), hw = 70, tm = TEAM[t];
-    const q = (x0, y0, x1, y1, z0, z1, col) => { const a = proj(x0, y0, z0), b = proj(x1, y0, z0), c = proj(x1, y1, z1), d = proj(x0, y1, z1); ctx.fillStyle = col; path([a, b, c, d], true); ctx.fill(); };
-    q(cx - hw, y + 8, cx + hw, y + 8, 0, 13, 'rgba(20,28,26,.9)');            // low seat back
-    q(cx - hw, y - 2, cx + hw, y + 8, 9, 9, '#2c3a35');                       // seat
-    q(cx - hw - 4, y - 12, cx + hw + 4, y + 10, 34, 32, 'rgba(160,200,220,.28)');   // perspex roof
-    const L = proj(cx, y + 8, 22); ctx.fillStyle = tm.col; ctx.font = `700 ${Math.round(9 * L.s)}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText(tm.short + ' BENCH', L.x, L.y);
-  }
-}
+// Over each benched player: a countdown and the item they hold (the 3D view draws the dugouts).
 function drawBenchInfo() {
   for (const p of S.players) {
     if (!onBench(p)) continue;

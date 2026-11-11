@@ -39,7 +39,7 @@ function randomCode() { return Array.from({ length: 5 }, () => CODE_CH[Math.floo
 function myName() { const n = ($('on-name').value || '').trim().slice(0, 14) || 'Player'; store.set('fpfc-name', n); return n; }
 function newNet(code, isHost, peer) {
   return { code, isHost, peer, uid: peer.id, conn: null, conns: {}, roster: {}, inputs: {}, meta: { host: isHost ? peer.id : '', status: 'lobby' },
-    lastSnap: 0, pc: 1, pings: {}, pingTimer: 0, muted: new Set(), cnt: { s1: 0, s2: 0, s3: 0, ul: 0, pass: 0, lpass: 0, foul: 0, switch: 0, blind: 0, item: 0, sp: 0, sr: 0 }, pw: 0.5, sent: '', sentAt: 0, prev: {}, charge: 0, charging: false, lastPm: '' };
+    lastSnap: 0, pc: 1, pings: {}, pingTimer: 0, muted: new Set(), cnt: { s1: 0, s2: 0, ul: 0, atk: 0, pass: 0, lpass: 0, foul: 0, switch: 0, blind: 0, item: 0, sp: 0, sr: 0 }, pw: 0.5, sent: '', sentAt: 0, prev: {}, charge: 0, charging: false, lastPm: '' };
 }
 function netError(e) {
   console.error(e);

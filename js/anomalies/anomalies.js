@@ -99,6 +99,7 @@ function updateUfo(dt) {
 }
 function anomReturn(p) {   // an abducted or kidnapped player comes back
   const why = p.goneWhy; p.goneWhy = '';
+  if (why === 'lava') { arenaReturn(p); return; }
   if (why === 'ufo') {
     p.x = rand(W * 0.2, W * 0.8); p.y = rand(H * 0.2, H * 0.8); p.vx = p.vy = 0; p.stun = 1.4; a0Anim(p, 'facepalm', 1);
     burst(p.x, p.y, '#9dffb8', 18, 30); floatText(p, 'BACK FROM SPACE', '#9dffb8'); feed(`The aliens dropped ${p.name} back on the pitch, slightly probed`, '#9dffb8');

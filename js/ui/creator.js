@@ -26,7 +26,7 @@ function renderCreator() {
 function updatePreview() {
   $('cr-code').value = skinCode(DRAFT);
   if (PREVIEW) { PREVIEW.setLook(lookFromSkin(DRAFT)); return; }
-  const c = $('cr-canvas'), g = c.getContext('2d'); c.width = c.clientWidth || 300; c.height = c.clientHeight || 300;   // classic fallback: a big badge
+  const c = $('cr-canvas'), g = c.getContext('2d'); c.width = c.clientWidth || 300; c.height = c.clientHeight || 300;   // no WebGL: a big badge
   const img = new Image(); img.onload = () => { g.clearRect(0, 0, c.width, c.height); g.imageSmoothingEnabled = false; const sz = Math.min(c.width, c.height) * 0.7; g.drawImage(img, (c.width - sz) / 2, (c.height - sz) / 2, sz, sz); }; img.src = skinIcon(DRAFT, 0);
 }
 let showCreatorTab = null;
@@ -35,8 +35,8 @@ async function openCreator(from) {
   showOverlay('creator');
   if (!showCreatorTab) showCreatorTab = setupTabs(document.querySelector('#creator [role="tablist"]'), $('cr-body'));
   showCreatorTab('ct-body');
-  if (!PREVIEW && store.get('fpfc-gfx') !== '2d') {
-    try { const mod = await import('../render/render3d.js'); PREVIEW = mod.createPreview($('cr-canvas')); } catch (e) { PREVIEW = null; $('cr-note').textContent = '3D preview unavailable here; showing a simple badge instead.'; }
+  if (!PREVIEW) {
+    try { const mod = await import('../render/render3d.js'); PREVIEW = mod.createPreview($('cr-canvas'), { modelLimits: MODEL_LIMITS }); } catch (e) { PREVIEW = null; $('cr-note').textContent = '3D preview unavailable here; showing a simple badge instead.'; }
   }
   if (PREVIEW) PREVIEW.start();
   renderCreator();

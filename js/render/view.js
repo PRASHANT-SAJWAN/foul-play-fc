@@ -1,11 +1,12 @@
 /* Foul Play FC · js/render/view.js
-   Switching between views, the data handed to the 3D renderer each frame, and draw().
+   Starting the 3D renderer, the data handed to it each frame, and draw().
    Classic script sharing one global scope with the rest of js/; index.html loads them in order. */
 'use strict';
 
+let gfxFails = 0;
 function draw3d() {
   try { R3.render(S.time); }
-  catch (e) { console.error(e); setGraphics(false, 'The 3D view stopped with an error, so the game switched to classic graphics.'); return; }
+  catch (e) { console.error(e); try { R3.dispose(); } catch (e2) {} R3 = null; GFX3D = false; if (++gfxFails <= 3) setGraphics(); else gfxNote = 'The 3D view keeps failing here (' + (e && e.message || 'error') + '). Reload the page to try again.'; return; }   // rebuild the scene after an error
   ctx.clearRect(0, 0, LW, LH);
   drawOverlays3D();
   drawWeatherFx(); drawRefBlind();
@@ -15,7 +16,8 @@ function draw3d() {
 }
 // Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
 function drawOverlays3D() {
-  drawChants(); drawFires(); drawAimGuides(); drawSetPieceWorld();
+  drawChants(); drawFires(); drawAimGuides(); drawCastAims(); drawSetPieceWorld();
+  drawArena(); drawBallMods(); drawCombatFx();   // hazard pitches, crates and rings, shockwaves and lassos
   drawWorldExtras(); drawWhacks(); drawBenchInfo();
   for (const p of S.players) {
     if (!onPitch(p)) continue;
@@ -31,7 +33,7 @@ function drawOverlays3D() {
       ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(P.x - w / 2, P.y, w * p.hp / 100, 3 * s);
     }
     if (p.yellows > 0) { const P = proj(p.x, p.y, 44); ctx.fillStyle = '#ffd23f'; ctx.fillRect(P.x + 14 * P.s, P.y - 4 * P.s, 4 * P.s, 6 * P.s); }
-    if (p.stun > 0 && p.ko <= 0) { const P = proj(p.x, p.y, 12); drawStars(P.x, P.y, P.s); }
+    if (p.stun > 0 && p.ko <= 0) { const P = proj(p.x, p.y, isDizzy(p) ? 50 : 12); drawStars(P.x, P.y, P.s); }   // dizzy players see stars over their head
     if (p.ko > 0) { const P = proj(p.x, p.y, 20); ctx.fillStyle = '#ff6b6b'; ctx.font = `700 ${12 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('K.O. ' + Math.ceil(p.ko), P.x, P.y); }
   }
   for (const r of S.refs) {
@@ -43,10 +45,10 @@ function drawOverlays3D() {
   }
   for (const h of S.humans) {
     if (h.remote) continue;
-    const p = S.players[h.pid]; if (!p || !p.target || !able(p)) continue;
+    const p = S.players[h.pid]; if (!p || !p.target || !able(p) || h.aiming != null) continue;   // while aiming, the aim guide labels it
     const t = p.target, P = proj(t.x, t.y, 0), help = t.stun > 0, ready = p.foulCd <= 0;
     ctx.fillStyle = help ? '#9dffb8' : ready ? '#ff8095' : 'rgba(255,128,149,.5)'; ctx.font = `700 ${11 * P.s}px ${UI}`; ctx.textAlign = 'center';
-    ctx.fillText(help ? `HELP UP [${keyLabel(h.map.foul[0])}]` : `FOUL [${keyLabel(h.map.foul[0])}]${t.team === p.team ? ' · TEAMMATE' : ''}`, P.x, P.y + 26 * P.s);
+    ctx.fillText(help ? `HELP UP [${keyLabel(h.map.foul[0])}]` : `ATTACK [${keyLabel(h.map.foul[0])}]${t.team === p.team ? ' · TEAMMATE' : ''}`, P.x, P.y + 26 * P.s);
   }
   for (const q of S.parts) { const P = proj(q.x, q.y, q.z); ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.col; ctx.fillRect(P.x - q.size / 2, P.y - q.size / 2, q.size, q.size); }
   ctx.globalAlpha = 1;
@@ -64,53 +66,36 @@ function view3d() {
     if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
-  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) && S.setPiece.view !== 'side' ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, decals: groundDecals(), ballMod: S.ballMod ? S.ballMod.k + (S.ballMod.armed ? '!' : '') : '', mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) && S.setPiece.view !== 'side' ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
+}
+// Flat things on the grass for the 3D view: scorch and ice patches, mud, lava, vents.
+function groundDecals() {
+  const out = [];
+  arenaDecals(out);
+  for (const z of S.patches || []) { const a = clamp(z.ttl / Math.min(2, z.life || 2), 0, 1); out.push(z.kind === 'scorch' ? { x: z.x, y: z.y, r: z.r, col: '#2a1408', op: 0.75 * a } : { x: z.x, y: z.y, r: z.r, col: '#cdeeff', op: 0.6 * a, glow: true }); if (z.kind === 'scorch') out.push({ x: z.x, y: z.y, r: z.r * 0.55, col: '#ff7a1a', op: 0.6 * a * (0.7 + 0.3 * Math.sin(S.time * 14 + z.x)), glow: true }); }
+  return out;
 }
 const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
-async function setGraphics(on, note) {
-  gfxNote = note || '';
-  GFX3D = !!on;
-  if (GFX3D && !R3) {
-    try {
-      const mod = await import('./render3d.js');
-      R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL, SKIN_OPTS, ITEM_COL, cloakAlpha, classCol: p => (CLS[p.cls] || {}).col, weaponHand: p => (weaponOf(p, 'melee') || {}).hand || null, classModel: p => CLASS_MODELS[p.cls] || null, onBench, bench: { x: benchX, y: BENCH_Y }, view: view3d, coneHot, cam: () => CAM });
-      resize();
-    } catch (e) {
-      console.error(e); GFX3D = false; R3 = null;
-      gfxNote = 'Could not start 3D here (' + (e && e.message ? e.message : 'WebGL unavailable') + '). Using classic graphics.';
-    }
+// Start the 3D renderer (the only view). It also restarts after a pitch-size or kit-colour change.
+async function setGraphics() {
+  if (R3 || GFX3D === 'loading') return;
+  GFX3D = 'loading'; gfxNote = '';
+  try {
+    const mod = await import('./render3d.js');
+    R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL, SKIN_OPTS, ITEM_COL, cloakAlpha, classCol: p => (CLS[p.cls] || {}).col, weaponHand: p => (weaponOf(p, 'melee') || {}).hand || null, glow: p => glowing(p) ? TEAM[p.team].col : null, dizzy: isDizzy, classModel: p => CLASS_MODELS[p.cls] || null, modelLimits: MODEL_LIMITS, onBench, bench: { x: benchX, y: BENCH_Y }, view: view3d, coneHot, cam: () => CAM });
+    resize();
+  } catch (e) {
+    console.error(e); R3 = null;
+    gfxNote = 'This game needs 3D graphics (WebGL), which could not start here: ' + (e && e.message ? e.message : 'WebGL unavailable') + '. Try another browser or turn on hardware acceleration.';
   }
-  if (!GFX3D) store.set('fpfc-gfx', note ? store.get('fpfc-gfx') : '2d'); else store.set('fpfc-gfx', '3d');
-  document.getElementById('stage').classList.toggle('gfx3d', GFX3D && !!R3);
-  proj = GFX3D && R3 ? R3.project : proj2d;
-  if (!document.getElementById('settings').hidden) renderOpts();
+  GFX3D = !!R3;
+  document.getElementById('stage').classList.toggle('gfx3d', GFX3D);
+  if (R3) proj = R3.project;
 }
 function draw() {
   ctx.setTransform(cv.width / LW, 0, 0, cv.height / LH, 0, 0);
-  if (GFX3D && R3) { draw3d(); return; }
-  ctx.save();
-  if (S.shake > 0) ctx.translate(rand(-1, 1) * S.shake, rand(-1, 1) * S.shake);
-  drawBackdrop(); drawPitch(); drawGoal(0); drawGoal(1); drawCones();
-  for (const n of S.bananas) { const P = proj(n.x, n.y); drawIcon('banana', P.x, P.y, P.s); }
-  drawGroundExtras(); drawFires(); drawAimGuides();
-  drawTargets(); drawSetPieceWorld();
-  const ents = [];
-  for (const p of S.players) if (onPitch(p) || onBench(p)) ents.push([p.y, () => drawPlayer(p)]);
-  for (const t of [0, 1]) ents.push([BENCH_Y() - 3, () => drawBenches2D1(t)]);
-  for (const r of S.refs) if (!(r.gone > 0)) ents.push([r.y, () => drawRef(r)]);
-  for (const e of anomEnts()) ents.push([e.y, e.draw]);
-  for (const it of S.items) ents.push([it.y, () => drawItem(it)]);
-  ents.push([S.ball.y + 0.5, drawBall]);
-  ents.sort((a, b) => a[0] - b[0]).forEach(e => e[1]());
-  drawBoards(H + 46, 1);
-  drawWorldExtras(); drawWhacks(); drawBenchInfo();
-  for (const q of S.parts) { const P = proj(q.x, q.y, q.z); ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.col; ctx.fillRect(P.x - q.size / 2, P.y - q.size / 2, q.size, q.size); }
-  ctx.globalAlpha = 1;
-  for (const t of S.texts) { const P = proj(t.x, t.y, t.z); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-  drawWeatherFx(); drawRefBlind();
-  const v = ctx.createRadialGradient(LW / 2, LH / 2, LH * 0.45, LW / 2, LH / 2, LH * 0.95); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)');
-  ctx.fillStyle = v; ctx.fillRect(0, 0, LW, LH);
-  drawSetPiece(); drawHUD(); drawPauseMsg();
+  if (R3) { draw3d(); return; }
+  ctx.fillStyle = '#0b1712'; ctx.fillRect(0, 0, LW, LH);   // while three.js loads, or if 3D can't start here
+  ctx.fillStyle = '#c9d3cb'; ctx.font = `600 22px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(gfxNote || 'Loading the stadium…', LW / 2, LH / 2); ctx.textBaseline = 'alphabetic';
 }

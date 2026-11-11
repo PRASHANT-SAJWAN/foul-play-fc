@@ -7,7 +7,7 @@
 const AWARDS = [
   ['Most sneaky', r => r.metrics.unseen, 'unseen fouls'], ["Crowd's darling", r => r.end.popularity, 'popularity'], ['Banana victim', r => r.metrics.slips, 'slips'],
   ['Iron wall', r => r.stats.saves, 'saves'], ['Hatchet', r => r.stats.fouls, 'fouls'], ['Gentleman', r => r.metrics.helpUps, 'help-ups'],
-  ['Workhorse', r => Math.round(r.metrics.distance), 'metres run'], ['Sniper', r => r.metrics.shotsOnTarget, 'shots on target'], ['Kung fu', r => r.metrics.jumpKicks, 'jump kicks'],
+  ['Workhorse', r => Math.round(r.metrics.distance), 'metres run'], ['Sniper', r => r.metrics.shotsOnTarget, 'shots on target'], ['Kung fu', r => r.metrics.knockouts, 'knockouts'],
   ['Glass bones', r => r.metrics.injuries, 'injuries'], ['Trash talker', r => r.metrics.taunts, 'taunts'], ['Bounty hunter', r => r.metrics.bountiesCollected, 'bounties']
 ];
 function computeAwards(R) {

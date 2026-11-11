@@ -21,6 +21,7 @@ function shoot(p, power, aimY) {
   const boosted = p.charge >= 25;   // charged shot: spends 25 charge for far better accuracy and a little extra pace
   if (boosted) { p.charge -= 25; M(p, 'chargeSpent', 25); M(p, 'powerShots'); floatText(p, 'POWER SHOT', '#4fd6ff'); if (power > 0.6) cheer('roar', p.x, 'WHAT A STRIKE!'); }
   const moodMul = p.mood >= MOOD_ZONE ? 0.85 : p.mood <= MOOD_TILT ? 1.25 : 1;
+  ang += shotError(p);   // enforcers' shots stray (js/mechanics/combat.js)
   ang += rand(-1, 1) * (0.03 + 0.07 * power) * (1.4 - 0.4 * p.hp / 100) * (boosted ? 0.3 : 1) * moodMul * crowdPressure(p.team);
   const striker = p.i === TEAM_SIZE - 1;
   const rocket = p.fx && p.fx.rocket > 0; if (rocket) p.fx.rocket--;

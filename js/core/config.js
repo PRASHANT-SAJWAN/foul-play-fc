@@ -6,7 +6,7 @@
 const cv = document.getElementById('game'), ctx = cv.getContext('2d'), cv3 = document.getElementById('game3d');
 // The 2D drawing space is always 760 tall; its width follows the screen's shape, so wider screens see more of the pitch.
 let LW = 1280;
-const LH = 760, K = 1.1, TOP = 178, GOAL_H = 48, MIN_AR = 4 / 3, MAX_AR = 3.6;
+const LH = 760, GOAL_H = 48, MIN_AR = 4 / 3, MAX_AR = 3.6;
 // Match formats. 5v5 plays on a pitch with four times the area of 3v3 (twice as long and wide), marked like a FIFA pitch.
 const FORMATS = {
   '5v5': { label: '5v5 · full pitch', W: 2000, H: 1240, size: 5, goalHalf: 68, boxD: 300, boxHalf: 366, pen: 200, arc: 166, circle: 166, gaD: 100, gaHalf: 166,
@@ -32,8 +32,7 @@ function applyFormat(key) {
   REF_RANGE = F.refRange; REF_SPEED = F.refSpeed; REF_DIST = F.refDist; SHOOT_RANGE = F.shootRange; GK_RUSH = F.gkRush; DIVE_REACH = F.dive; ARC_A = Math.acos((BOX_D - PEN_X) / ARC_R);
   ROLES = F.roles; ROLE_NAMES = F.roleNames; NAME_IDX = F.names; HUMAN_SLOTS = F.slots;
   CAM.x = W / 2; CAM.y = H / 2;
-  buildCrowd2D();
-  if (R3) { try { R3.dispose(); } catch (e) {} R3 = null; if (GFX3D) setGraphics(true); }
+  if (R3) { try { R3.dispose(); } catch (e) {} R3 = null; GFX3D = false; setGraphics(); }
 }
 const UI = "'Barlow Condensed','Arial Narrow',sans-serif", DISP = "'Teko','Arial Narrow',Impact,sans-serif";
 const TEAM = [
@@ -45,20 +44,18 @@ const NUMS = [1, 4, 5, 8, 9];
 const SKIN = ['#f1c9a5', '#d9a477', '#b07a50', '#7a4a2c', '#5a3520'];
 const HAIR = ['#1b120c', '#3a2416', '#6b4a2a', '#c9a050', '#0e0e0e'];
 const ITEM_LABEL = { medkit: 'med kit', bat: 'bat', flash: 'flash powder', banana: 'bunch of bananas', sling: 'slingshot', blaster: 'foam blaster', sword: 'sword', ultcharge: 'ultimate charge' };
-const FOUL_NAME = { skill: 'dirty skill', ranged: 'ranged attack', slide: 'sliding tackle', kick: 'jump kick', throw: 'unsporting throw', foul: 'foul', ko: 'knockout', blind: 'sand throw', banana: 'banana drop' };
+const FOUL_NAME = { skill: 'dirty skill', ranged: 'ranged attack', slide: 'sliding tackle', pound: 'ground pound', lasso: 'trip', kick: 'jump kick', throw: 'unsporting throw', foul: 'foul', ko: 'knockout', blind: 'sand throw', banana: 'banana drop' };
 const HUMAN_COL = ['#ffd23f', '#6ff0c0', '#ff8fd8', '#9fb4ff', '#ffffff', '#ffb36b', '#b6ff6b', '#6be3ff', '#e0a3ff', '#ff7a7a'];
 
+const W_ = () => W;   // the pitch width, where W is shadowed by a local
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
-function proj2d(x, y, z = 0) {   // a 1000×620 window of the world, centred on the camera focus
-  const lx = x - (CAM.x - 500), t = Math.max(-0.95, (y - (CAM.y - 310)) / 620), s = (0.7 + 0.3 * t) * K;
-  return { x: LW / 2 + (lx - 500) * s, y: TOP + 620 * K * (0.5 * t + 0.25 * t * t) - z * s, s };
-}
-// The 3D view swaps in its own camera projection so labels and text land on the 3D scene.
-let proj = proj2d, R3 = null, GFX3D = false, gfxNote = '';
+// World point -> overlay screen point. The 3D renderer swaps in its camera projection once it starts,
+// so labels and text land on the 3D scene; until then nothing is drawn over the world.
+let proj = () => ({ x: LW / 2, y: LH / 2, s: 1 }), R3 = null, GFX3D = false, gfxNote = '';
 const CAM = { x: 1000, y: 620 };
 function focusPoint() {
   const mine = S.humans.filter(h => !h.remote).map(h => S.players[h.pid]).filter(p => p && onPitch(p));

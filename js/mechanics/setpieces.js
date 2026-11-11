@@ -161,7 +161,7 @@ function setPieceUpdate(dt) {
     const inp = readInput(h, dt), p = S.players[h.pid]; if (!p) continue;
     const early = p === t && sp.t < sp.minT;
     // skills and ultimates work during the set-up too (the taker's wait for the whistle)
-    for (const [k, slot] of [['s1', 0], ['s2', 1], ['s3', 2], ['ul', 3]]) if (inp[k]) { if (early) floatText(t, 'Wait for the whistle', '#c8c8c8'); else castSkill(p, slot); }
+    for (const [k, slot] of [['s1', 0], ['s2', 1], ['ul', 3]]) if (inp[k]) { if (early) floatText(t, 'Wait for the whistle', '#c8c8c8'); else castSkill(p, slot); }
     if (p === t) {
       if (inp.view) {
         sp.view = sp.view === 'side' ? 'front' : 'side'; t.aimA = t.face;
@@ -170,8 +170,7 @@ function setPieceUpdate(dt) {
       }
       if (sp.view === 'side') steerAim(t, inp.ix, inp.iy, dt);   // turn to aim, including back towards your own half
       // aim: in the 3D front view left/right moves across the goal and up/down sets the height
-      else if ((GFX3D && !!R3) || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
-      else { sp.aim.y += inp.iy * 150 * dt; sp.aim.z += inp.ix * dir * 55 * dt; }
+      else { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
       sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
       if (early) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
       if (inp.passR) humanPass(t, inp.power);

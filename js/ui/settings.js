@@ -32,7 +32,7 @@ function fillClassSelect(sel) {
 function setMyClass(id) {
   if (!CLS[id]) return; MY_CLASS = id; store.set('fpfc-class', id);
   if (NET && NET.meta && NET.meta.status === 'lobby') {
-    if (NET.isHost) { NET.roster[NET.uid].cls = id; NET.roster[NET.uid].lock = LOCK_PLAYER; NET.roster[NET.uid].useSkin = USE_MY_LOOK; rosterChanged(); }
+    if (NET.isHost) { const me = NET.roster[NET.uid]; if (me.cls !== id) me.ready = false; me.cls = id; NET.roster[NET.uid].lock = LOCK_PLAYER; NET.roster[NET.uid].useSkin = USE_MY_LOOK; rosterChanged(); }
     else if (NET.conn) NET.conn.send({ t: 'cls', cls: id, lock: LOCK_PLAYER, useSkin: USE_MY_LOOK });
   }
   for (const id2 of ['opt-class', 'on-class']) { const el = document.getElementById(id2); if (el) el.value = id; }
@@ -52,10 +52,6 @@ function renderOpts() {
   const fm = document.getElementById('fmtopt');
   fm.innerHTML = Object.entries(FORMATS).map(([k, f]) => `<button id="fmt-${k}" aria-pressed="${k === FORMAT_PREF}" data-v="${k}">${f.label}</button>`).join('');
   fm.querySelectorAll('button').forEach(b => b.onclick = () => { FORMAT_PREF = b.dataset.v; store.set('fpfc-format', FORMAT_PREF); if (S.phase === 'menu') newMatch('watch'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
-  const gx = document.getElementById('gfxopt');
-  gx.innerHTML = [['3D', true], ['Classic 2.5D', false]].map(([n, v]) => `<button id="gfx-${v}" aria-pressed="${v === GFX3D}" data-v="${v}">${n}</button>`).join('');
-  gx.querySelectorAll('button').forEach(b => b.onclick = async () => { b.textContent = b.dataset.v === 'true' && !R3 ? 'Loading…' : b.textContent; await setGraphics(b.dataset.v === 'true'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
-  document.getElementById('gfx-note').textContent = gfxNote || '3D uses WebGL and loads three.js the first time. Classic is the original 2.5D view and runs anywhere.';
   const len = document.getElementById('len');
   len.innerHTML = LENS.map(([n, v]) => `<button id="len-${v}" aria-pressed="${v === MATCH_LEN}" data-v="${v}">${n}</button>`).join('');
   len.querySelectorAll('button').forEach(b => b.onclick = () => { MATCH_LEN = +b.dataset.v; store.set('fpfc-len', MATCH_LEN); renderOpts(); document.getElementById(b.id).focus(); });

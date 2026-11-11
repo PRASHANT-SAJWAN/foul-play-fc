@@ -103,12 +103,14 @@ let LINEUP_PREF = (() => { const v = store.get('fpfc-lineup'); return LINEUP_NAM
 let USE_MY_LOOK = store.get('fpfc-mylook') === true;
 
 /* ---------- assigning classes and looks ---------- */
-function assignClasses() {
+function assignClasses(mode) {
   const pickLine = () => LINEUP_PREF === 'mixed' ? pick(Object.keys(LINEUPS)) : LINEUP_PREF;
+  const picked = mode === 'online' && typeof NET !== 'undefined' && NET && NET.meta && NET.meta.bots;   // the host's picks for bot spots in the lobby
   for (let t = 0; t < 2; t++) {
     const line = LINEUPS[pickLine()], slots = TEAM_SIZE >= 5 ? { 4: 0, 3: 1, 1: 2, 2: 3 } : { 2: 0, 1: 2 };
     for (const p of S.players.filter(q => q.team === t)) {
-      p.cls = p.i === 0 ? 'goalkeeper' : line[slots[p.i]] || line[0];
+      const pk = picked && picked[t] && picked[t][p.i];
+      p.cls = CLS[pk] ? pk : p.i === 0 ? 'goalkeeper' : line[slots[p.i]] || line[0];
       p.cd = [0, 0, 0]; p.ult = 0; p.bf = {}; p.stk = 0; p.mvT = 0; p.auraMode = 0;
     }
   }

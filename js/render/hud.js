@@ -18,7 +18,7 @@ function drawHUD() {
   const clockTxt = S.phase === 'menu' ? 'LIVE' : S.mode === 'playground' ? '∞' : S.shoot ? `PENS ${S.shoot.goals[0]}–${S.shoot.goals[1]}` : `${S.golden ? 'GG ' : ''}${Math.floor(c / 60)}:${String(c % 60).padStart(2, '0')}`;
   if (S.shoot || S.golden) ctx.font = `600 24px ${DISP}`;
   ctx.fillText(clockTxt, cx, 39);
-  drawCrowdMeter(cx);
+  drawCrowdMeter(cx); drawRage(cx);
   // human panels
   const ph = S.humans.filter(h => !h.remote);
   ph.slice(0, 2).forEach((h, i) => { drawPanel(h, i === 0 ? 14 : LW - 344); drawHotbar(h, i === 1); });
@@ -46,6 +46,7 @@ function drawHUD() {
   if (muted) { ctx.fillStyle = 'rgba(238,242,230,.6)'; ctx.font = `500 14px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('MUTED (M)', cx, 74); }
   ctx.textBaseline = 'alphabetic';
   drawMinimap(); drawPlayerPointers();
+  drawVar();   // js/match/var.js
 }
 const MINI_W = 270;
 function drawMinimap() {
@@ -119,7 +120,7 @@ function drawPanel(h, x) {
   const nmw = ctx.measureText(nm).width;
   ctx.fillStyle = TEAM[p.team].col; ctx.font = `600 12px ${UI}`; ctx.fillText(TEAM[p.team].short, x + 26 + bw + nmw, y + 19);
   const seen = onPitch(p) && watched(p);
-  const st = !onPitch(p) ? `${p.goneWhy === 'ufo' ? 'ABDUCTED' : p.goneWhy === 'pir' ? 'KIDNAPPED' : 'ON THE BENCH'} ${Math.ceil(p.sentOff)}s` : p.ko > 0 ? `K.O. ${Math.ceil(p.ko)}s` : seen ? 'REF WATCHING' : inSmoke(p.x, p.y) ? 'IN SMOKE' : 'UNSEEN';
+  const st = !onPitch(p) ? `${p.goneWhy === 'ufo' ? 'ABDUCTED' : p.goneWhy === 'pir' ? 'KIDNAPPED' : p.goneWhy === 'lava' ? 'IN THE LAVA' : 'ON THE BENCH'} ${Math.ceil(p.sentOff)}s` : p.ko > 0 ? `K.O. ${Math.ceil(p.ko)}s` : seen ? 'REF WATCHING' : inSmoke(p.x, p.y) ? 'IN SMOKE' : 'UNSEEN';
   const sc = !onPitch(p) || p.ko > 0 ? '#ff4d4d' : seen ? '#ff6b80' : '#7dff9b';
   ctx.font = `700 11px ${UI}`; const sw = ctx.measureText(st).width + 14;
   ctx.globalAlpha = 0.18; ctx.fillStyle = sc; rr(x + w - 10 - sw, y + 10, sw, 17, 8.5); ctx.globalAlpha = 1;
@@ -211,10 +212,9 @@ function drawCrowdMeter(cx) {
   }
   ctx.textBaseline = 'alphabetic';
 }
-// Over-the-pitch extras shared by the classic and 3D views.
+// Over-the-pitch extras drawn over the 3D scene.
 const TRAIL = [];
 function drawWorldExtras() {
-  const big = proj === proj2d;
   drawAnomalies(); drawClassFx();
   for (const z of S.smokes || []) {   // smoke clouds
     const P = proj(z.x, z.y, 22), a = Math.min(1, z.ttl / 1.2) * 0.75;
@@ -229,10 +229,9 @@ function drawWorldExtras() {
   // power-shot trail
   const b = S.ball;
   if (b.trail && !b.owner) { TRAIL.push({ x: b.x, y: b.y, z: b.z || 0 }); if (TRAIL.length > 18) TRAIL.shift(); } else TRAIL.length = 0;
-  if (TRAIL.length > 2 && big) { ctx.strokeStyle = b.trail; ctx.lineCap = 'round'; for (let i = 1; i < TRAIL.length; i++) { const A = proj(TRAIL[i - 1].x, TRAIL[i - 1].y, TRAIL[i - 1].z + 4), B = proj(TRAIL[i].x, TRAIL[i].y, TRAIL[i].z + 4); ctx.globalAlpha = i / TRAIL.length; ctx.lineWidth = 1 + 5 * i / TRAIL.length; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); } ctx.globalAlpha = 1; }
   // banners in the stands
   for (const bn of (S.crowd && S.crowd.banners) || []) {
-    const P = big ? proj(bn.x, -70, 0) : proj(bn.x, -125, 48), a = Math.min(1, bn.life / 1.5, (12 - bn.life) * 2);
+    const P = proj(bn.x, -125, 48), a = Math.min(1, bn.life / 1.5, (12 - bn.life) * 2);
     ctx.globalAlpha = Math.max(0, a); ctx.font = `700 ${Math.round(17 * Math.max(0.7, P.s))}px ${DISP}`; const tw = ctx.measureText(bn.text).width + 26, th = 24 * Math.max(0.7, P.s);
     ctx.fillStyle = TEAM[bn.team].col; ctx.beginPath(); for (let k = 0; k <= 10; k++) { const xx = P.x - tw / 2 + tw * k / 10; ctx.lineTo(xx, P.y - th + Math.sin(S.time * 3 + k) * 2); } for (let k = 10; k >= 0; k--) { const xx = P.x - tw / 2 + tw * k / 10; ctx.lineTo(xx, P.y + Math.sin(S.time * 3 + k) * 2); } ctx.closePath(); ctx.fill();
     ctx.fillStyle = bn.team === 0 ? '#0b1a2a' : '#fff4ee'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bn.text, P.x, P.y - th / 2 + 1); ctx.textBaseline = 'alphabetic';
@@ -278,7 +277,6 @@ function drawTauntWheel() {
     });
   }
 }
-// Ground-level extras for the classic view (the 3D view draws its own).
 function drawFires() {   // ground fire left by a power shot: a scorch mark under flickering flames
   for (const f of S.fires || []) {
     const P = proj(f.x, f.y), s = P.s, k = 1 - f.t / f.life, fl = 0.75 + 0.25 * Math.sin(S.time * 22 + f.ph);
@@ -318,6 +316,69 @@ function drawAimGuides() {
     ctx.globalAlpha = 1;
   }
 }
+// Holding attack, a spell or the ultimate: show the reach, the player it would hit (aim assist), or where it lands.
+function drawCastAims() {
+  const list = S.net === 'client' ? (NET && NET.inH ? [[S.players.find(p => p.human && p.human.local), NET.inH]] : []) : (S.humans || []).filter(h => !h.remote).map(h => [S.players[h.pid], h]);
+  for (const [p, h] of list) {
+    if (!p || !h || h.aiming == null || !onPitch(p) || !able(p)) continue;
+    const slot = h.aiming, f = passDir(p), A = proj(p.x, p.y);
+    let col, range, cone = 0, t = null, pt = null, rad = 0, label = '', bad = '';
+    if (slot < 0) {
+      const pl = attackPlan(p); range = pl.range; t = pl.target; col = pl.help ? '#7dff9b' : '#ff4d6d';
+      if (pl.ranged) { pt = t ? { x: t.x, y: t.y } : { x: p.x + Math.cos(f) * range, y: p.y + Math.sin(f) * range }; label = pl.ranged.name.toUpperCase(); }
+      else { cone = ATK_CONE; label = pl.help ? 'HELP UP' : t && t.team === p.team ? 'TEAMMATE' : 'ATTACK'; }
+      if (p.foulCd > 0 && !pl.ranged) bad = p.foulCd.toFixed(1) + 's';
+    } else {
+      const def = skillDef(p, slot); if (!def) continue;
+      const ca = castAim(p, def); range = ca.range; t = ca.u || ca.pt.on || null; col = slot === 3 ? '#ffd23f' : (CLS[p.cls] || {}).col || '#ffffff'; label = def.name.toUpperCase();
+      if (def.aim === 'self') rad = def.radius || 70; else if (def.aim === 'point') { pt = ca.pt; rad = def.radius || 34; } else if (!t) bad = def.aim === 'enemy' ? 'NO ENEMY IN RANGE' : 'NO TEAM-MATE IN RANGE';
+      if (slot === 3 && (p.ult || 0) < 100) bad = Math.floor(p.ult || 0) + '%';
+      else if (slot < 3) { const c = Math.max(p.cd[slot] || 0, def.shared && S.teamCd ? ((S.teamCd[p.team] || {})[def.id] || 0) - S.time : 0); if (c > 0) bad = Math.ceil(c) + 's'; }
+    }
+    ctx.save(); ctx.globalAlpha = bad ? 0.45 : 0.9;
+    // reach: a ring around you, or the attack's cone
+    ctx.strokeStyle = col; ctx.lineWidth = 1.6 * A.s; ctx.setLineDash([6 * A.s, 6 * A.s]); ctx.beginPath();
+    const N = 40, a0 = cone ? f - cone : 0, a1 = cone ? f + cone : Math.PI * 2;
+    if (cone) { ctx.moveTo(A.x, A.y); }
+    for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N, P = proj(p.x + Math.cos(a) * range, p.y + Math.sin(a) * range); ctx.lineTo(P.x, P.y); }
+    if (cone) ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+    if (cone) { ctx.globalAlpha *= 0.18; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = bad ? 0.45 : 0.9; }
+    // the line to the target or landing point, and what's there
+    const end = t ? { x: t.x, y: t.y } : pt;
+    if (end) { const B = proj(end.x, end.y); ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 5 * A.s; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.strokeStyle = col; ctx.lineWidth = 2.4 * A.s; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); }
+    if (t) { const B = proj(t.x, t.y), pulse = 1 + Math.sin(S.time * 12) * 0.1; ctx.strokeStyle = col; ctx.lineWidth = 3 * B.s; ell(B.x, B.y, 17 * B.s * pulse, 7.5 * B.s * pulse); ctx.stroke(); }
+    if (rad) { const c = pt || p; ctx.fillStyle = col; ctx.globalAlpha *= 0.22; ctx.beginPath(); for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2, P = proj(c.x + Math.cos(a) * rad, c.y + Math.sin(a) * rad); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); } ctx.closePath(); ctx.fill(); ctx.globalAlpha = bad ? 0.45 : 0.9; ctx.strokeStyle = col; ctx.lineWidth = 2 * A.s; ctx.stroke(); }
+    // the label above the target (or the landing point, or you)
+    const lp = t || pt || p, L = proj(lp.x, lp.y, 50), s = Math.max(0.8, L.s);
+    ctx.globalAlpha = 1; ctx.font = `700 ${12 * s}px ${UI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const txt = bad ? `${label} · ${bad}` : label, w = ctx.measureText(txt).width + 12 * s;
+    ctx.fillStyle = 'rgba(6,11,10,.8)'; rr(L.x - w / 2, L.y - 9 * s, w, 18 * s, 6 * s); ctx.fillStyle = bad ? '#c8c8c8' : col; ctx.fillText(txt, L.x, L.y + 0.5);
+    ctx.textBaseline = 'alphabetic'; ctx.restore();
+  }
+}
+// The two teams' rage meters beside the scoreboard. Full: it pulses and says OVERDRIVE.
+function drawRage(cx) {
+  if (S.phase === 'menu') return;
+  for (const t of [0, 1]) {
+    const v = clamp(rageOf(t) / RAGE.max, 0, 1), x = t === 0 ? cx - 226 : cx + 214, y = 10, h = 52, full = v >= 1;
+    ctx.fillStyle = 'rgba(6,11,10,.88)'; ctx.fillRect(x, y, 12, h);
+    ctx.fillStyle = full ? (Math.sin(S.time * 12) > 0 ? '#ffffff' : '#ff5a3d') : TEAM[t].col; ctx.fillRect(x + 2, y + 2 + (h - 4) * (1 - v), 8, (h - 4) * v);
+    ctx.save(); ctx.translate(x + 6, y + h + 9); ctx.font = `700 10px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = full ? '#ff5a3d' : '#c9d3cb'; ctx.fillText(full ? 'OVERDRIVE' : 'RAGE', 0, 0); ctx.restore();
+  }
+}
+// Shockwave rings and lasso lines (the ground patches are drawn in 3D).
+function drawCombatFx() {
+  for (const w of S.waves || []) {
+    const u = w.t / 0.5, P = proj(w.x, w.y, 1), r = w.r * (0.3 + 0.9 * u);
+    ctx.globalAlpha = 1 - u; ctx.strokeStyle = w.col || '#ffd9a8'; ctx.lineWidth = 4 * P.s * (1 - u) + 1; ell(P.x, P.y, r * P.s, r * P.s * 0.42); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  for (const l of S.lassos || []) {
+    const a = S.players[l.a], t = S.players[l.t]; if (!a || !t) continue;
+    const A = proj(a.x, a.y, 22), B = proj(t.x, t.y, 10), mx = (A.x + B.x) / 2, my = Math.min(A.y, B.y) - 30 * A.s;
+    ctx.strokeStyle = '#d8b26a'; ctx.lineWidth = 2.2 * A.s; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.quadraticCurveTo(mx, my, B.x, B.y); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(B.x, B.y, 10 * B.s, 4 * B.s, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+}
 // "WHACK!" bursts: pop in, wobble, drift up and fade.
 function drawWhacks() {
   for (const w of S.whacks || []) {
@@ -332,16 +393,6 @@ function drawWhacks() {
     ctx.textBaseline = 'alphabetic'; ctx.restore();
   }
   ctx.globalAlpha = 1;
-}
-function drawGroundExtras() {
-  for (const g of S.puddles || []) { const P = proj(g.x, g.y); ctx.globalAlpha = Math.min(1, g.ttl / 2); ctx.fillStyle = 'rgba(92,207,106,.55)'; ell(P.x, P.y, 20 * P.s, 8 * P.s); ctx.fill(); ctx.fillStyle = 'rgba(200,255,200,.35)'; ell(P.x - 5 * P.s, P.y - 2 * P.s, 6 * P.s, 2.4 * P.s); ctx.fill(); }
-  ctx.globalAlpha = 1;
-  for (const d of S.decoys || []) {
-    const P = proj(d.x, d.y), tm = TEAM[d.team], src = S.players[d.src];
-    ctx.save(); ctx.globalAlpha = 0.55; ctx.translate(P.x, P.y);
-    drawFigure(P.s, d.run, 1, { jersey: tm.col, shorts: tm.shorts, socks: tm.socks, skin: src ? src.skin : '#d9a477', hair: src ? src.hair : '#222', num: src ? src.num : null, numCol: '#0b1a2a', bigHead: MUT.bigHead });
-    ctx.restore();
-  }
 }
 function drawRefPanel() {
   const R = S.refHuman, r = S.refs[0], x = 14, y = 10, w = 330, b = BINDS[0], k = keyLabel;
