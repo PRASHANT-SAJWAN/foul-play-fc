@@ -137,11 +137,12 @@ function update(dt) {
     const o = b.owner;
     if (!onPitch(o) || o.stun > 0 || o.ko > 0 || o.carry != null) loseBall(o, o.face);
     else if (dribble(o, b, dt)) {   // close control: js/mechanics/dribbling.js
-      b.z = 0; b.vz = 0;
+      b.z = o.gk ? 15 + (o.z || 0) : 0; b.vz = 0;   // a keeper carries it in their hands
       b.spin += Math.hypot(b.vx, b.vy) * dt * 0.2;
       for (const p of S.players) {
         if (p.team === o.team || !canBall(p) || p.slide > 0 || p.z > 10 || p.pickCd > 0 || dist(p, b) > 15) continue;
         if (o.bf && o.bf.timeRush > 0) continue;   // Time Rush: nobody can take it off you
+        if (o.gk) continue;   // ball in the keeper's hands: only knocking them down frees it
         const rate = tackleMul(p, o) * (p.lunge > 0 ? 6 : 1.4) * (p.gk ? 2 : 1) * (p.mood <= MOOD_TILT ? 0.8 : 1) * (o.fx && o.fx.magnet > 0 ? 0.5 : 1) * (p.firedUpAt === o && p.firedUpT > 0 ? 1.2 : 1);
         if (glowing(p) || Math.random() < rate * dt) {   // an enraged team's tackle always wins: an Overdrive
           if (hasBf(o, 'speedDribble')) { p.stun = Math.max(p.stun, 1); floatText(p, 'TOO FAST', '#ffcc22'); continue; }

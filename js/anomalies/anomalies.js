@@ -196,7 +196,7 @@ function updateInvasion(dt) {
     if (d > 3) { const m = Math.min(d, sp * dt); f.x += dx / d * m; f.y += dy / d * m; f.face = Math.atan2(dy, dx); f.run += m * 0.09; f.mv = 1; }
     else if (f.st === 'out') { A.inv.splice(i, 1); continue; }
     else if (z) { f.tx = rand(z.x0, z.x1); f.ty = rand(z.y0, z.y1); f.st = 'mill'; }
-    if (f.st !== 'out' && f.kickCd <= 0 && dist(f, b) < 16 && (b.z || 0) < 20) {   // a fan has a go at the ball
+    if (f.st !== 'out' && f.kickCd <= 0 && dist(f, b) < 16 && (b.z || 0) < 20 && !gkFirm(b.owner)) {   // a fan has a go at the ball
       f.kickCd = 2.5; const o = b.owner; if (o) { loseBall(o, o.face); o.pickCd = 0.5; floatText(o, 'FAN TACKLE!', '#ffd23f'); }
       const a = rand(0, Math.PI * 2), sp2 = rand(220, 420); b.owner = null; b.vx = Math.cos(a) * sp2; b.vy = Math.sin(a) * sp2; b.vz = rand(60, 200); b.z = Math.max(b.z || 0, 1);
       cheer('roar', f.x, 'OLÉ!'); S.excite += 0.15;

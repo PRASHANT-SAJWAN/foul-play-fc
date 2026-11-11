@@ -15,7 +15,8 @@ function dribble(o, b, dt) {
   const sp = Math.hypot(o.vx, o.vy), fx = Math.cos(o.face), fy = Math.sin(o.face);
   // Moments where the ball stays glued: keepers hold it, players in the air, dashes and blinks.
   if (o.gk || (o.z || 0) > 0 || o.dash || o.dive > 0 || sp > 300 || o.thrown) {
-    b.x = clamp(o.x + fx * 11, 2, W - 2); b.y = clamp(o.y + fy * 11, 2, H - 2); b.vx = o.vx; b.vy = o.vy; b.ctrl = o; return true;
+    const hold = o.gk ? 7 : 11;   // a keeper holds it close to the chest
+    b.x = clamp(o.x + fx * hold, 2, W - 2); b.y = clamp(o.y + fy * hold, 2, H - 2); b.vx = o.vx; b.vy = o.vy; b.ctrl = o; return true;
   }
   // A new carrier (a tackle, an interception, a skill): bring the ball to their feet.
   if (b.ctrl !== o) {

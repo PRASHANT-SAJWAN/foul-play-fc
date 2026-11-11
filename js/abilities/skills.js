@@ -49,9 +49,9 @@ const SKILL_FX = {
   // Assassin
   cloak: p => { BF(p, 'cloak', 4); BF(p, 'cloakHit', 6); },
   blink: (p, pt, t) => { const a = t.face + Math.PI; p.x = clamp(t.x + Math.cos(a) * 14, 8, W - 8); p.y = clamp(t.y + Math.sin(a) * 14, 8, H - 8); burst(p.x, p.y, '#8a4dff', 14, 20);
-    if (S.ball.owner === t) { S.ball.owner = p; S.ball.lastTouch = p; t.pickCd = 0.8; knock(p, t, { stun: 1, foul: false, col: '#8a4dff' }); bountyCollect(p, t); } else knock(p, t, { stun: 1, dmg: 10, foul: true, col: '#8a4dff' }); },
+    if (S.ball.owner === t && !gkFirm(t)) { S.ball.owner = p; S.ball.lastTouch = p; t.pickCd = 0.8; knock(p, t, { stun: 1, foul: false, col: '#8a4dff' }); bountyCollect(p, t); } else knock(p, t, { stun: 1, dmg: 10, foul: true, col: '#8a4dff' }); },
   phantom: (p, pt) => { const a = Math.atan2(pt.y - p.y, pt.x - p.x); decoyOf(p, { vx: Math.cos(a) * 200, vy: Math.sin(a) * 200, ttl: 3, ball: true }); },
-  dimension: (p, pt) => { const b = S.ball; if (b.owner !== p && dist(p, b) > 160) { if (p.human) floatText(p, 'Get to the ball first', '#c8c8c8'); return false; }
+  dimension: (p, pt) => { const b = S.ball; if (b.owner && b.owner !== p && gkFirm(b.owner)) { if (p.human) floatText(p, 'The keeper has it', '#c8c8c8'); return false; } if (b.owner !== p && dist(p, b) > 160) { if (p.human) floatText(p, 'Get to the ball first', '#c8c8c8'); return false; }
     const target = aimFor(p, 520); decoyOf(p, { ttl: 4 }); addZone({ type: 'mine', x: p.x, y: p.y, r: 60, ttl: 4, team: p.team, owner: p.id });
     burst(p.x, p.y, '#8a4dff', 20, 30); p.x = target.x; p.y = target.y; b.owner = p; b.lastTouch = p; b.z = 0; b.vx = b.vy = b.vz = 0; burst(p.x, p.y, '#8a4dff', 20, 30); },
   // Speedster
@@ -67,9 +67,9 @@ const SKILL_FX = {
   titan: p => addZone({ type: 'dome', x: p.x, y: p.y, r: 110, ttl: 6, team: p.team, owner: p.id }),
   // Defender
   intervene: (p, pt, t) => { const a = Math.atan2(p.y - t.y, p.x - t.x); p.x = clamp(t.x + Math.cos(a) * 14, 8, W - 8); p.y = clamp(t.y + Math.sin(a) * 14, 8, H - 8); p.face = a + Math.PI;
-    if (S.ball.owner === t && Math.random() < 0.8) { S.ball.owner = p; S.ball.lastTouch = p; t.pickCd = 0.7; p.stats.tackles++; floatText(p, 'CLEAN TACKLE', '#7dff9b'); bountyCollect(p, t); } },
+    if (S.ball.owner === t && !gkFirm(t) && Math.random() < 0.8) { S.ball.owner = p; S.ball.lastTouch = p; t.pickCd = 0.7; p.stats.tackles++; floatText(p, 'CLEAN TACKLE', '#7dff9b'); bountyCollect(p, t); } },
   zoneLock: (p, pt) => addZone({ type: 'zoneLock', x: pt.x, y: pt.y, r: 85, ttl: 4, team: p.team }),
-  tackleCharge: (p, pt, t) => { const had = S.ball.owner === t; p.x = clamp(t.x - Math.cos(p.face = Math.atan2(t.y - p.y, t.x - p.x)) * 14, 8, W - 8); p.y = clamp(t.y - Math.sin(p.face) * 14, 8, H - 8);
+  tackleCharge: (p, pt, t) => { const had = S.ball.owner === t && !gkFirm(t); p.x = clamp(t.x - Math.cos(p.face = Math.atan2(t.y - p.y, t.x - p.x)) * 14, 8, W - 8); p.y = clamp(t.y - Math.sin(p.face) * 14, 8, H - 8);
     knock(p, t, { stun: 1.5, kb: 160, foul: !had, dmg: had ? 0 : 12 });
     if (had || S.ball.owner == null) { const b = S.ball; b.owner = null; b.vx = Math.cos(p.face) * 520; b.vy = Math.sin(p.face) * 520 + rand(-80, 80); b.vz = 120; b.lastTouch = p; } },
   absoluteMark: (p, pt) => { const t = unitNear(enemiesOf(p).filter(q => dist(q, p) < 500), aimFor(p, 500)); if (!t) return false; BF(t, 'marked', 8); BF(p, 'boost', 8); floatText(t, 'MARKED', '#f2c230'); },

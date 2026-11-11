@@ -55,7 +55,11 @@ function dmgIn(t) {
   if (hasSyn(t.team, 'wall')) m *= 0.9;
   return m;
 }
-const knockImmune = p => hasBf(p, 'timeRush') || hasBf(p, 'rage') || hasBf(p, 'immune') || (p.cls === 'tank' && (p.lunge > 0 || p.slide > 0));
+// Keepers stand firm: they can't be knocked down, staggered or robbed of the ball until their HP is low or they're knocked out.
+const KEEPER_KNOCK_HP = 35;
+const gkFirm = p => !!p && !!p.gk && p.ko <= 0 && p.hp > KEEPER_KNOCK_HP;
+const firmText = p => gkFirm(p) ? 'KEEPER STANDS FIRM' : 'UNSTOPPABLE';
+const knockImmune = p => gkFirm(p) || hasBf(p, 'timeRush') || hasBf(p, 'rage') || hasBf(p, 'immune') || (p.cls === 'tank' && (p.lunge > 0 || p.slide > 0));
 const refIgnores = p => !!p && (hasBf(p, 'cloak') || hasBf(p, 'stealth') || hasBf(p, 'awaken'));
 function tackleMul(stealer, carrier) {
   let m = 1;
@@ -86,7 +90,7 @@ function knock(a, t, o) {
   if (o.stun && !imm) { t.stun = Math.max(t.stun, o.stun); a0Anim(t, 'fall', 0.6); }
   const kbIn = (CLS[t.cls] && CLS[t.cls].mods && CLS[t.cls].mods.kbIn) || 1;
   if (o.kb && !imm) { t.vx = Math.cos(ang) * o.kb * kbIn; t.vy = Math.sin(ang) * o.kb * kbIn; }
-  if (imm && (o.stun || o.kb)) floatText(t, 'UNSTOPPABLE', '#ffd23f');
+  if (imm && (o.stun || o.kb)) floatText(t, firmText(t), '#ffd23f');
   if (S.ball.owner === t && (o.stun || o.kb) && !imm) loseBall(t, ang);
   t.lastHitBy = a.id; t.lastHitT = S.time;
   if (!imm) afterHit(a, t, { foul: o.foul, heavy: o.heavy != null ? o.heavy : (o.stun || 0) >= 1.2 || (o.kb || 0) >= 260, rage: o.rage != null ? o.rage : RAGE.shove });

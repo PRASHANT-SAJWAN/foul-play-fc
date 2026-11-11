@@ -5,7 +5,7 @@
 
 /* ---------------- actions ---------------- */
 function loseBall(p, ang) {
-  const b = S.ball; if (b.owner !== p) return;
+  const b = S.ball; if (b.owner !== p || gkFirm(p)) return;   // ball in a firm keeper's hands stays there
   b.owner = null; b.curve = null; b.trail = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
 }
 function switchHuman(h, q) { if (!q || q.human) return; const cur = S.players[h.pid]; if (cur) cur.human = null; h.pid = q.id; q.human = h; }

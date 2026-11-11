@@ -58,9 +58,11 @@ function voltBoom(b) {
   const a = b.lastTouch || b.owner; S.ballMod = null;
   fxEvent('boom', null, { x: b.x, y: b.y, side: 90 }); hitstop(0.12, 16); burst(b.x, b.y, '#ffe14d', 40, 40);
   for (const q of S.players) if (onPitch(q) && q.ko <= 0 && dist(q, b) < 90) {
+    if (gkFirm(q)) { q.hp = Math.max(1, q.hp - 8); floatText(q, firmText(q), '#ffd23f'); continue; }
     const ang = Math.atan2(q.y - b.y, q.x - b.x); q.stun = Math.max(q.stun, 1.3); q.vx = Math.cos(ang) * 340; q.vy = Math.sin(ang) * 340; q.vz = 200; q.z = Math.max(q.z || 0, 0.01);
     q.hp = Math.max(1, q.hp - 8); q.dizzy = q.stun; floatText(q, 'ZZZAP!', '#ffe14d'); if (S.ball.owner === q) S.ball.owner = null;
   }
+  if (gkFirm(b.owner)) return;   // the keeper hangs on to it
   b.owner = null; b.vx = rand(-200, 200); b.vy = rand(-200, 200); b.vz = 380; if (a) b.lastTouch = a;
   feed('BOOM! The volt ball exploded', '#ffe14d'); cheer('roar', b.x, 'KABOOM!'); S.excite += 0.7;
 }

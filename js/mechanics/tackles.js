@@ -27,7 +27,7 @@ function slideContacts(p) {   // called every frame while sliding
     if (q.team === p.team && b.owner !== q) continue;   // slide past team-mates
     p.slideHit = true;
     const behind = Math.abs(angDiff(q.face, p.slideA)) < 0.9;   // sliding the same way they face: from behind
-    if (b.owner === q && q.team !== p.team && !behind && Math.random() < 0.75) {
+    if (b.owner === q && q.team !== p.team && !behind && !gkFirm(q) && Math.random() < 0.75) {
       b.owner = null; b.vx = Math.cos(p.slideA) * 260; b.vy = Math.sin(p.slideA) * 260; b.vz = 30; b.lastTouch = p; q.pickCd = 0.6;
       p.stats.tackles++; addPop(p, 4); addMood(p, 6); addKarma(p, 2); crowdEvent(p.team, { perf: 4, drama: 2 }); bountyCollect(p, q); EV('tackle', p, { from: q.name, slide: true });
       addRage(p.team, RAGE.slide); floatText(p, 'CLEAN SLIDE', '#7dff9b'); whack(q, 'tackle'); cheer('roar', p.x, 'WHAT A TACKLE!'); thump(140, 0.15, 0.08);

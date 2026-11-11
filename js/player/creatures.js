@@ -60,7 +60,7 @@ defineAbility({ id: 'bwCannon', glyph: '💧', name: 'Tide Slash', cd: 7, aim: '
   (p, pt) => skillShot(p, pt, 'watershot', 0.08, 3));
 defineAbility({ id: 'bwSpin', glyph: '↻', name: 'Rapid Spin', cd: 9, aim: 'self', desc: 'Spin in your shell: steal the ball from anyone next to you and knock them aside.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 55 },
   p => { burst(p.x, p.y, '#4fb8ff', 16, 10); const b = S.ball;
-    for (const q of foesNear(p, p.x, p.y, 60)) { const had = b.owner === q; knock(p, q, { kb: 180, stun: 0.4, foul: true }); if (had) { b.owner = p; b.lastTouch = p; q.pickCd = 0.8; floatText(p, 'STOLEN!', '#4fb8ff'); } } });
+    for (const q of foesNear(p, p.x, p.y, 60)) { const had = b.owner === q && !gkFirm(q); knock(p, q, { kb: 180, stun: 0.4, foul: true }); if (had) { b.owner = p; b.lastTouch = p; q.pickCd = 0.8; floatText(p, 'STOLEN!', '#4fb8ff'); } } });
 defineAbility({ id: 'bwTidal', glyph: '🌊', name: 'Tidal Wall', desc: 'A wave rolls out from your goal and sweeps every enemy in your half back up the pitch.', bot: (p, c) => c.enemyBall && c.dg < W * 0.45 },
   p => { const g = goalOf(p.team); S.shake = Math.max(S.shake, 6);
     for (const q of enemiesOf(p)) if (Math.abs(q.x - g.x) < W * 0.5) { knock(p, q, { kb: 360, stun: 0.8, foul: false, from: { x: g.x, y: q.y } }); burst(q.x, q.y, '#4fb8ff', 8, 10); }

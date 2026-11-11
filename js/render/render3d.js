@@ -668,6 +668,7 @@ export function createRenderer3D(canvas, G) {
       if (p.slide > 0) { R.body.rotation.set(-1.25, 0, 0); R.body.position.y = 4; R.legL.rotation.x = -1.4; R.legR.rotation.x = -0.6; }
       else if (p.z > 0 && !down) { R.legL.rotation.x = -0.9; R.legR.rotation.x = 0.4; R.armL.rotation.set(-2.4, 0, 0.4); R.armR.rotation.set(-2.4, 0, -0.4); }
       if (p.carry != null && !down) { R.armL.rotation.set(-3.0, 0, 0.35); R.armR.rotation.set(-3.0, 0, -0.35); }
+      if (p.gk && S.ball.owner === p && !down && !(p.dive > 0)) { R.armL.rotation.set(-1.35, 0, -0.45); R.armR.rotation.set(-1.35, 0, 0.45); }   // ball cradled in the keeper's hands
       R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 41.5 : 37.4;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
       const hand = !down && G.weaponHand ? G.weaponHand(p) : null;   // which weapon mesh to show (js/player/player.js)

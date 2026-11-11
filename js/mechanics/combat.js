@@ -108,6 +108,7 @@ function updateCombat(dt) {
   S.patches = S.patches || []; S.lassos = S.lassos || []; S.rage = S.rage || [0, 0];
   for (const l of S.lassos) l.life -= dt; S.lassos = S.lassos.filter(l => l.life > 0);
   for (const p of S.players) {
+    if (gkFirm(p) && p.stun > 0 && !p.thrown) { p.stun = 0; p.dizzy = 0; if (p.anim === 'fall') p.animT = 0; }   // keepers keep their feet until HP is low
     if (p.dizzy > 0 && p.stun <= 0) p.dizzy = 0;
     if (p.skidT > 0) p.skidT -= dt;
     if (!onPitch(p)) continue;
@@ -129,7 +130,7 @@ function updateCombat(dt) {
     if (!able(p) || (p.z || 0) > 0) continue;
     for (const z of S.patches) {
       if (Math.hypot(p.x - z.x, p.y - z.y) > z.r) continue;
-      if (z.kind === 'scorch' && z.team !== p.team && !(p.panicT > S.time)) {   // hot feet: a panicked hop in a random direction
+      if (z.kind === 'scorch' && z.team !== p.team && !gkFirm(p) && !(p.panicT > S.time)) {   // hot feet: a panicked hop in a random direction
         p.panicT = S.time + 1.3; const a = rand(0, Math.PI * 2);
         p.vx = Math.cos(a) * 240; p.vy = Math.sin(a) * 240; p.vz = 170; p.z = 0.01; p.stun = Math.max(p.stun, 0.35);
         loseBall(p, a); floatText(p, 'HOT HOT HOT!', '#ff8a3d'); burst(p.x, p.y, '#ff8a3d', 10, 10);

@@ -73,7 +73,7 @@ function updateClasses(dt) {
     if (z.type === 'orbital' && z.ttl <= 0) {
       const o = S.players[z.owner]; burst(z.x, z.y, '#b8a8ff', 40, 40); S.shake = Math.max(S.shake, 9); thump(50, 0.5, 0.2); cheer('roar', z.x, 'ORBITAL STRIKE!');
       for (const q of S.players) if (q.team !== z.team && onPitch(q) && Math.hypot(q.x - z.x, q.y - z.y) < z.r) knock(o || q, q, { stun: 3, dmg: 15, kb: 260, from: z, foul: false, col: '#b8a8ff' });
-      if (Math.hypot(b.x - z.x, b.y - z.y) < z.r) { if (b.owner) loseBall(b.owner, 0); const g = goalOf(z.team), a = Math.atan2(g.y - b.y, g.x - b.x); b.owner = null; b.vx = Math.cos(a) * 650; b.vy = Math.sin(a) * 650; b.vz = 260; b.lastTouch = o || b.lastTouch; }
+      if (Math.hypot(b.x - z.x, b.y - z.y) < z.r && !gkFirm(b.owner)) { if (b.owner) loseBall(b.owner, 0); const g = goalOf(z.team), a = Math.atan2(g.y - b.y, g.x - b.x); b.owner = null; b.vx = Math.cos(a) * 650; b.vy = Math.sin(a) * 650; b.vz = 260; b.lastTouch = o || b.lastTouch; }
     }
     if (z.type === 'dome' && !b.owner) {   // shots bounce off the dome
       const d = Math.hypot(b.x - z.x, b.y - z.y), nx = (b.x - z.x) / (d || 1), ny = (b.y - z.y) / (d || 1), vn = b.vx * nx + b.vy * ny;

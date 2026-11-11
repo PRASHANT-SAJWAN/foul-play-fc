@@ -32,7 +32,7 @@ function updateArena(dt) {
       else if (v.st === 1) { v.st = 2; v.t = 0.7; fxEvent('vent', null, { x: v.x, y: v.y }); }
       else { v.st = 0; v.t = rand(4, 8); }
       if (v.st === 2) {   // eruption: everything on top goes up
-        for (const p of S.players) if (onPitch(p) && (p.z || 0) < 5 && Math.hypot(p.x - v.x, p.y - v.y) < v.r) { p.vz = 430; p.z = 0.01; p.stun = Math.max(p.stun, 0.8); p.vx *= 0.3; p.vy *= 0.3; loseBall(p, rand(0, 6.28)); floatText(p, 'WHOOSH!', '#ffffff'); }
+        for (const p of S.players) if (onPitch(p) && !gkFirm(p) && (p.z || 0) < 5 && Math.hypot(p.x - v.x, p.y - v.y) < v.r) { p.vz = 430; p.z = 0.01; p.stun = Math.max(p.stun, 0.8); p.vx *= 0.3; p.vy *= 0.3; loseBall(p, rand(0, 6.28)); floatText(p, 'WHOOSH!', '#ffffff'); }
         const b = S.ball; if (!b.owner && (b.z || 0) < 5 && Math.hypot(b.x - v.x, b.y - v.y) < v.r) { b.vz = 520; b.vx += rand(-80, 80); b.vy += (v.y < H / 2 ? 1 : -1) * 120; }
       }
     }

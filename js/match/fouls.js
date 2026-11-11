@@ -18,10 +18,11 @@ function doFoul(a, t) {
   M(a, 'fouls'); if (W) M(a, 'foulsBat'); if (a.team === t.team) M(a, 'foulsOnTeammates'); M(t, 'fouledReceived');
   noteGrudge(a, t);
   let ang = Math.atan2(t.y - a.y, t.x - a.x); const kb = (W ? W.kb : 170) * odK * (t.gk ? 1.8 : 1);
-  if (t.gk) { const gx = t.team === 0 ? 0 : W_(); ang = Math.atan2(H / 2 - t.y, gx - t.x) * 0.6 + ang * 0.4; }   // a keeper gets knocked back toward their own net
-  t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb;
-  const dmg = Math.round((W ? W.dmg : 16) * odK * dmgOut(a) * dmgIn(t)), imm = knockImmune(t);
-  t.hp = Math.max(0, t.hp - dmg); t.hitT = 2; if (!imm) { t.stun = Math.max(t.stun, W ? W.stun : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, 'UNSTOPPABLE', '#ffd23f');
+  if (t.gk) { const gx = t.team === 0 ? 0 : W_(); ang = Math.atan2(H / 2 - t.y, gx - t.x) * 0.6 + ang * 0.4; }   // a weakened keeper gets knocked back toward their own net
+  const dmg = Math.round((W ? W.dmg : 16) * odK * dmgOut(a) * dmgIn(t));
+  t.hp = Math.max(0, t.hp - dmg); t.hitT = 2;
+  const imm = knockImmune(t) && t.hp > 0;   // a keeper still standing firm (HP not yet low) shrugs it off; a knockout always lands
+  if (!imm) { t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb; t.stun = Math.max(t.stun, W ? W.stun : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, firmText(t), '#ffd23f');
   addMood(t, -10);
   if (!imm) { loseBall(t, ang); if (t.gk && S.ball.lastTouch === t) { S.ball.vx = Math.cos(ang) * 230; S.ball.vy = Math.sin(ang) * 230; } }   // the keeper's ball spills toward goal
   t.lastHitBy = a.id; t.lastHitT = S.time;
