@@ -29,10 +29,9 @@ function drawClassFx() {
     ctx.strokeStyle = pr.type === 'pebble' ? 'rgba(201,180,138,.7)' : 'rgba(255,159,67,.8)'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(Tl.x, Tl.y); ctx.lineTo(P.x, P.y); ctx.stroke();
     ctx.fillStyle = pr.type === 'pebble' ? '#c9b48a' : '#ff9f43'; ell(P.x, P.y, 2.6 * s, 2.6 * s); ctx.fill();
   }
-  for (const d of S.decoys || []) if (d.ball) { const P = proj(d.x + 9, d.y + 4, 4), s = Math.max(0.6, P.s); ctx.fillStyle = '#ffffff'; ell(P.x, P.y, 4.4 * s, 4.4 * s); ctx.fill(); ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.stroke(); }
   // auras and marks on players
   for (const p of S.players) {
-    if (!onPitch(p) || !p.bf) continue;
+    if (!onPitch(p) || !p.bf || unseen(p)) continue;
     const G0 = proj(p.x, p.y), b = p.bf;
     if (b.timeRush > 0 || b.perfect > 0 || b.awaken > 0 || b.rage > 0) { ctx.strokeStyle = b.rage > 0 ? '#ff4d4d' : b.timeRush > 0 ? '#ffd23f' : b.awaken > 0 ? '#ffb000' : '#3a7bff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(S.time * 10); ell(G0.x, G0.y, 16 * G0.s, 6 * G0.s); ctx.stroke(); ctx.globalAlpha = 1; }
     if (b.marked > 0) { const P = proj(p.x, p.y, 58); ctx.fillStyle = '#f2c230'; ctx.font = `700 ${12 * Math.max(0.8, P.s)}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('◎ MARKED', P.x, P.y); }
@@ -40,11 +39,15 @@ function drawClassFx() {
     if (b.assistMark > 0) { const P = proj(p.x, p.y, 54); ctx.fillStyle = '#3a7bff'; ctx.font = `700 ${12 * Math.max(0.8, P.s)}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText('★', P.x, P.y); }
   }
 }
-function cloakAlpha(p) {   // cloaked enemies are barely visible to you; cloaked team-mates are see-through
+// Cloaked players are completely invisible to the other team: no body, shadow, labels or minimap dot.
+// Their own side sees them see-through. On a shared screen with both teams (local versus) they're faint.
+function cloakAlpha(p) {
   if (!hasBf(p, 'cloak')) return 1;
-  const mine = S.humans.some(h => !h.remote && h.team === p.team);
-  return mine ? 0.45 : 0.12;
+  const viewers = S.net === 'client' ? S.players.filter(q => q.human && q.human.local) : S.humans.filter(h => !h.remote).map(h => ({ team: h.team }));
+  const mine = viewers.some(v => v.team === p.team), foe = viewers.some(v => v.team !== p.team);
+  return foe && !mine ? 0 : foe && mine ? 0.12 : 0.45;
 }
+const unseen = p => cloakAlpha(p) === 0;
 const SKILL_GLYPH = { powerShot: '💥', curveDrive: '↪', aerial: '⤴', meteor: '☄', cloak: '◐', blink: '⚡', phantom: '👤', dimension: '◈', dash: '»', afterimage: '⧉', speedDribble: '⚽', timeRush: '⏱', bodyBlock: '▮', bullRush: '➜', quake: '≋', titan: '⛨', intervene: '⇥', zoneLock: '⊘', tackleCharge: '✶', absoluteMark: '◎', diveSave: '⤵', wideGuard: '↔', aerialGrab: '✋', infinity: '∞', precision: '➶', tactical: '⬡', assistMark: '★', perfect: '✦', healBurst: '✚', cleanse: '❋', revive: '♥', lifeweaver: '❦', morale: '♪', statAura: '◉', surge: '⚡', awaken: '☀', heavyPunch: '✊', grabThrow: '⇪', groundSlam: '✹', rage: '♨', clone: '⧉', trap: '⌖', jammer: '⊗', illusion: '❖', projPass: '➹', gravity: '◍', slowBomb: '●', orbital: '✺' };
 const HOTBAR_SLOTS = [-1, 0, 1, 3];
 function drawHotbar(h, right) {

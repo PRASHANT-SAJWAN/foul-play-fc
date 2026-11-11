@@ -13,19 +13,15 @@ defineWeapon({ id: 'watershot', name: 'Water Cannon', kind: 'ranged', hidden: tr
 defineWeapon({ id: 'aurasphere', name: 'Aura Sphere', kind: 'ranged', hidden: true, col: '#4f8dff', proj: 'pebble', speed: 560, ttl: 0.9, hit: { dmg: 14, stun: 0.8, kb: 200 }, ballPush: 0.4 });
 defineWeapon({ id: 'shuriken', name: 'Shuriken', kind: 'ranged', hidden: true, col: '#cfd8e3', proj: 'dart', speed: 760, ttl: 0.55, hit: { dmg: 6, stun: 0.3, slow: 1 }, ballPush: 0.2 });
 
-function skillShot(p, pt, wid, spread = 0, n = 1) {   // fire n projectiles of a hidden weapon toward pt
-  const W = WEAPONS[wid], a0 = Math.atan2(pt.y - p.y, pt.x - p.x); p.face = a0;
-  for (let k = 0; k < n; k++) {
-    const a = a0 + (n > 1 ? (k - (n - 1) / 2) * spread : 0);
-    S.projs.push({ type: W.proj, w: wid, x: p.x + Math.cos(a) * 12, y: p.y + Math.sin(a) * 12, z: 22 + (p.z || 0), vx: Math.cos(a) * W.speed, vy: Math.sin(a) * W.speed, ttl: W.ttl, team: p.team, owner: p.id });
-  }
-  a0Anim(p, 'punch', 0.25); thump(W.sound || 400, 0.06, 0.05);
+function skillShot(p, pt, wid, spread = 0, n = 1) {   // an elemental slash toward pt: a long crescent (wider for fan skills) instead of a projectile
+  const W = WEAPONS[wid], a0 = Math.atan2(pt.y - p.y, pt.x - p.x);
+  slashArc(p, a0, W, { range: 165, arc: SLASH.arc + (n > 1 ? spread * (n - 1) * 2 : 0) });
 }
 const foesNear = (p, x, y, r) => enemiesOf(p).filter(q => q.ko <= 0 && Math.hypot(q.x - x, q.y - y) < r);
 function fireTrail(x0, y0, x1, y1) { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 12); for (let i = 0; i <= n; i++) (S.fires || (S.fires = [])).push({ x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, t: 0, life: rand(0.8, 1.3), r: rand(6, 10), ph: rand(0, 6) }); }
 
 /* ---------- Cinderwyrm: fire drake, attacker ---------- */
-defineAbility({ id: 'cwFireball', glyph: '🔥', name: 'Fireball', cd: 6, aim: 'point', range: 420, desc: 'Spit a fireball that knocks back and briefly stuns whoever it hits.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 380 },
+defineAbility({ id: 'cwFireball', glyph: '🔥', name: 'Fire Slash', cd: 6, aim: 'point', range: 165, desc: 'A burning crescent slash that knocks back and briefly stuns everyone in front of you.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 160 },
   (p, pt) => skillShot(p, pt, 'fireball'));
 defineAbility({ id: 'cwGust', glyph: '≋', name: 'Wing Gust', cd: 9, aim: 'self', desc: 'Beat your wings and blow back everyone around you.', bot: (p, c) => c.enemyNear(80) },
   p => { burst(p.x, p.y, '#ffb36b', 18, 20); for (const q of foesNear(p, p.x, p.y, 95)) knock(p, q, { kb: 300, stun: 0.3, foul: true }); });
@@ -60,7 +56,7 @@ defineClass({ id: 'hollow', name: 'Hollow', title: 'The Shadow Wraith', role: 'd
 /* ---------- Bulwark: armoured tortoise, defender ---------- */
 defineAbility({ id: 'bwShell', glyph: '⛨', name: 'Shell Block', cd: 10, aim: 'self', desc: 'Retreat into your shell for 3 s: shots bounce off you and nothing knocks you down.', bot: (p, c) => !c.own && S.ball.lastTouch && S.ball.lastTouch.team !== p.team && Math.hypot(S.ball.vx, S.ball.vy) > 350 },
   p => { BF(p, 'wideGuard', 3); BF(p, 'immune', 3); floatText(p, 'SHELL BLOCK', '#4fb8ff'); });
-defineAbility({ id: 'bwCannon', glyph: '💧', name: 'Water Cannon', cd: 7, aim: 'point', range: 460, desc: 'A long water blast that knocks players far back.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 420 },
+defineAbility({ id: 'bwCannon', glyph: '💧', name: 'Tide Slash', cd: 7, aim: 'point', range: 165, desc: 'A wide slash of water that knocks everyone in front of you far back.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 160 },
   (p, pt) => skillShot(p, pt, 'watershot', 0.08, 3));
 defineAbility({ id: 'bwSpin', glyph: '↻', name: 'Rapid Spin', cd: 9, aim: 'self', desc: 'Spin in your shell: steal the ball from anyone next to you and knock them aside.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 55 },
   p => { burst(p.x, p.y, '#4fb8ff', 16, 10); const b = S.ball;
@@ -91,7 +87,7 @@ defineClass({ id: 'brawn', name: 'Brawn', title: 'The Four-Fisted', role: 'allro
     for (const q of foesNear(p, p.x, p.y, 20)) if (!(p.titanHit[q.id] > S.time)) { p.titanHit[q.id] = S.time + 1.5; knock(p, q, { stun: 1.2, dmg: 8, kb: 240, foul: true }); whack(q, 'tackle'); } } } });
 
 /* ---------- Shogun: aura warrior, all-rounder ---------- */
-defineAbility({ id: 'sgSphere', glyph: '◎', name: 'Aura Sphere', cd: 6, aim: 'enemy', range: 400, desc: 'Fire a blast of aura at the nearest enemy you face.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 380 },
+defineAbility({ id: 'sgSphere', glyph: '◎', name: 'Aura Slash', cd: 6, aim: 'enemy', range: 165, desc: 'A slash of aura aimed at the nearest enemy you face; it hits everyone around them too.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 160 },
   (p, pt, t) => skillShot(p, t, 'aurasphere'));
 defineAbility({ id: 'sgCounter', glyph: '⇄', name: 'Counter Stance', cd: 11, aim: 'self', desc: 'For 2 s, the next foul on you bounces back and stuns the attacker.', bot: (p, c) => c.enemyNear(60) },
   p => { p.fx = p.fx || {}; p.fx.shield = Math.max(p.fx.shield || 0, 2); floatText(p, 'COUNTER', '#4f8dff'); });
@@ -105,7 +101,7 @@ defineClass({ id: 'shogun', name: 'Shogun', title: 'The Aura Warrior', role: 'al
   skills: [ABILITIES.sgSphere, ABILITIES.sgCounter, ABILITIES.sgStrike], ult: ABILITIES.sgBurst, mods: { speed: p => p.hp < 50 ? 1.15 : 1 } });
 
 /* ---------- Ronin: shadow ninja, speedster ---------- */
-defineAbility({ id: 'rnShuriken', glyph: '✦', name: 'Shuriken', cd: 5, aim: 'point', range: 420, desc: 'Throw three fast shuriken in a fan.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 360 },
+defineAbility({ id: 'rnShuriken', glyph: '✦', name: 'Blade Fan', cd: 5, aim: 'point', range: 165, desc: 'A very wide fan of blade slashes that slows everyone it catches.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 160 },
   (p, pt) => skillShot(p, pt, 'shuriken', 0.14, 3));
 defineAbility({ id: 'rnSmoke', glyph: '☁', name: 'Smoke Dash', cd: 9, aim: 'point', range: 200, desc: 'Dash away and leave a smoke cloud the referee can\'t see into.', bot: (p, c) => c.own && c.enemyNear(90) },
   (p, pt) => { S.smokes.push({ x: clamp(p.x, 20, W - 20), y: clamp(p.y, 20, H - 20), r: 80, ttl: 5 }); sfx('whoosh'); dashTo(p, pt, 560, 0.3); BF(p, 'stealth', 1); });

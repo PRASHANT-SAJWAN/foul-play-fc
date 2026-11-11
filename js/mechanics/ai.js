@@ -55,7 +55,7 @@ function botAggro(p, dt) {
     if (down && Math.random() < dt * 0.5 * (p.karma / 40)) { helpUp(p, down); return; }
   }
   if (S.admin && S.admin.bots === 'peaceful') return;
-  const near = inReach(p).filter(q => q.stun <= 0);
+  const near = inReach(p).filter(q => q.stun <= 0 && !(q.team !== p.team && hasBf(q, 'cloak')));
   if (!near.length) return;
   let target = near.find(q => S.ball.owner === q && q.team !== p.team), rate = 0;
   if (target) rate = p.aggr * 1.6;
@@ -107,7 +107,7 @@ function botControl(p, dt, info) {
   if (S.admin && S.admin.bots === 'frozen') return;
   const b = S.ball;
   if (p.cls && (p.aiT = (p.aiT || 0) - dt) <= 0) { p.aiT = rand(0.5, 0.9); botSkills(p);
-    if (weaponOf(p, 'ranged') && b.owner && b.owner.team !== p.team && dist(p, b.owner) < 380 && Math.random() < 0.5) { p.face = Math.atan2(b.owner.y - p.y, b.owner.x - p.x); p.dx = p.dy = 0; fireWeapon(p); } }
+    if (weaponOf(p, 'ranged') && b.owner && b.owner.team !== p.team && dist(p, b.owner) < 140 && Math.random() < 0.5) { p.face = Math.atan2(b.owner.y - p.y, b.owner.x - p.x); p.dx = p.dy = 0; fireWeapon(p); } }
   if (hasBf(p, 'confused')) { p.dx = Math.cos(S.time * 3 + p.id); p.dy = Math.sin(S.time * 2.3 + p.id); return; }
   if (b.owner === p) { botWithBall(p, dt); return; }
   if (p.carry != null) {   // carrying the referee: walk them away from the ball, then throw them further

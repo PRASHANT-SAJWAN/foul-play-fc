@@ -28,9 +28,14 @@ function updateClasses(dt) {
     if (hasSyn(p.team, 'sustain')) p.hp = Math.min(100, p.hp + dt);
     if (nearAura(p)) p.stamina = Math.min(p.staminaMax, p.stamina + 0.6 * dt);
     if (p.aerialPend && p.z <= 0 && p.vz <= 0 && !hasBf(p, 'aerial')) { p.aerialPend = false; burst(p.x, p.y, '#ff4d4d', 16, 6); for (const q of enemiesOf(p)) if (dist(q, p) < 70) knock(p, q, { stun: 2, foul: false }); }
-    if (p.dash) {   // dashes: skill movement that bumps people out of the way
+    if (p.dash) {   // dashes: skill movement that bumps people out of the way and takes the ball, never a foul
       p.dash.t -= dt;
-      if (p.dash.hit) for (const q of enemiesOf(p)) if (!p.dash.done.includes(q.id) && dist(q, p) < 18 && q.ko <= 0) { p.dash.done.push(q.id); knock(p, q, Object.assign({ from: p }, p.dash.hit)); }
+      const b = S.ball, c = b.owner;
+      if (c && c !== p && c.team !== p.team && dist(c, p) < 24 && !knockImmune(c)) {   // run straight through the carrier and take it
+        b.owner = p; b.lastTouch = p; b.ctrl = null; c.pickCd = 0.8; c.stun = Math.max(c.stun, 0.5); a0Anim(c, 'fall', 0.5);
+        p.stats.tackles++; addPop(p, 3); bountyCollect(p, c); EV('tackle', p, { from: c.name, dash: true }); floatText(p, 'DASH STEAL!', '#7dff9b'); whack(c, 'tackle'); thump(150, 0.15, 0.08);
+      } else if (!c && dist(b, p) < 22 && (b.z || 0) < 20 && canBall(p)) { b.owner = p; b.lastTouch = p; b.ctrl = null; b.z = 0; b.vz = 0; }   // or scoop up a loose ball
+      if (p.dash.hit) for (const q of enemiesOf(p)) if (!p.dash.done.includes(q.id) && dist(q, p) < 18 && q.ko <= 0) { p.dash.done.push(q.id); knock(p, q, Object.assign({ from: p }, p.dash.hit, { foul: false })); }
       if (p.dash.t <= 0) p.dash = null;
     }
     if (p.thrown) {   // flying after a Grab & Throw

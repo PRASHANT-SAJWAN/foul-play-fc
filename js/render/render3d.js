@@ -468,6 +468,8 @@ export function createRenderer3D(canvas, G) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(4.4, 22, 16), std('#ffffff', { map: ballTex, roughness: 0.45 }));
   ball.castShadow = true; scene.add(ball);
   const ballPrev = {}, ballAxis = new THREE.Vector3(), ballQ = new THREE.Quaternion(), ballW = new THREE.Vector3();
+  const fakeBalls = [];   // clones' copies of the ball: same mesh and material, so they look identical
+  function fakeBall(i) { if (!fakeBalls[i]) { const m = new THREE.Mesh(ball.geometry, ball.material); m.castShadow = true; scene.add(m); fakeBalls[i] = m; } return fakeBalls[i]; }
 
   /* ---------- items and bananas (pooled meshes) ---------- */
   function makeItem(type) {
@@ -632,7 +634,7 @@ export function createRenderer3D(canvas, G) {
       const al = G.cloakAlpha ? G.cloakAlpha(p) : 1;
       if (R.alpha !== al) { R.alpha = al; R.mats.forEach(mm => { mm.transparent = al < 1; mm.opacity = al; mm.depthWrite = al >= 1; mm.needsUpdate = true; }); }
       const benched = G.onBench && G.onBench(p);
-      R.g.visible = p.sentOff <= 0 || benched;
+      R.g.visible = (p.sentOff <= 0 || benched) && al > 0;   // cloaked opponents aren't drawn at all, shadow included
       if (!R.g.visible) return;
       if (R.mixer) animateModel(R, p, dt, benched);
       if (benched) {   // sitting on the bench: legs forward, a slow fidget, arms up for a taunt or throw
@@ -761,14 +763,29 @@ export function createRenderer3D(canvas, G) {
     // hazards and patches on the grass (js/render/view.js groundDecals)
     (V0.decals || []).forEach((d, i) => { const m = decal(i); m.visible = true; m.position.set(d.x - W / 2, 0.55 + i * 0.002, d.y - H / 2); m.scale.setScalar(d.r); m.material.color.set(d.col); m.material.opacity = clamp(d.op, 0, 1); m.material.blending = d.glow ? THREE.AdditiveBlending : THREE.NormalBlending; });
     decals.forEach((m, i) => { if (i >= (V0.decals || []).length) m.visible = false; });
-    // decoys: see-through copies of the player who threw them
+    // clones: exact copies of the player (their model, class ring and team ring), with a copy of the ball if they had it
+    let fb = 0;
     (V0.decoys || []).forEach((d, i) => {
-      const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' }, key = JSON.stringify(L) + (d.solid ? 's' : 'g');
+      const src = S.players[d.src], L = src ? playerLook(src) : { jersey: TEAM[d.team].col, shorts: TEAM[d.team].shorts, socks: TEAM[d.team].socks, skin: '#d9a477', hair: '#222', num: null, numCol: '#fff' };
+      const MD = src && G.classModel ? G.classModel(src) : null, M = MD ? modelFor(MD) : null, key = JSON.stringify(L) + (M ? '|' + MD.file : '');
       let R = decoyRigs[i];
-      if (!R || R.key !== key) { if (R) scene.remove(R.g); R = decoyRigs[i] = makeRig(L); R.key = key; if (!d.solid) R.g.traverse(o => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map(x => ghost(x)) : ghost(o.material); o.castShadow = false; } }); }
-      R.g.visible = true; pose(R, d.x, d.y, src ? src.face : 0, d.run, 1, false, 0.2);
+      if (!R || R.key !== key) {
+        if (R) scene.remove(R.g); R = decoyRigs[i] = makeRig(L); R.key = key; if (M) attachModel(R, MD, M, L);
+        R.ring = new THREE.Mesh(new THREE.RingGeometry(9, 10.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })); R.ring.position.y = 0.6; R.g.add(R.ring);
+        scene.add(R.g);
+      }
+      const cc = src && G.classCol ? G.classCol(src) : null; R.ring.visible = !!cc; if (cc) R.ring.material.color.set(cc);
+      const spd = Math.hypot(d.vx || 0, d.vy || 0), face = d.face != null ? d.face : src ? src.face : 0;
+      R.g.visible = true; pose(R, d.x, d.y, face, d.run, Math.min(1, Math.max(0.6, spd / 120)), false, spd > 180 ? 0.32 : 0);
+      if (R.mixer) animateModel(R, { vx: d.vx || 0, vy: d.vy || 0, stun: 0, ko: 0, anim: '', z: 0, slide: 0 }, dt, false);
+      if (d.ball) {   // the copied ball rolls just ahead of the clone's feet
+        const m = fakeBall(fb++), bx = d.x + Math.cos(face) * 12, bz = d.y + Math.sin(face) * 12;
+        if (m.userData.px != null) { const dx = bx - m.userData.px, dz = bz - m.userData.pz, dd = Math.hypot(dx, dz); if (dd > 0.01 && dd < 60) { ballAxis.set(dz, 0, -dx).normalize(); ballQ.setFromAxisAngle(ballAxis, dd / 4.4); m.quaternion.premultiply(ballQ); } }
+        m.userData.px = bx; m.userData.pz = bz; m.visible = true; m.position.set(bx - W / 2, 4.4, bz - H / 2);
+      }
     });
     decoyRigs.forEach((R, i) => { if (i >= (V0.decoys || []).length) R.g.visible = false; });
+    fakeBalls.forEach((m, i) => { if (i >= fb) { m.visible = false; m.userData.px = null; } });
 
     // anomalies
     const A = S.an || {};

@@ -15,6 +15,7 @@ function assistPick(p, list, range, cone = ASSIST_CONE, bias) {
   const f = passDir(p); let best = null, bs = 1e9;
   for (const q of list) {
     const d = dist(p, q); if (q === p || d > range || d < 1) continue;
+    if (q.team !== p.team && hasBf(q, 'cloak') && d > 26) continue;   // invisible: only found by bumping into them
     const da = Math.abs(angDiff(f, Math.atan2(q.y - p.y, q.x - p.x))); if (da > cone) continue;
     const s = da * 160 + d * 0.5 + (bias ? bias(q) : 0); if (s < bs) { bs = s; best = q; }
   }

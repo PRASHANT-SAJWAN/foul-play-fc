@@ -34,6 +34,7 @@ function playFx(ev, host) {
   if (ev.type === 'wave') (S.waves || (S.waves = [])).push({ x: ev.x, y: ev.y, r: ev.side > 0 ? ev.side : 60, t: 0 });
   if (ev.type === 'boom') { sfx('boom'); (S.waves || (S.waves = [])).push({ x: ev.x, y: ev.y, r: ev.side > 0 ? ev.side : 90, t: 0, col: '#ffe14d' }); CAMFX.zoom = 4; CAMFX.zoomT = 0.5; }
   if (ev.type === 'zap') sfx('zap');
+  if (ev.type === 'slash') (S.slashes || (S.slashes = [])).push({ x: ev.x, y: ev.y, ang: ev.side / 1000, r: ev.team, arc: (ev.arc || 190) / 100, col: ev.col || '#e6edf3', t: 0 });
   if (ev.type === 'vent') sfx('whoosh');
   if (ev.type === 'lava') { sfx('whoosh'); crowdSound('gasp'); }
   if (ev.type === 'crate') sfx('pop');
@@ -59,6 +60,7 @@ function fxTick(dt) {
   } else if (b) b.fireX = b.fireY = null;
   for (const f of S.fires) f.t += dt;
   S.waves = (S.waves || []).filter(w => (w.t += dt) < 0.5);   // shockwave rings
+  S.slashes = (S.slashes || []).filter(w => (w.t += dt) < 0.3);   // slash crescents
   S.fires = S.fires.filter(f => f.t < f.life); if (S.fires.length > 260) S.fires.splice(0, S.fires.length - 260);
   for (const w of S.whacks) w.t += dt;
   S.whacks = S.whacks.filter(w => w.t < 0.8);

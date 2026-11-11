@@ -28,7 +28,18 @@ function castSkill(p, slot) {
 const dashTo = (p, pt, speed, t, hit) => { const a = Math.atan2(pt.y - p.y, pt.x - p.x); p.face = a; p.dash = { vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, t, hit: hit || null, done: [] }; };
 const goalOf = team => ({ x: team === 0 ? W : 0, y: H / 2 });
 const addZone = z => { S.zones.push(Object.assign({ t: 0 }, z)); };
-function decoyOf(p, o) { S.decoys.push(Object.assign({ x: p.x, y: p.y, vx: 0, vy: 0, ttl: 3, team: p.team, src: p.id, run: 0, solid: true }, o)); }
+// A clone: an exact copy of p. With the ball it dribbles a copy of the ball away; without it, it appears
+// beside you and charges at the real ball from a different direction, as if going in for the tackle.
+function decoyOf(p, o) {
+  const has = S.ball.owner === p, d = Object.assign({ x: p.x, y: p.y, vx: 0, vy: 0, ttl: 3, team: p.team, src: p.id, run: 0, solid: true }, o, { ball: has });
+  if (!has && d.mimic == null) {
+    const b = S.ball, side = (S.decoys.length % 2 ? 1 : -1) * rand(0.9, 1.4), rx = p.x - b.x, ry = p.y - b.y;   // swing round the ball to come in from another angle
+    d.x = clamp(b.x + rx * Math.cos(side) - ry * Math.sin(side), 10, W - 10); d.y = clamp(b.y + rx * Math.sin(side) + ry * Math.cos(side), 10, H - 10);
+    d.chase = true; burst(d.x, d.y, '#c9b7ff', 8, 20);
+  }
+  d.face = Math.atan2(d.vy, d.vx) || p.face;
+  S.decoys.push(d);
+}
 const SKILL_FX = {
   // Striker
   powerShot: p => BF(p, 'powerShot', 4),

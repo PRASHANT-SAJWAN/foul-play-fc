@@ -21,7 +21,7 @@ const CLASSES = [
     ult: { id: 'meteor', name: 'Meteor Volley', desc: 'Meteors rain on the target goal area for 5 s, stunning every enemy there except the keeper, and your next shot can\'t be caught.' } },
   { id: 'assassin', name: 'Assassin', title: 'The Shadow Scorer', role: 'offense', col: '#8a4dff', num: 7, look: { hair: 1, hairCol: '#14101c', skin: '#d9a477', acc: 5, build: 0, eyes: '#b98cff' },
     passive: ['Shadow Step', 'Gain +15% speed and stealth for 1.5 s after a successful foul or knockout. The referee can\'t see you in stealth.'],
-    skills: [{ id: 'cloak', name: 'Cloak', cd: 14, aim: 'self', desc: 'Turn invisible to the referee for 4 s. Your next foul or tackle deals 40% more damage.' },
+    skills: [{ id: 'cloak', name: 'Cloak', cd: 14, aim: 'self', desc: 'Turn completely invisible to opponents and the referee for 4 s. Your next foul or tackle deals 40% more damage.' },
       { id: 'blink', name: 'Blink Strike', cd: 10, aim: 'enemy', range: 220, desc: 'Teleport to an enemy in range, steal the ball if they have it and knock them down.' },
       { id: 'phantom', name: 'Phantom Dribble', cd: 12, aim: 'point', range: 300, desc: 'Send an afterimage dribbling a fake ball toward the aim for 3 s, drawing tackles.' }],
     ult: { id: 'dimension', name: 'Dimension Break', desc: 'With the ball (or near it), teleport it and yourself to the aim point; an illusion left behind explodes on enemies after 4 s.' } },

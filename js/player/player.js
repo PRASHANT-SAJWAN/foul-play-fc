@@ -12,7 +12,7 @@
      melee:  reach, dmg, kb (knockback), stun, injury: [chance, amount], heavy (seen = red card),
              verb (for the feed), whack (comic word index in WHACKS), fx ('bat' = slow-mo crack),
              anim, hand ('sword' | 'bat': which 3D mesh to show)
-     ranged: proj ('pebble' | 'dart': how the shot looks), speed, cd (seconds between shots), ttl,
+     ranged: a sword-slash wave (js/abilities/weapons.js slashArc): range, arc (radians), cd (seconds between slashes),
              anim, sound (pitch), hit: { dmg, stun, kb, slow } or onHit(owner, target, proj),
              ballPush (how hard a hit knocks the ball on)
 

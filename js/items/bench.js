@@ -86,7 +86,15 @@ function updatePowerups(dt) {
   for (let i = S.decoys.length - 1; i >= 0; i--) {
     const d = S.decoys[i], mo = d.mimic != null ? S.players[d.mimic] : null; d.ttl -= dt;
     if (mo) { d.x = clamp(d.x + mo.vx * dt, 10, W - 10); d.y = clamp(d.y + mo.vy * dt, 10, H - 10); d.vx = mo.vx; d.vy = mo.vy; }
-    else { d.x = clamp(d.x + d.vx * dt, 10, W - 10); d.y = clamp(d.y + d.vy * dt, 10, H - 10); } d.run += 210 * dt * 0.09;
+    else {
+      if (d.chase) {   // charging the real ball; it vanishes when it gets there
+        const b = S.ball, a = Math.atan2(b.y - d.y, b.x - d.x); d.vx += (Math.cos(a) * 230 - d.vx) * Math.min(1, dt * 6); d.vy += (Math.sin(a) * 230 - d.vy) * Math.min(1, dt * 6);
+        if (dist(d, b) < 12) d.ttl = 0;
+      }
+      d.x = clamp(d.x + d.vx * dt, 10, W - 10); d.y = clamp(d.y + d.vy * dt, 10, H - 10);
+    }
+    if (Math.hypot(d.vx, d.vy) > 20) d.face = Math.atan2(d.vy, d.vx);
+    d.run += Math.max(60, Math.hypot(d.vx, d.vy)) * dt * 0.09;
     const hit = S.players.find(q => q.team !== d.team && onPitch(q) && dist(q, d) < 16);
     if (d.ttl <= 0 || hit) { if (hit) { floatText(hit, 'POP! A DECOY', '#c9b7ff'); crowdEvent(hit.team, { noob: 5, fun: 4 }); } sfx('pop'); burst(d.x, d.y, '#c9b7ff', 10, 20); S.decoys.splice(i, 1); }
   }

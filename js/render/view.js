@@ -17,10 +17,10 @@ function draw3d() {
 // Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
 function drawOverlays3D() {
   drawChants(); drawFires(); drawAimGuides(); drawCastAims(); drawSetPieceWorld();
-  drawArena(); drawBallMods(); drawCombatFx();   // hazard pitches, crates and rings, shockwaves and lassos
+  drawArena(); drawBallMods(); drawCombatFx(); drawCloneTags();   // hazard pitches, crates and rings, shockwaves and lassos
   drawWorldExtras(); drawWhacks(); drawBenchInfo();
   for (const p of S.players) {
-    if (!onPitch(p)) continue;
+    if (!onPitch(p) || unseen(p)) continue;
     const down = p.stun > 0 || p.ko > 0;
     if (p.human && !(S.setPiece && S.setPiece.taker === p)) {
       const P = proj(p.x, p.y, down ? 16 : 48), s = Math.max(0.75, P.s), col = HUMAN_COL[p.human.idx % HUMAN_COL.length];
@@ -63,10 +63,18 @@ function view3d() {
     if (h.remote) continue;
     const p = S.players[h.pid]; if (!p || !able(p)) continue;
     if (S.ball.owner === p) { const q = pickPassTarget(p, passDir(p)); if (q) passes.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, col: HUMAN_COL[h.idx % HUMAN_COL.length] }); }
-    if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
+    if (p.target && !unseen(p.target)) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
   return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, decals: groundDecals(), ballMod: S.ballMod ? S.ballMod.k + (S.ballMod.armed ? '!' : '') : '', mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) && S.setPiece.view !== 'side' ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
+}
+// Clones carry the same name pill and health bar as the player they copy, so you can't tell them apart.
+function drawCloneTags() {
+  for (const d of S.decoys || []) {
+    const p = S.players[d.src]; if (!p) continue;
+    if (p.human && p.team === d.team) { const P = proj(d.x, d.y, 48), s = Math.max(0.75, P.s); drawLabelPill(P.x, P.y, s, HUMAN_COL[p.human.idx % HUMAN_COL.length], p.human.label || 'P' + (p.human.idx + 1)); }
+    if (p.hp < 100 && p.human) { const P = proj(d.x, d.y, 44), s = Math.max(0.75, P.s), w = 24 * s; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(P.x - w / 2, P.y, w, 3 * s); ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(P.x - w / 2, P.y, w * p.hp / 100, 3 * s); }
+  }
 }
 // Flat things on the grass for the 3D view: scorch and ice patches, mud, lava, vents.
 function groundDecals() {

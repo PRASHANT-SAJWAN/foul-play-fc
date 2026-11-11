@@ -13,7 +13,7 @@ function sendSnap(force) {
     spk: S.setPiece ? [S.setPiece.team, S.setPiece.taker.id, r1(S.setPiece.t), S.setPiece.type, r1(S.setPiece.aim.y), r1(S.setPiece.aim.z), S.setPiece.prep, S.setPiece.minT, S.setPiece.offX == null ? -1 : r1(S.setPiece.offX), S.setPiece.view === 'side' ? 1 : 0] : 0,
     ch: S.chants.map(c => [c.id, c.kind, c.text, r1(c.x), r1(c.life)]),
     mu: MUT_LIST.map(([k]) => MUT[k] ? 1 : 0),
-    fx: S.fxq.filter(e => S.time - e.t < 2).map(e => [e.id, e.type, e.pid, r1(e.x), r1(e.y), e.team != null ? e.team : -1, e.side != null ? e.side : -1]),
+    fx: S.fxq.filter(e => S.time - e.t < 2).map(e => [e.id, e.type, e.pid, r1(e.x), r1(e.y), e.team != null ? e.team : -1, e.side != null ? e.side : -1, e.col || '', e.arc || 0]),
     bu: S.bubbles.map(u => [u.pid, u.text, r1(u.life)]),
     cr: S.crowd ? [r2(S.crowd.support), S.crowd.op.map(o => CROWD_CATS.map(([k]) => Math.round(o[k]))), S.crowd.banners.map(x => [x.id, x.text, x.team, x.cat, r1(x.life), r1(x.x)]), S.crowd.press ? S.crowd.press.team : -1] : 0,
     bo: S.bounty ? [S.bounty.pid, S.bounty.kind, r1(S.bounty.t)] : 0, gg: S.golden ? 1 : 0,
@@ -25,7 +25,7 @@ function sendSnap(force) {
     pj: (S.projs || []).map(q => [q.type, r1(q.x), r1(q.y), r1(q.z), Math.round(q.vx || 0), Math.round(q.vy || 0)]),
     dx: S.decoys.map(d => [d.ball ? 1 : 0, d.solid ? 1 : 0]), sy: S.syn || [[], []],
     tc: S.teamCd ? S.teamCd.map(o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, r1(v - S.time)]))) : 0,
-    de: S.decoys.map(d => [r1(d.x), r1(d.y), d.team, r1(d.run), d.src]), mb: r1(S.megaBall),
+    de: S.decoys.map(d => [r1(d.x), r1(d.y), d.team, r1(d.run), d.src, r2(d.face || 0), Math.round(d.vx || 0), Math.round(d.vy || 0)]), mb: r1(S.megaBall),
     p: S.players.map(p => [r1(p.x), r1(p.y), r2(p.face), Math.round(p.vx), Math.round(p.vy), Math.round(p.hp), r1(p.stun), r1(p.ko), Math.ceil(p.sentOff), p.yellows, p.pop, p.hype,
       p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT), r1(p.charge), Math.round(p.karma), p.sprinting ? 1 : 0, p.stats.caught, p.dive > 0 || p.diveDown > 0 ? (p.diveDir || 1) : 0, r1(p.stamina), Math.round(p.staminaMax), Math.round(p.mood), animIdx(p.anim), r1(p.animT), [p.fx.rocket || 0, r1(p.fx.magnet || 0), r1(p.fx.shield || 0), r1(p.fx.megaphone || 0)], p.items.glue, p.items.smoke, p.items.whistle, p.items.decoy, THROWABLES.indexOf(p.throwSel), r1(p.slowT || 0), r1(p.freezeT || 0), Math.round(p.injury), p.skinOwner || '', p.goneWhy || '', r1(p.iceT || 0), r1(p.heatT || 0), r1(p.z || 0), p.carry == null ? -1 : p.carry, r2(p.slide || 0), r2(p.slideA || 0), CLASS_IDS.indexOf(p.cls), (p.cd || [0, 0, 0]).map(r1), Math.floor(p.ult || 0), Object.fromEntries(Object.entries(p.bf || {}).map(([k, v]) => [k, r1(v)])), p.stk || 0, p.items.sling || 0, p.items.blaster || 0, p.items.sword || 0, FIELD_ITEMS.indexOf(p.benchItem), weaponCounts(p), p.abil || 0]),
     r: S.refs.map(r => [r1(r.x), r1(r.y), r2(r.face), r1(r.blind), r.card ? (r.card.red ? 2 : 1) : 0, r1(r.run), r1(r.gone || 0), r1(r.z || 0), r.carriedBy == null ? -1 : r.carriedBy, r.fly ? 1 : 0, Math.round(r.range), r2(r.fov)]),
@@ -65,12 +65,12 @@ function applySnap(s) {
   S.bounty = s.bo ? { pid: s.bo[0], kind: s.bo[1], t: s.bo[2] } : null; S.golden = !!s.gg;
   S.shoot = s.so ? { goals: s.so[0], taken: s.so[1], done: s.so[2] >= 0, winner: s.so[2] } : null;
   S.smokes = (s.sm || []).map(z => ({ x: z[0], y: z[1], r: z[2], ttl: z[3] })); S.puddles = (s.pu || []).map(g => ({ x: g[0], y: g[1], ttl: g[2] }));
-  S.decoys = (s.de || []).map(d => ({ x: d[0], y: d[1], team: d[2], run: d[3], src: d[4] })); S.megaBall = +s.mb || 0; S.an = s.an || newAnomState();
+  S.decoys = (s.de || []).map(d => ({ x: d[0], y: d[1], team: d[2], run: d[3], src: d[4], face: +d[5] || 0, vx: +d[6] || 0, vy: +d[7] || 0 })); S.megaBall = +s.mb || 0; S.an = s.an || newAnomState();
   if (s.cb) { combatApply(s.cb); ballModApply(s.cb); arenaApply(s.cb.ar); varApply(s.cb.vr); }
   S.zones = s.zn || []; S.walls = (s.wl || []).map(a => ({ x1: a[0], y1: a[1], x2: a[2], y2: a[3], ttl: a[4], team: a[5] })); S.projs = (s.pj || []).map(a => ({ type: a[0], x: a[1], y: a[2], z: a[3], vx: a[4], vy: a[5] }));
   (s.dx || []).forEach((f, i) => { if (S.decoys[i]) { S.decoys[i].ball = !!f[0]; S.decoys[i].solid = !!f[1]; } }); S.syn = s.sy || [[], []];
   S.teamCd = s.tc ? s.tc.map(o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + S.time]))) : [{}, {}];
-  for (const e of (s.fx || [])) if (NET.lastFx == null || e[0] > NET.lastFx) { if (NET.lastFx != null) playFx({ id: e[0], type: e[1], pid: e[2], x: e[3], y: e[4], team: e[5], side: e[6], t: S.time }, false); NET.lastFx = e[0]; } NET.pings = s.pg || {};
+  for (const e of (s.fx || [])) if (NET.lastFx == null || e[0] > NET.lastFx) { if (NET.lastFx != null) playFx({ id: e[0], type: e[1], pid: e[2], x: e[3], y: e[4], team: e[5], side: e[6], col: e[7], arc: e[8], t: S.time }, false); NET.lastFx = e[0]; } NET.pings = s.pg || {};
   S.score = s.sc || [0, 0]; S.clock = +s.cl || 0; S.pause = +s.pz || 0; S.pauseSub = s.ps || ''; S.excite = +s.ex || 0;
   const pm = s.pm || '';
   if (pm !== NET.lastPm) { NET.lastPm = pm; if (pm && S.pause > 0) { whistle(1); if (pm === 'GOAL!') S.shake = 6; } }

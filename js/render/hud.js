@@ -69,7 +69,7 @@ function drawMinimap() {
     ctx.beginPath(); ctx.moveTo(X(r.x), Y(r.y)); ctx.arc(X(r.x), Y(r.y), r.range * sx, r.face - r.fov / 2, r.face + r.fov / 2); ctx.closePath(); ctx.fill();
   }
   for (const p of S.players) {
-    if (!onPitch(p)) continue;
+    if (!onPitch(p) || unseen(p)) continue;
     ctx.fillStyle = p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : TEAM[p.team].col;
     ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), p.human ? 4.4 : 3.2, 0, Math.PI * 2); ctx.fill();
     if (p.human) { ctx.strokeStyle = HUMAN_COL[p.human.idx % HUMAN_COL.length]; ctx.lineWidth = 2; ctx.stroke(); }
@@ -238,7 +238,7 @@ function drawWorldExtras() {
   }
   ctx.globalAlpha = 1;
   for (const p of S.players) {
-    if (!onPitch(p)) continue;
+    if (!onPitch(p) || unseen(p)) continue;
     const down = p.stun > 0 || p.ko > 0;
     // bounty
     if (S.bounty && S.bounty.pid === p.id) { const P = proj(p.x, p.y, down ? 24 : 66); drawLabelPill(P.x, P.y, Math.max(0.8, P.s), '#ffd23f', `$ BOUNTY ${Math.ceil(S.bounty.t)}s`); }
@@ -252,7 +252,7 @@ function drawWorldExtras() {
   }
   // speech bubbles from taunts
   for (const u of S.bubbles || []) {
-    const p = S.players[u.pid]; if (!p || !onPitch(p)) continue;
+    const p = S.players[u.pid]; if (!p || !onPitch(p) || unseen(p)) continue;
     const owner = p.skinOwner || (p.human && p.human.id); if (NET && NET.muted && owner && NET.muted.has(owner)) continue;
     const P = proj(p.x, p.y, 70), a = Math.min(1, u.life * 2);
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(14 * Math.max(0.8, P.s))}px ${UI}`; const tw = ctx.measureText(u.text).width + 16, th = 22;
@@ -325,7 +325,7 @@ function drawCastAims() {
     let col, range, cone = 0, t = null, pt = null, rad = 0, label = '', bad = '';
     if (slot < 0) {
       const pl = attackPlan(p); range = pl.range; t = pl.target; col = pl.help ? '#7dff9b' : '#ff4d6d';
-      if (pl.ranged) { pt = t ? { x: t.x, y: t.y } : { x: p.x + Math.cos(f) * range, y: p.y + Math.sin(f) * range }; label = pl.ranged.name.toUpperCase(); }
+      if (pl.ranged) { cone = pl.cone; label = pl.ranged.name.toUpperCase() + ' SLASH'; }
       else { cone = ATK_CONE; label = pl.help ? 'HELP UP' : t && t.team === p.team ? 'TEAMMATE' : 'ATTACK'; }
       if (p.foulCd > 0 && !pl.ranged) bad = p.foulCd.toFixed(1) + 's';
     } else {
@@ -366,8 +366,16 @@ function drawRage(cx) {
     ctx.save(); ctx.translate(x + 6, y + h + 9); ctx.font = `700 10px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = full ? '#ff5a3d' : '#c9d3cb'; ctx.fillText(full ? 'OVERDRIVE' : 'RAGE', 0, 0); ctx.restore();
   }
 }
-// Shockwave rings and lasso lines (the ground patches are drawn in 3D).
+// Shockwave rings, slash crescents and lasso lines (the ground patches are drawn in 3D).
 function drawCombatFx() {
+  for (const w of S.slashes || []) {   // a crescent sweeping out across the arc, then fading
+    const u = w.t / 0.3, sweep = Math.min(1, u * 2.2), a0 = w.ang - w.arc / 2, a1 = a0 + w.arc * sweep, N = 22;
+    const pt = (a, r, z) => proj(w.x + Math.cos(a) * r, w.y + Math.sin(a) * r, z);
+    ctx.globalAlpha = 1 - u * u; ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N, P = pt(a, w.r, 18); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }
+    for (let i = N; i >= 0; i--) { const a = a0 + (a1 - a0) * i / N, k = Math.sin(Math.PI * i / N), P = pt(a, w.r * (1 - 0.28 * k), 18); ctx.lineTo(P.x, P.y); }
+    ctx.closePath(); ctx.fillStyle = w.col; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.globalAlpha = 1;
+  }
   for (const w of S.waves || []) {
     const u = w.t / 0.5, P = proj(w.x, w.y, 1), r = w.r * (0.3 + 0.9 * u);
     ctx.globalAlpha = 1 - u; ctx.strokeStyle = w.col || '#ffd9a8'; ctx.lineWidth = 4 * P.s * (1 - u) + 1; ell(P.x, P.y, r * P.s, r * P.s * 0.42); ctx.stroke(); ctx.globalAlpha = 1;
