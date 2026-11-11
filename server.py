@@ -237,7 +237,7 @@ th{{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut
 
 class Handler(SimpleHTTPRequestHandler):
     # Fixed content types. On some Windows machines the registry maps .js to text/plain,
-    # which makes browsers refuse to load the 3D view (js/render3d.js) as a module.
+    # which makes browsers refuse to load the 3D view (js/render/render3d.js) as a module.
     extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
                       '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
                       '.html': 'text/html', '.css': 'text/css', '.svg': 'image/svg+xml',

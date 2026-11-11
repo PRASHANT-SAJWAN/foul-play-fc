@@ -1,7 +1,7 @@
 # Foul Play FC
 
 A 2.5D five-a-side football game in the browser: foul anyone in reach, blind the referee, and earn gifts from the crowd.
-Plain HTML and JavaScript: no build step and no backend. `index.html` holds the page; the game code is split into small files in [`js/`](js/README.md) (see that README for the module map and how to add items, anomalies, classes and settings), the styles are in `css/game.css`, and the 3D view is `js/render3d.js`, using [three.js](https://threejs.org) from a CDN.
+Plain HTML and JavaScript: no build step and no backend. `index.html` holds the page; the game code is organised into topic folders in [`js/`](js/README.md) (core, match, mechanics, abilities, items, party, anomalies, render, ui, net) (see that README for the module map and how to add items, anomalies, classes and settings), the styles are in `css/game.css`, and the 3D view is `js/render/render3d.js`, using [three.js](https://threejs.org) from a CDN.
 
 - **Graphics:** 3D (default) or Classic 2.5D, under **Pace and controls → Game**. The 3D view draws the same match with low-poly player models, a floodlit stadium, shadows and a broadcast camera that follows the ball. If WebGL isn't available, the game falls back to Classic automatically.
 
