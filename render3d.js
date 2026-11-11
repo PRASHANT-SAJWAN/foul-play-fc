@@ -69,6 +69,11 @@ function buildRig(look, canvasTex) {
   if (acc === 7) { const fr = stdM('#111111'); for (const x of [-2.4, 2.4]) { hb(3.6, 0.6, 0.6, x, 2.1, 5.1, fr); hb(3.6, 0.6, 0.6, x, -0.9, 5.1, fr); hb(0.6, 3.6, 0.6, x - 1.8, 0.6, 5.1, fr); hb(0.6, 3.6, 0.6, x + 1.8, 0.6, 5.1, fr); } }
   const bat = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 0.9, 18, 8), stdM('#a06a33'));
   bat.position.set(0, -13, 4); bat.rotation.x = Math.PI / 2.6; bat.visible = false; armR.add(bat);
+  const sword = new THREE.Group();   // blade, cross-guard and grip, held point-forward
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 22, 0.5), stdM('#dfe7ee', { metalness: 0.7, roughness: 0.25 })); blade.position.y = -12;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(6, 1.2, 1.4), stdM('#c9a050', { metalness: 0.5 })); guard.position.y = -1;
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4, 1.4), stdM('#5a3d12')); grip.position.y = 1.5;
+  sword.add(blade, guard, grip); sword.position.set(0, -15, 3); sword.rotation.x = Math.PI / 2.2; sword.visible = false; armR.add(sword);
   const card = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.6, 0.5), stdM('#ffd23f', { emissive: '#ffd23f', emissiveIntensity: 0.4 }));
   card.position.set(0, -15.5, 0); card.visible = false; armR.add(card);
   const birds = new THREE.Group();
@@ -76,7 +81,7 @@ function buildRig(look, canvasTex) {
   birds.position.y = 14; birds.visible = false; g.add(birds);
   g.scale.setScalar(1 + (look.height || 0) * 0.01);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  return { g, body, headG, legL, legR, armL, armR, bat, card, birds, m };
+  return { g, body, headG, legL, legR, armL, armR, bat, sword, card, birds, m };
 }
 // Short animations layered over the running pose: fouls, shots, celebrations and taunts.
 function applyAnim(R, anim, time) {
@@ -220,6 +225,18 @@ export function createRenderer3D(canvas, G) {
     box.position.set(x, y / 2, 0); box.receiveShadow = true; scene.add(box);
     for (let z = -(H / 2 + M); z <= H / 2 + M; z += SPACING) crowdSpots.push([x + rand(-4, 4), y, z + rand(-2, 2)]);
   }
+  /* ---------- team benches (dugouts) on the near touchline ---------- */
+  if (G.bench) for (const t of [0, 1]) {
+    const bx = G.bench.x(t) - W / 2, bz = G.bench.y() - H / 2, g = new THREE.Group();
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(150, 13, 3), std('#1d2925')); wall.position.set(0, 6.5, 9);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(146, 3, 12), std('#34453f')); seat.position.set(0, 9, 3);
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(146, 8, 2), std('#222c29')); legs.position.set(0, 4, 7);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(156, 2, 26), new THREE.MeshStandardMaterial({ color: '#a8d4ea', transparent: true, opacity: 0.35, roughness: 0.1 })); roof.position.set(0, 35, -1);
+    const sideA = new THREE.Mesh(new THREE.BoxGeometry(2, 34, 24), new THREE.MeshStandardMaterial({ color: '#a8d4ea', transparent: true, opacity: 0.3, roughness: 0.1 })); sideA.position.set(-77, 17, -1);
+    const sideB = sideA.clone(); sideB.position.x = 77;
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(150, 4, 0.6), std(TEAM[t].col, { emissive: TEAM[t].col, emissiveIntensity: 0.4 })); stripe.position.set(0, 11, 10.8);
+    g.add(wall, seat, legs, roof, sideA, sideB, stripe); g.position.set(bx, 0, bz); shadowAll(g); scene.add(g);
+  }
   const back = new THREE.Mesh(new THREE.BoxGeometry(W + 2 * M + 600, 190, 20), std('#0e1513'));
   back.position.set(0, 95, -(H / 2 + M + 24 + 9 * DEPTH + 10)); scene.add(back);
   const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 2 * M + 600, 6, 170), std('#121a17'));
@@ -336,6 +353,14 @@ export function createRenderer3D(canvas, G) {
     if (type === 'medkit') {
       g.add(new THREE.Mesh(new THREE.BoxGeometry(10, 7, 10), std('#f4f4f0')));
       const a = new THREE.Mesh(new THREE.BoxGeometry(7, 7.4, 2.2), std('#e23b3b')), b = a.clone(); b.rotation.y = Math.PI / 2; g.add(a, b);
+    } else if (type === 'sword') {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, 20, 0.6), std('#dfe7ee', { metalness: 0.7, roughness: 0.25, emissive: '#6a7a88', emissiveIntensity: 0.3 })); b.position.y = 4;
+      const gd = new THREE.Mesh(new THREE.BoxGeometry(7, 1.4, 1.6), std('#c9a050', { metalness: 0.5 })); gd.position.y = -6;
+      const gp = new THREE.Mesh(new THREE.BoxGeometry(1.6, 4.5, 1.6), std('#5a3d12')); gp.position.y = -9;
+      const sw = new THREE.Group(); sw.add(b, gd, gp); sw.rotation.z = Math.PI / 3; g.add(sw);
+    } else if (type === 'ultcharge') {
+      const st = new THREE.Mesh(new THREE.OctahedronGeometry(5.2, 0), std('#b98cff', { emissive: '#8a4dff', emissiveIntensity: 1.1, roughness: 0.3 })); st.scale.y = 1.4; g.add(st);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(7, 0.6, 6, 24), std('#d9c4ff', { emissive: '#b98cff', emissiveIntensity: 0.9 })); ring.rotation.x = Math.PI / 2; g.add(ring);
     } else if (type === 'bat') {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.1, 20, 8), std('#b07a3c')); m.rotation.z = Math.PI / 2.3; g.add(m);
     } else if (type === 'flash') {
@@ -481,8 +506,15 @@ export function createRenderer3D(canvas, G) {
       const cc = G.classCol && G.classCol(p); R.ring.visible = !!cc; if (cc) R.ring.material.color.set(cc);
       const al = G.cloakAlpha ? G.cloakAlpha(p) : 1;
       if (R.alpha !== al) { R.alpha = al; R.mats.forEach(mm => { mm.transparent = al < 1; mm.opacity = al; mm.depthWrite = al >= 1; mm.needsUpdate = true; }); }
-      R.g.visible = p.sentOff <= 0;
+      const benched = G.onBench && G.onBench(p);
+      R.g.visible = p.sentOff <= 0 || benched;
       if (!R.g.visible) return;
+      if (benched) {   // sitting on the bench: legs forward, a slow fidget, arms up for a taunt or throw
+        pose(R, p.x, p.y, p.face, 0, 0, false, 0); applyAnim(R, p.anim, time);
+        R.body.position.y -= 7; R.legL.rotation.x = -1.45; R.legR.rotation.x = -1.45 + Math.sin(time * 2 + i) * 0.08;
+        R.g.scale.setScalar(1); R.birds.visible = false; R.bat.visible = false; R.sword.visible = false; R.ring.visible = false;
+        return;
+      }
       const down = p.stun > 0 || p.ko > 0 || p.slide > 0;
       pose(R, p.x, p.y, p.face, p.run, Math.min(1, Math.hypot(p.vx, p.vy) / 120), down, p.sprinting ? 0.32 : 0);
       if (p.dive > 0 || p.diveDown > 0 || p.diveState) {   // goalkeeper dive: roll sideways, arms stretched
@@ -506,7 +538,8 @@ export function createRenderer3D(canvas, G) {
       if (p.carry != null && !down) { R.armL.rotation.set(-3.0, 0, 0.35); R.armR.rotation.set(-3.0, 0, -0.35); }
       R.headG.scale.setScalar(V0.bigHead ? 1.9 : 1); R.headG.position.y = V0.bigHead ? 41.5 : 37.4;
       R.birds.visible = p.ko > 0; R.birds.rotation.y = time * 4;
-      R.bat.visible = p.items && p.items.bat > 0 && !down;
+      R.sword.visible = !!(p.items && p.items.sword > 0) && !down;
+      R.bat.visible = !R.sword.visible && p.items && p.items.bat > 0 && !down;
       R.m.jersey.emissive.setRGB(p.hitT > 1.6 ? 0.5 : 0, 0, 0);
     });
     for (let i = S.players.length; i < playerRigs.length; i++) playerRigs[i].g.visible = false;

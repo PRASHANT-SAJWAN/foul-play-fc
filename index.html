@@ -212,6 +212,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
         <button data-adm="pu:shield">Shield</button><button data-adm="pu:megaphone">Megaphone</button>
         <button data-adm="pu:megaball">Mega ball</button><button data-adm="pu:replay">Instant replay</button>
         <button data-adm="pu:smoke">Smoke bomb</button><button data-adm="pu:glue">Glue ×2</button>
+        <button data-adm="give:sword">Sword ×3</button><button data-adm="give:ultcharge">Ultimate charge</button><button data-adm="bench">Send me to the bench</button>
         <button data-adm="pu:whistle">Fake whistle</button><button data-adm="pu:decoy">Decoy</button>
         <button data-adm="injure">Injure me</button><button data-adm="bounty">Bounty now</button>
         <button data-adm="ult">Ultimate ready</button><button data-adm="cds">Reset cooldowns</button>
@@ -250,7 +251,7 @@ kbd{font-family:var(--ui);font-weight:600;font-size:13px;color:var(--ink);backgr
     <div class="card">
       <div class="kicker">Small-sided · one referee · no morals</div>
       <h1>FOUL PLAY <span>FC</span></h1>
-      <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referee only sees what's inside the yellow cone, so throw sand in their eyes first. Play well and the crowd throws you bats, flash powder, bananas and med kits.</p>
+      <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referee only sees what's inside the yellow cone, so throw sand in their eyes first. Play well and the crowd throws you med kits, swords, rocket boots, ultimate charges and fake whistles.</p>
       <div class="modes">
         <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">You lead the Hounds</span></button>
         <button class="mode" id="m-2pv"><span class="t">2 players · versus</span><span class="d">Same keyboard, rival teams</span></button>
@@ -545,7 +546,7 @@ const NAMES = [['Okafor', 'Lindqvist', 'Moreau', 'Sato', 'Brennan'], ['Vargas', 
 const NUMS = [1, 4, 5, 8, 9];
 const SKIN = ['#f1c9a5', '#d9a477', '#b07a50', '#7a4a2c', '#5a3520'];
 const HAIR = ['#1b120c', '#3a2416', '#6b4a2a', '#c9a050', '#0e0e0e'];
-const ITEM_LABEL = { medkit: 'med kit', bat: 'bat', flash: 'flash powder', banana: 'bunch of bananas', sling: 'slingshot', blaster: 'foam blaster' };
+const ITEM_LABEL = { medkit: 'med kit', bat: 'bat', flash: 'flash powder', banana: 'bunch of bananas', sling: 'slingshot', blaster: 'foam blaster', sword: 'sword', ultcharge: 'ultimate charge' };
 const FOUL_NAME = { skill: 'dirty skill', ranged: 'ranged attack', slide: 'sliding tackle', kick: 'jump kick', throw: 'unsporting throw', foul: 'foul', ko: 'knockout', blind: 'sand throw', banana: 'banana drop' };
 const HUMAN_COL = ['#ffd23f', '#6ff0c0', '#ff8fd8', '#9fb4ff', '#ffffff', '#ffb36b', '#b6ff6b', '#6be3ff', '#e0a3ff', '#ff7a7a'];
 
@@ -748,16 +749,19 @@ const S = { phase: 'menu', mode: 'watch', players: [], refs: [], ball: null, ite
 
 function makePlayer(team, i, id) {
   return { id, team, i, gk: i === 0, name: NAMES[team][NAME_IDX[i]], num: NUMS[NAME_IDX[i]], x: 0, y: 0, vx: 0, vy: 0, dx: 0, dy: 0, face: team === 0 ? 0 : Math.PI,
-    hp: 100, stun: 0, ko: 0, dive: 0, diveDown: 0, diveVx: 0, diveVy: 0, diveDir: 0, diveState: 0, sentOff: 0, yellows: 0, pop: 10, hype: 0, items: { bat: 0, flash: 0, banana: 0, glue: 0, smoke: 0, whistle: 0, decoy: 0, sling: 0, blaster: 0 }, fx: {}, throwSel: 'banana', freezeT: 0, slowT: 0, firedUpT: 0, tauntCd: 0, blind: 1, blindT: 0,
+    hp: 100, stun: 0, ko: 0, dive: 0, diveDown: 0, diveVx: 0, diveVy: 0, diveDir: 0, diveState: 0, sentOff: 0, yellows: 0, pop: 10, hype: 0, items: { sword: 0, bat: 0, flash: 0, banana: 0, glue: 0, smoke: 0, whistle: 0, decoy: 0, sling: 0, blaster: 0 }, fx: {}, throwSel: 'banana', freezeT: 0, slowT: 0, firedUpT: 0, tauntCd: 0, blind: 1, blindT: 0,
     foulCd: 0, blindCd: 0, pickCd: 0, lunge: 0, lungeCd: 0, hold: 0, expect: 0, aggr: rand(0.3, 0.9), human: null, run: 0, hitT: 0, target: null,
     charge: 20, karma: Math.round(rand(-5, 25)), sprintWant: false, sprinting: false, cleanT: 0,
     stamina: 100, staminaMax: 100, injury: 0, mood: 0, anim: '', animT: 0, goneWhy: '', iceT: 0, heatT: 0, z: 0, vz: 0, airAct: null, slide: 0, slideA: 0, slideCd: 0, slideRec: 0, slideHit: false, carry: null, carryT: 0,
     skin: pick(SKIN), hair: pick(HAIR), stats: { goals: 0, assists: 0, fouls: 0, caught: 0, tackles: 0, saves: 0 } };
 }
 const onPitch = p => p.sentOff <= 0;
+const onBench = p => p.sentOff > 0 && !p.goneWhy;   // red-carded: sitting it out on the team bench
+// Is this player controlled by someone at this screen? (Only they get the set-piece camera behind the ball.)
+const isLocalHuman = p => !!(p && p.human && (S.net === 'client' ? p.human.local : !p.human.remote));
 const able = p => onPitch(p) && p.ko <= 0 && p.stun <= 0;
 const canBall = p => able(p) && p.carry == null && !(p.slideRec > 0);   // carrying the referee or getting up from a slide: no ball
-const reachOf = p => p.items.bat > 0 ? 60 : 42;      // punch (or bat swing) reach
+const reachOf = p => p.items.sword > 0 ? 66 : p.items.bat > 0 ? 60 : 42;      // punch (or sword / bat swing) reach
 const KICK_REACH = 72;                                  // jump kick lunges further
 const targetReach = p => Math.max(reachOf(p), KICK_REACH);
 const MOOD_ZONE = 40, MOOD_TILT = -40, MOOD_MELT = -70;
@@ -1127,7 +1131,7 @@ function doFoul(a, t, kind = 'punch') {
   if (d > (kind === 'kick' ? KICK_REACH : reachOf(a)) + 6) { if (a.human) floatText(a, kind === 'kick' ? 'Too far' : 'Too far to punch: jump and punch for a jump kick', '#c8c8c8'); return false; }
   if (S.admin && S.admin.god && t.human) { a.foulCd = 1.0; floatText(t, 'IMMUNE', '#9fe8ff'); return false; }
   if (t.fx && t.fx.shield > 0) { t.fx.shield = 0; a.stun = Math.max(a.stun, 1); a.foulCd = 1; floatText(t, 'SHIELD!', '#9fe8ff'); burst(t.x, t.y, '#9fe8ff', 14, 20); feed(`${t.name}'s shield bounced ${a.name}'s foul`, '#9fe8ff'); return false; }
-  const kick = kind === 'kick', heavy = !kick && a.items.bat > 0; if (heavy) a.items.bat--;
+  const kick = kind === 'kick', sword = !kick && a.items.sword > 0, heavy = !kick && (sword || a.items.bat > 0); if (sword) a.items.sword--; else if (heavy) a.items.bat--;
   if (kick) { a.stamina = Math.max(0, a.stamina - 15); M(a, 'jumpKicks'); a.vx = (t.x - a.x) * 4; a.vy = (t.y - a.y) * 4; if (a.z <= 0) { a.vz = 200; a.z = 0.01; } }
   a.foulCd = kick ? 1.6 : 1.0; a.stats.fouls++; a.lastFoulT = S.time; a.anim = kick ? 'kick' : heavy ? 'swing' : 'punch'; a.animT = 0.45;
   addKarma(a, heavy ? -14 : kick ? -12 : -8); S.heat = Math.min(1.5, S.heat + 0.08);
@@ -1135,18 +1139,18 @@ function doFoul(a, t, kind = 'punch') {
   noteGrudge(a, t);
   const ang = Math.atan2(t.y - a.y, t.x - a.x), kb = heavy ? 260 : kick ? 230 : 170;
   t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb;
-  const dmg = Math.round((heavy ? 34 : kick ? 24 : 16) * dmgOut(a) * dmgIn(t)), imm = knockImmune(t);
+  const dmg = Math.round((sword ? 30 : heavy ? 34 : kick ? 24 : 16) * dmgOut(a) * dmgIn(t)), imm = knockImmune(t);
   t.hp = Math.max(0, t.hp - dmg); t.hitT = 2; if (!imm) { t.stun = Math.max(t.stun, heavy ? 2.2 : kick ? 1.8 : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, 'UNSTOPPABLE', '#ffd23f');
   addMood(t, -10);
   if (!imm) loseBall(t, ang);
   onFoulLanded(a, t);
-  burst(t.x, t.y, heavy ? '#ffcf5a' : kick ? '#ffb36b' : '#ffffff', heavy ? 18 : kick ? 16 : 10, 18); whack(t, t.hp <= 0 ? 'ko' : heavy ? 'bat' : kick ? 'kick' : 'punch');
+  burst(t.x, t.y, heavy ? '#ffcf5a' : kick ? '#ffb36b' : '#ffffff', heavy ? 18 : kick ? 16 : 10, 18); whack(t, t.hp <= 0 ? 'ko' : sword ? 'sword' : heavy ? 'bat' : kick ? 'kick' : 'punch');
   floatText(t, '-' + dmg, '#ff6b6b'); thump(heavy ? 70 : kick ? 85 : 110, 0.3, 0.14);
   S.shake = heavy ? 7 : kick ? 5 : 3; S.excite += heavy ? 0.35 : kick ? 0.3 : 0.2;
   let pkind = kick ? 'kick' : 'foul';
   if (t.hp <= 0) { t.ko = 6; t.stun = 6; pkind = 'ko'; addKarma(a, -12); M(a, 'knockouts'); M(t, 'knockedOut'); cheer('roar', t.x, 'WHAT A HIT!'); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); floatText(t, 'K.O.', '#ff6b6b'); fxEvent('ko', t); injure(t, 25, a); }
   else {
-    if (loud(a, t)) feed(`${a.name} ${heavy ? 'swung a bat at' : kick ? 'jump-kicked' : 'punched'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
+    if (loud(a, t)) feed(`${a.name} ${sword ? 'slashed at' : heavy ? 'swung a bat at' : kick ? 'jump-kicked' : 'punched'} ${t.name}${a.team === t.team ? ' (own teammate!)' : ''}`, '#f2c9c9');
     const chance = heavy ? 0.7 : kick ? 0.5 : 0.1;
     if (Math.random() < chance) injure(t, heavy ? 22 : kick ? 14 : 8, a);
   }
@@ -1246,7 +1250,7 @@ function callFoul(f, r) {
   S.excite += 0.3;
   if (red) {
     if (S.ball.owner === a) S.ball.owner = null;
-    a.sentOff = 25; a.goneWhy = ''; a.charge = 0; a.yellows = 0; a.stun = 0; a.ko = 0; a.target = null;
+    a.charge = 0; a.yellows = 0; a.stun = 0; a.ko = 0; a.target = null; sendToBench(a);
     if (a.human) switchToBest(a.human);
   }
   setPiece(1 - a.team, f.inBox ? 'penalty' : 'free', f.x, f.y, red ? 'RED CARD' : 'YELLOW CARD');
@@ -1257,10 +1261,7 @@ function throwItem(p, force) {
     const fav = S.crowd.support >= 0.5 ? 0 : 1;
     if (Math.max(S.crowd.support, 1 - S.crowd.support) > 0.6 && p.team !== fav) { const pool = S.players.filter(q => q.team === fav && onPitch(q) && !q.gk); if (pool.length) p = pick(pool); }
   }
-  const puOnPitch = S.items.filter(i => POWERUPS.includes(i.type)).length, losing = S.score[p.team] < S.score[1 - p.team];
-  let type;
-  if (!MUT.noPowerups && puOnPitch < 2 && Math.random() < (losing ? 0.6 : 0.4)) type = pick(losing ? ['rocket', 'shield', 'megaball', 'replay', 'decoy', 'smoke', 'magnet', 'megaphone'] : POWERUPS);
-  else type = pick(p.hp < 55 || p.injury > 0 ? ['medkit', 'medkit', 'bat', 'flash', 'banana', 'sling'] : ['bat', 'bat', 'flash', 'flash', 'banana', 'banana', 'medkit', 'sling', 'blaster']);
+  const type = fieldItemFor(p);
   const tx = clamp(p.x + rand(-40, 40), 20, W - 20), ty = clamp(p.y + rand(-40, 40), 20, H - 20);
   const near = Math.random() < 0.4;
   const sx = clamp(tx + rand(-120, 120), -40, W + 40), sy = near ? H + 60 : -40;
@@ -1274,6 +1275,8 @@ function pickup(p, it) {
   if (POWERUPS.includes(it.type)) { applyPowerup(p, it.type); thump(500, 0.08, 0.08); return; }
   if (it.type === 'medkit') { p.hp = Math.min(100, p.hp + 45); floatText(p, '+45 HP', '#7dff9b'); healInjury(p); }
   if (it.type === 'bat') { p.items.bat += 3; floatText(p, 'BAT ×3', '#ffcf5a'); }
+  if (it.type === 'sword') { p.items.sword = (p.items.sword || 0) + 3; floatText(p, 'SWORD ×3', ITEM_COL.sword); }
+  if (it.type === 'ultcharge') { p.ult = Math.min(100, (p.ult || 0) + 50); floatText(p, 'ULTIMATE +50%', ITEM_COL.ultcharge); burst(p.x, p.y, ITEM_COL.ultcharge, 12, 20); }
   if (it.type === 'sling') { p.items.sling += 5; floatText(p, 'SLINGSHOT ×5', ITEM_COL.sling); }
   if (it.type === 'blaster') { p.items.blaster += 10; floatText(p, 'FOAM BLASTER ×10', ITEM_COL.blaster); }
   if (it.type === 'flash') { p.items.flash += 1; floatText(p, 'FLASH', '#fff6c0'); }
@@ -1346,7 +1349,7 @@ function showResults() {
    Every player gets a counter sheet for the whole match. At full time it becomes a report:
    raw JSON (everything, including the event timeline), a CSV (one row per player) and a
    standalone HTML page that is easy to read. The last 20 reports are kept in this browser. */
-const METRIC_KEYS = ['throughBalls', 'blocks', 'jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
+const METRIC_KEYS = ['benchThrows', 'throughBalls', 'blocks', 'jumps', 'headers', 'volleys', 'slides', 'refLifts', 'refThrows', 'minutes', 'humanTime', 'distance', 'possession', 'sprintTime', 'passes', 'passesCompleted', 'lobs', 'interceptions', 'shots', 'shotsOnTarget', 'powerShots',
   'fouls', 'foulsBat', 'foulsOnTeammates', 'knockouts', 'sandThrows', 'flashUsed', 'bananasDropped', 'bananaVictims', 'unseen', 'wavedOffTrusted', 'yellows', 'reds',
   'caughtFouls', 'sneakyCaught', 'sneakyUnseen', 'fouledReceived', 'knockedOut', 'slips', 'ignoredFoulsOnMe', 'helpUps', 'helpedUp', 'cleanStreaks', 'giftsReceived', 'itemsPicked', 'setPiecesTaken', 'chargeEarned', 'chargeSpent', 'longPasses', 'dives', 'jumpKicks', 'injuries', 'injuriesCaused', 'staminaUsed', 'taunts', 'powerups', 'bountiesCollected'];
 const HISTORY_KEY = 'fpfc-history', HISTORY_MAX = 20;
@@ -1687,10 +1690,10 @@ const animIdx = a => Math.max(0, ANIMS.indexOf(a || ''));
 
 /* ---------- big-moment effects ---------- */
 // Comic-book hit words that pop over whoever takes a hit; sent to every player like the other effects.
-const WHACKS = [['WHACK!', '#ffd23f'], ['POW!', '#ff5a5a'], ['BAM!', '#ff9a3d'], ['THWACK!', '#7df0ff'], ['BONK!', '#ffcf5a'], ['SMACK!', '#ff7ad9'], ['CRUNCH!', '#b6ff6b'], ['WHAM!', '#c9a0ff']];
+const WHACKS = [['SLASH!', '#d9e2ec'], ['WHACK!', '#ffd23f'], ['POW!', '#ff5a5a'], ['BAM!', '#ff9a3d'], ['THWACK!', '#7df0ff'], ['BONK!', '#ffcf5a'], ['SMACK!', '#ff7ad9'], ['CRUNCH!', '#b6ff6b'], ['WHAM!', '#c9a0ff']];
 function whack(t, kind) {
-  const idx = kind === 'bat' ? 4 : kind === 'kick' ? pick([1, 7]) : kind === 'slide' ? 6 : kind === 'tackle' ? pick([2, 5]) : kind === 'skill' ? pick([1, 2, 3, 7]) : pick([0, 2, 3, 5]);
-  fxEvent('whack', t, { x: t.x, y: t.y, side: idx, team: kind === 'bat' || kind === 'kick' || kind === 'ko' ? 1 : 0 });
+  const idx = kind === 'sword' ? 0 : kind === 'bat' ? 5 : kind === 'kick' ? pick([2, 8]) : kind === 'slide' ? 7 : kind === 'tackle' ? pick([3, 6]) : kind === 'skill' ? pick([2, 3, 4, 8]) : pick([1, 3, 4, 6]);
+  fxEvent('whack', t, { x: t.x, y: t.y, side: idx, team: kind === 'sword' || kind === 'bat' || kind === 'kick' || kind === 'ko' ? 1 : 0 });
 }
 let FX_ID = 0;
 // Every machine plays the same effect for the same event: the host records it, players get it in snapshots.
@@ -1870,10 +1873,17 @@ function bountyCollect(p, victim) {
 }
 
 /* ---------- power-ups and throwables ---------- */
+// The only items that reach the pitch (from the crowd or the bench). Hurt players are more likely to get health.
+const FIELD_ITEMS = ['medkit', 'ultcharge', 'sword', 'rocket', 'whistle'];
+function fieldItemFor(p) {
+  const pool = MUT.noPowerups ? ['medkit', 'sword', 'whistle'] : FIELD_ITEMS.slice();
+  if (p && (p.hp < 55 || p.injury > 0)) pool.push('medkit', 'medkit');
+  return pick(pool);
+}
 const POWERUPS = ['rocket', 'magnet', 'smoke', 'whistle', 'glue', 'megaball', 'shield', 'decoy', 'megaphone', 'replay'];
 const THROWABLES = ['banana', 'glue', 'smoke', 'whistle', 'decoy'];
 Object.assign(ITEM_LABEL, { rocket: 'pair of rocket boots', magnet: 'pair of magnet boots', smoke: 'smoke bomb', whistle: 'fake whistle', glue: 'pot of glue', megaball: 'mega ball', shield: 'shield', decoy: 'decoy', megaphone: 'megaphone', replay: 'instant replay' });
-const ITEM_COL = { sling: '#c9b48a', blaster: '#ff9f43', medkit: '#f4f4f0', bat: '#b07a3c', flash: '#ffd23f', banana: '#ffe14d', rocket: '#ff7a2f', magnet: '#e2404f', smoke: '#9aa3a8', whistle: '#d8dde0', glue: '#5ccf6a', megaball: '#ffffff', shield: '#6fc4ff', decoy: '#c9b7ff', megaphone: '#ff9fd0', replay: '#ffd23f' };
+const ITEM_COL = { sword: '#d9e2ec', ultcharge: '#b98cff', sling: '#c9b48a', blaster: '#ff9f43', medkit: '#f4f4f0', bat: '#b07a3c', flash: '#ffd23f', banana: '#ffe14d', rocket: '#ff7a2f', magnet: '#e2404f', smoke: '#9aa3a8', whistle: '#d8dde0', glue: '#5ccf6a', megaball: '#ffffff', shield: '#6fc4ff', decoy: '#c9b7ff', megaphone: '#ff9fd0', replay: '#ffd23f' };
 const throwCount = p => THROWABLES.reduce((s, k) => s + (p.items[k] || 0), 0);
 function selectedThrowable(p) { if ((p.items[p.throwSel] || 0) > 0) return p.throwSel; return THROWABLES.find(k => (p.items[k] || 0) > 0) || 'banana'; }
 function applyPowerup(p, type) {
@@ -1894,6 +1904,68 @@ function instantReplay(p) {
   feed(`${p.name} calls for an instant replay of ${f.a.name}'s foul…`, '#9fe8ff');
   if (Math.random() < 0.5) { feed('Replay: foul given!', '#ffd23f'); callFoul(f, r); }
   else { feed('Replay: no clear evidence, play on', '#9fe8ff'); cheer('boo', r.x, 'WHAT?!'); }
+}
+/* ---------- the bench: red-carded players sit it out, taunt, and throw items in to their team ---------- */
+const BENCH_TIME = 25, BENCH_Y = () => H + 30;
+const benchX = team => W / 2 + (team === 0 ? -1 : 1) * Math.min(W * 0.16, 300);
+function benchSeat(p) {
+  const mates = S.players.filter(q => q.team === p.team && onBench(q)), i = Math.max(0, mates.indexOf(p));
+  return { x: benchX(p.team) + (i - (mates.length - 1) / 2) * 22, y: BENCH_Y() };
+}
+function sendToBench(p) {
+  p.sentOff = BENCH_TIME; p.goneWhy = ''; p.benchItem = null; p.benchItemT = rand(3, 5); p.benchTauntT = rand(4, 8);
+  p.carry = null; p.slide = 0; p.z = 0; p.vz = 0;
+  const s = benchSeat(p); p.x = s.x; p.y = s.y; p.vx = p.vy = 0; p.face = -Math.PI / 2;
+  feed(`${p.name} heads to the bench for ${BENCH_TIME} seconds`, '#ff9a9a');
+}
+function updateBench(p, dt) {
+  const s = benchSeat(p); p.x = s.x; p.y = s.y; p.vx = p.vy = 0; p.dx = p.dy = 0; p.z = 0; p.face = -Math.PI / 2;
+  if (!p.benchItem) {   // the kit man hands over a random field item every so often
+    p.benchItemT -= dt;
+    if (p.benchItemT <= 0) { p.benchItem = pick(FIELD_ITEMS); if (isLocalHuman(p)) floatText(p, `${ITEM_LABEL[p.benchItem].toUpperCase()}: ${keyLabel((BINDS[p.human.idx === 1 && S.mode.startsWith('2p') ? 1 : 0] || BINDS[0]).item)} TO THROW IT IN`, ITEM_COL[p.benchItem] || '#ffd23f'); }
+  }
+  if (p.human) return;
+  if (p.benchItem && Math.random() < dt * 0.6) benchThrow(p);   // bots throw theirs in after a moment
+  p.benchTauntT -= dt;
+  if (p.benchTauntT <= 0) { p.benchTauntT = rand(6, 12); doTaunt(p, pick([0, 1, 3, 4])); }
+}
+// Throw the bench item onto the pitch for a team-mate: health to whoever is most hurt, anything else to the one nearest the ball.
+function benchThrow(p) {
+  const type = p.benchItem;
+  if (!type) { if (p.human) floatText(p, 'No item yet', '#c8c8c8'); return; }
+  const mates = S.players.filter(q => q.team === p.team && onPitch(q) && q.ko <= 0);
+  if (!mates.length) return;
+  const q = type === 'medkit' ? mates.slice().sort((a, b) => a.hp - b.hp)[0] : (mates.find(m => m.human && m.human.team === p.team && !m.human.remote) || mates.slice().sort((a, b) => dist(a, S.ball) - dist(b, S.ball))[0]);
+  const tx = clamp(q.x + rand(-25, 25), 20, W - 20), ty = clamp(q.y + rand(-25, 25), 20, H - 20);
+  S.items.push({ type, sx: p.x, sy: p.y, tx, ty, t: 0, dur: 1.0, x: p.x, y: p.y, z: 30, landed: false, for: q, age: 0 });
+  p.benchItem = null; p.benchItemT = rand(7, 11); a0Anim(p, 'swing', 0.35); M(p, 'benchThrows');
+  feed(`${p.name} throws a ${ITEM_LABEL[type]} in from the bench for ${q.name}`, TEAM[p.team].col);
+}
+function leaveBench(p) {
+  p.x = clamp(benchX(p.team), 30, W - 30); p.y = H - 12; p.vx = p.vy = 0; p.face = -Math.PI / 2; p.benchItem = null;
+  feed(`${p.name} is back on from the bench`); burst(p.x, p.y, TEAM[p.team].col, 10, 18);
+}
+// Bench drawing (both views): the dugouts, and a countdown plus the item over each benched player.
+function drawBenches2D1(t) {
+  {
+    const cx = benchX(t), y = BENCH_Y(), hw = 70, tm = TEAM[t];
+    const q = (x0, y0, x1, y1, z0, z1, col) => { const a = proj(x0, y0, z0), b = proj(x1, y0, z0), c = proj(x1, y1, z1), d = proj(x0, y1, z1); ctx.fillStyle = col; path([a, b, c, d], true); ctx.fill(); };
+    q(cx - hw, y + 8, cx + hw, y + 8, 0, 13, 'rgba(20,28,26,.9)');            // low seat back
+    q(cx - hw, y - 2, cx + hw, y + 8, 9, 9, '#2c3a35');                       // seat
+    q(cx - hw - 4, y - 12, cx + hw + 4, y + 10, 34, 32, 'rgba(160,200,220,.28)');   // perspex roof
+    const L = proj(cx, y + 8, 22); ctx.fillStyle = tm.col; ctx.font = `700 ${Math.round(9 * L.s)}px ${UI}`; ctx.textAlign = 'center'; ctx.fillText(tm.short + ' BENCH', L.x, L.y);
+  }
+}
+function drawBenchInfo() {
+  for (const p of S.players) {
+    if (!onBench(p)) continue;
+    const P = proj(p.x, p.y, 52), s = Math.max(0.7, P.s);
+    ctx.font = `700 ${Math.round(12 * s)}px ${UI}`; ctx.textAlign = 'center';
+    const txt = Math.ceil(p.sentOff) + 's', w = ctx.measureText(txt).width + 10 * s;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; rr(P.x - w / 2, P.y - 11 * s, w, 15 * s, 7 * s);
+    ctx.fillStyle = '#ff6b6b'; ctx.fillText(txt, P.x, P.y);
+    if (p.benchItem) drawIcon(p.benchItem, P.x, P.y - 20 * s, s * 1.1);
+  }
 }
 function useThrowable(p) {
   const type = selectedThrowable(p);
@@ -1947,7 +2019,7 @@ function tauntFromDir(ix, iy) {
   return best;
 }
 function doTaunt(p, id) {
-  const T = TAUNTS[id]; if (!T || !p || !onPitch(p)) return;
+  const T = TAUNTS[id]; if (!T || !p || !(onPitch(p) || onBench(p))) return;
   p.tauntLog = (p.tauntLog || []).filter(t => S.time - t < 60);
   if (p.tauntCd > 0 || p.tauntLog.length >= 6) return;
   p.tauntCd = 3; p.tauntLog.push(S.time); a0Anim(p, T.anim, 1.1); M(p, 'taunts'); EV('taunt', p, { text: T.text });
@@ -2605,7 +2677,7 @@ function setPieceUpdate(dt) {
     const inp = readInput(h, dt), p = S.players[h.pid]; if (!p) continue;
     if (p === t) {
       // aim: in the 3D front view left/right moves across the goal and up/down sets the height
-      if (GFX3D || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
+      if ((GFX3D && !!R3) || S.net === 'client' || h.remote) { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
       else { sp.aim.y += inp.iy * 150 * dt; sp.aim.z += inp.ix * dir * 55 * dt; }
       sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
       if (sp.t < sp.minT) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
@@ -3338,7 +3410,7 @@ function botAggro(p, dt) {
   }
   if (!target) return;
   if (p.gk) rate *= 0.4;
-  if (p.items.bat > 0) rate *= 1.5;
+  if (p.items.bat > 0 || p.items.sword > 0) rate *= 1.5;
   rate *= (1 + Math.max(0, -target.karma) / 40) * (1 + S.heat);   // low karma draws revenge; a dirty match heats everyone up
   const ws = S.refs.filter(r => sees(r, p.x, p.y));
   if (ws.length && p.items.smoke > 0 && Math.random() < dt) { p.throwSel = 'smoke'; useThrowable(p); return; }
@@ -3470,6 +3542,7 @@ function humanControl(h, dt) {
   let p = S.players[h.pid];
   if (!p || !onPitch(p) || p.ko > 0) { switchToBest(h); p = S.players[h.pid]; }
   const inp = readInput(h, dt);
+  if (p && onBench(p)) { if (inp.item) benchThrow(p); if (inp.taunt >= 0) doTaunt(p, inp.taunt); return; }   // locked to a benched player
   if (!p || !onPitch(p)) return;
   if (hasBf(p, 'confused')) { inp.ix = -inp.ix; inp.iy = -inp.iy; }
   const canAct = p.stun <= 0 && p.ko <= 0 && !(p.slide > 0) && !(p.slideRec > 0);
@@ -3567,7 +3640,8 @@ function update(dt) {
     if (p.ko > 0) { p.ko -= dt; if (p.ko <= 0) { p.hp = 55; p.stun = 0; if (loud(p)) feed(`${p.name} is back on their feet`); } }
     if (p.sentOff > 0) {
       p.sentOff -= dt;
-      if (p.sentOff <= 0) { if (p.goneWhy) anomReturn(p); else { p.x = p.team === 0 ? W * 0.3 : W * 0.7; p.y = H - 10; p.vx = p.vy = 0; feed(`${p.name} returns from the red card`); } }
+      if (p.sentOff > 0 && !p.goneWhy) updateBench(p, dt);
+      else if (p.sentOff <= 0) { if (p.goneWhy) anomReturn(p); else leaveBench(p); }
     }
     if (p.blind < 2) { p.blindT += dt; if (p.blindT >= 22) { p.blind++; p.blindT = 0; } }
     p.mood += clamp(-p.mood, -2 * dt, 2 * dt); p.animT = Math.max(0, p.animT - dt); if (p.animT <= 0) p.anim = '';
@@ -3965,7 +4039,8 @@ function drawPlayer(p) {
     ctx.fillStyle = p.hp > 50 ? '#7dff9b' : p.hp > 25 ? '#ffd23f' : '#ff4d6d'; ctx.fillRect(P.x - w / 2, P.y - 43 * s, w * p.hp / 100, 3 * s);
   }
   if (p.yellows > 0) { ctx.fillStyle = '#ffd23f'; ctx.fillRect(P.x + 8 * s, P.y - 40 * s, 3.5 * s, 5 * s); }
-  if (p.items.bat > 0 && !down) { ctx.strokeStyle = '#a0682f'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 18 * s); ctx.lineTo(P.x + 13 * s, P.y - 30 * s); ctx.stroke(); }
+  if (p.items.sword > 0 && !down) { ctx.lineCap = 'round'; ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 2.2 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 17 * s); ctx.lineTo(P.x + 15 * s, P.y - 35 * s); ctx.stroke(); ctx.strokeStyle = '#c9a050'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(P.x + 4 * s, P.y - 19 * s); ctx.lineTo(P.x + 11 * s, P.y - 16 * s); ctx.stroke(); }
+  else if (p.items.bat > 0 && !down) { ctx.strokeStyle = '#a0682f'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(P.x + 7 * s, P.y - 18 * s); ctx.lineTo(P.x + 13 * s, P.y - 30 * s); ctx.stroke(); }
   if (p.human) {
     const col = HUMAN_COL[p.human.idx % HUMAN_COL.length], y = P.y - (down ? 26 : 50) * s;
     drawLabelPill(P.x, y, s, col, p.human.label || 'P' + (p.human.idx + 1));
@@ -4041,6 +4116,8 @@ function drawIcon(type, x, y, s) {
   ctx.save(); ctx.translate(x, y);
   const col = ITEM_COL[type] || '#ffffff';
   if (type === 'medkit') { ctx.fillStyle = '#f4f4f0'; rr(-6 * s, -5 * s, 12 * s, 10 * s, 2 * s); ctx.fillStyle = '#e23b3b'; ctx.fillRect(-1.3 * s, -3.5 * s, 2.6 * s, 7 * s); ctx.fillRect(-3.5 * s, -1.3 * s, 7 * s, 2.6 * s); }
+  else if (type === 'sword') { ctx.lineCap = 'round'; ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(-4 * s, 4 * s); ctx.lineTo(7 * s, -7 * s); ctx.stroke(); ctx.strokeStyle = '#c9a050'; ctx.lineWidth = 2.2 * s; ctx.beginPath(); ctx.moveTo(-6.5 * s, 1.5 * s); ctx.lineTo(-1.5 * s, 6.5 * s); ctx.stroke(); ctx.strokeStyle = '#5a3d12'; ctx.beginPath(); ctx.moveTo(-4.5 * s, 4.5 * s); ctx.lineTo(-7 * s, 7 * s); ctx.stroke(); }
+  else if (type === 'ultcharge') { ctx.fillStyle = col; ctx.beginPath(); for (let i = 0; i < 10; i++) { const r = (i % 2 ? 2.8 : 6.5) * s, a = i / 10 * Math.PI * 2 - Math.PI / 2; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ell(0, 0, 1.6 * s, 1.6 * s); ctx.fill(); }
   else if (type === 'bat') { ctx.strokeStyle = '#b07a3c'; ctx.lineCap = 'round'; ctx.lineWidth = 3.4 * s; ctx.beginPath(); ctx.moveTo(-6 * s, 5 * s); ctx.lineTo(6 * s, -5 * s); ctx.stroke(); ctx.strokeStyle = '#3a2412'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(-7 * s, 6 * s); ctx.lineTo(-4 * s, 3.5 * s); ctx.stroke(); }
   else if (type === 'flash') { ctx.fillStyle = '#fff6c0'; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.fillRect(Math.cos(a) * 5 * s - 0.6 * s, Math.sin(a) * 5 * s - 0.6 * s, 1.2 * s, 1.2 * s); } ctx.fillStyle = '#ffd23f'; ell(0, 0, 3.4 * s, 3.4 * s); ctx.fill(); }
   else if (type === 'banana') { ctx.strokeStyle = '#ffe14d'; ctx.lineCap = 'round'; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.arc(0, -4 * s, 7 * s, 0.35 * Math.PI, 0.85 * Math.PI); ctx.stroke(); ctx.fillStyle = '#5a3d12'; ell(Math.cos(0.35 * Math.PI) * 7 * s, -4 * s + Math.sin(0.35 * Math.PI) * 7 * s, 1.2 * s, 1.2 * s); ctx.fill(); }
@@ -4183,7 +4260,7 @@ function drawPanel(h, x) {
   const nmw = ctx.measureText(nm).width;
   ctx.fillStyle = TEAM[p.team].col; ctx.font = `600 12px ${UI}`; ctx.fillText(TEAM[p.team].short, x + 26 + bw + nmw, y + 19);
   const seen = onPitch(p) && watched(p);
-  const st = !onPitch(p) ? `${p.goneWhy === 'ufo' ? 'ABDUCTED' : p.goneWhy === 'pir' ? 'KIDNAPPED' : 'SENT OFF'} ${Math.ceil(p.sentOff)}s` : p.ko > 0 ? `K.O. ${Math.ceil(p.ko)}s` : seen ? 'REF WATCHING' : inSmoke(p.x, p.y) ? 'IN SMOKE' : 'UNSEEN';
+  const st = !onPitch(p) ? `${p.goneWhy === 'ufo' ? 'ABDUCTED' : p.goneWhy === 'pir' ? 'KIDNAPPED' : 'ON THE BENCH'} ${Math.ceil(p.sentOff)}s` : p.ko > 0 ? `K.O. ${Math.ceil(p.ko)}s` : seen ? 'REF WATCHING' : inSmoke(p.x, p.y) ? 'IN SMOKE' : 'UNSEEN';
   const sc = !onPitch(p) || p.ko > 0 ? '#ff4d4d' : seen ? '#ff6b80' : '#7dff9b';
   ctx.font = `700 11px ${UI}`; const sw = ctx.measureText(st).width + 14;
   ctx.globalAlpha = 0.18; ctx.fillStyle = sc; rr(x + w - 10 - sw, y + 10, sw, 17, 8.5); ctx.globalAlpha = 1;
@@ -4216,7 +4293,7 @@ function drawPanel(h, x) {
   const slots = [
     { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0, off: p.items.flash > 0 },
     { icon: 'flash', n: p.items.flash, key: bind.blind[0], hot: p.items.flash > 0 },
-    p.items.sling > 0 || p.items.blaster > 0 ? { icon: p.items.sling > 0 ? 'sling' : 'blaster', n: p.items.sling > 0 ? p.items.sling : p.items.blaster, key: bind.foul[0], hot: true } : { icon: 'bat', n: p.items.bat, key: bind.foul[0], hot: p.items.bat > 0 },
+    p.items.sling > 0 || p.items.blaster > 0 ? { icon: p.items.sling > 0 ? 'sling' : 'blaster', n: p.items.sling > 0 ? p.items.sling : p.items.blaster, key: bind.foul[0], hot: true } : p.items.sword > 0 ? { icon: 'sword', n: p.items.sword, key: bind.foul[0], hot: true } : { icon: 'bat', n: p.items.bat, key: bind.foul[0], hot: p.items.bat > 0 },
     { icon: thr, n: p.items[thr] || 0, key: bind.item[0], extra: throwCount(p) > (p.items[thr] || 0) ? '+' : '' }
   ];
   slots.forEach((sl, i) => {
@@ -4460,7 +4537,7 @@ function draw3d() {
 // Screen-space extras over the 3D scene: name tags, health bars, stars, labels, chants, text, particles.
 function drawOverlays3D() {
   drawChants(); drawFires(); drawAimGuides(); drawSetPieceWorld();
-  drawWorldExtras(); drawWhacks();
+  drawWorldExtras(); drawWhacks(); drawBenchInfo();
   for (const p of S.players) {
     if (!onPitch(p)) continue;
     const down = p.stun > 0 || p.ko > 0;
@@ -4508,7 +4585,7 @@ function view3d() {
     if (p.target) targets.push({ x: p.target.x, y: p.target.y, col: p.target.stun > 0 ? '#7dff9b' : p.foulCd <= 0 ? '#ff4d6d' : '#8a3a47' });
   }
   const r0 = S.refs[0];
-  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
+  return { humans, targets, passes, refHuman: S.refHuman && r0 ? { x: r0.x, y: r0.y, face: r0.face } : null, land: ballLanding(S.ball), bigHead: !!MUT.bigHead, mega: S.megaBall > 0, trail: TRAIL, trailCol: S.ball.trail, puddles: S.puddles || [], decoys: S.decoys || [], camfx: CAMFX, fkcam: S.setPiece && S.setPiece.taker && S.ball.owner === S.setPiece.taker && isLocalHuman(S.setPiece.taker) ? { x: S.ball.x, y: S.ball.y, tx: fkGoalX(S.setPiece.taker), ty: S.setPiece.aim ? S.setPiece.aim.y : H / 2 } : null };
 }
 const coneHot = r => S.humans.some(h => { if (h.remote) return false; const p = S.players[h.pid]; return p && onPitch(p) && sees(r, p.x, p.y); });
 async function setGraphics(on, note) {
@@ -4517,7 +4594,7 @@ async function setGraphics(on, note) {
   if (GFX3D && !R3) {
     try {
       const mod = await import('./render3d.js');
-      R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL, SKIN_OPTS, ITEM_COL, cloakAlpha, classCol: p => (CLS[p.cls] || {}).col, view: view3d, coneHot, cam: () => CAM });
+      R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL, SKIN_OPTS, ITEM_COL, cloakAlpha, classCol: p => (CLS[p.cls] || {}).col, onBench, bench: { x: benchX, y: BENCH_Y }, view: view3d, coneHot, cam: () => CAM });
       resize();
     } catch (e) {
       console.error(e); GFX3D = false; R3 = null;
@@ -4539,14 +4616,15 @@ function draw() {
   drawGroundExtras(); drawFires(); drawAimGuides();
   drawTargets(); drawSetPieceWorld();
   const ents = [];
-  for (const p of S.players) if (onPitch(p)) ents.push([p.y, () => drawPlayer(p)]);
+  for (const p of S.players) if (onPitch(p) || onBench(p)) ents.push([p.y, () => drawPlayer(p)]);
+  for (const t of [0, 1]) ents.push([BENCH_Y() - 3, () => drawBenches2D1(t)]);
   for (const r of S.refs) if (!(r.gone > 0)) ents.push([r.y, () => drawRef(r)]);
   for (const e of anomEnts()) ents.push([e.y, e.draw]);
   for (const it of S.items) ents.push([it.y, () => drawItem(it)]);
   ents.push([S.ball.y + 0.5, drawBall]);
   ents.sort((a, b) => a[0] - b[0]).forEach(e => e[1]());
   drawBoards(H + 46, 1);
-  drawWorldExtras(); drawWhacks();
+  drawWorldExtras(); drawWhacks(); drawBenchInfo();
   for (const q of S.parts) { const P = proj(q.x, q.y, q.z); ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillStyle = q.col; ctx.fillRect(P.x - q.size / 2, P.y - q.size / 2, q.size, q.size); }
   ctx.globalAlpha = 1;
   for (const t of S.texts) { const P = proj(t.x, t.y, t.z); ctx.globalAlpha = Math.min(1, t.life * 2); ctx.font = `700 ${15 * P.s}px ${UI}`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t.text, P.x + 1, P.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.text, P.x, P.y); }
@@ -4662,13 +4740,17 @@ function guideSections() {
         <li><b>Sand</b> (${k('blind')}) blinds the referee for 4.5 seconds if they're in reach. You carry up to 2, and one refills every 22 seconds. While the referee is blinded nobody calls fouls, but if they see you throw it, that's a card.</li>
         <li><b>The crowd meter</b> fills with goals, assists, tackles, saves and fouls nobody saw. When it is full the crowd throws you a gift. Anyone can grab it after a moment, so be quick.</li>
       </ul>
-      <h4>Gifts</h4>
+      <h4>Items on the pitch</h4>
+      <p>Only five items ever land on the pitch, thrown by the crowd or from a team's bench:</p>
       <ul>
-        <li><b>Med kit:</b> 45 health back.</li>
-        <li><b>Bat:</b> your next 3 fouls hit harder and reach further. A bat foul seen by a referee is always a red card.</li>
-        <li><b>Flash powder:</b> your next sand throw reaches further and blinds the referee for 7 seconds.</li>
-        <li><b>Bananas:</b> drop one behind you with ${k('item')}. Whoever steps on it slips and loses the ball.</li>
-      </ul>`],
+        <li><b>Med kit:</b> 45 health back and heals injuries.</li>
+        <li><b>Ultimate charge:</b> fills half of your ultimate.</li>
+        <li><b>Sword:</b> your next 3 fouls (${k('foul')}) slash harder and reach further. A sword foul seen by a referee is always a red card.</li>
+        <li><b>Rocket boots:</b> your next 3 shots fly 35% faster with a fire trail.</li>
+        <li><b>Fake whistle:</b> blow it with ${k('item')} and nearby opponents stop for a moment.</li>
+      </ul>
+      <h4>The bench</h4>
+      <p>A red card sends you to your team's bench beside the near touchline for 25 seconds; the timer shows over your head and you walk back on when it runs out. On the bench you can still taunt (${k('taunt')}), and every few seconds you're handed a random item: press ${k('item')} to throw it in to a team-mate (med kits go to whoever is most hurt). If you play as one character you stay on the bench yourself; otherwise you take over a team-mate and the bench throws its items in by itself.</p>`],
     ['g-charge', 'Charge, karma, reputation', `
       <h4>Charge</h4>
       <p>The blue bar. It fills while you have the ball and when you tackle, complete passes, make saves, score or assist. It powers:</p>
@@ -4696,11 +4778,9 @@ function guideSections() {
       <h4>Taunts</h4>
       <p>Hold ${k('taunt')}, pick a direction, and let go: Too easy!, Nice try!, Sorry!, Ref! REF!, Come at me, GG. Taunting fires up the nearest opponent (their tackles on you get better), "Ref! REF!" makes the referee look at you, and "Sorry!" right after a foul wins back a little karma. Three seconds between taunts.</p>
       <h4>Power-ups</h4>
-      <ul><li><b>Rocket boots:</b> your next 3 shots fly 35% faster with a fire trail.</li><li><b>Magnet boots:</b> tackles on you succeed half as often for 8 s.</li>
-        <li><b>Shield:</b> the next foul on you bounces back and stuns the attacker.</li><li><b>Megaphone:</b> double crowd points for 15 s.</li>
-        <li><b>Mega ball:</b> the ball doubles in size for 10 s.</li><li><b>Instant replay:</b> the referee re-checks the other team's last unseen foul (50%).</li></ul>
-      <h4>Throwables</h4>
-      <p>${k('item')} throws the one shown in your panel: <b>bananas</b> (slip), <b>glue</b> (slows to 40%), <b>smoke bombs</b> (the referee can't see into the cloud), <b>fake whistles</b> (nearby opponents stop for a moment) and <b>decoys</b> (a fake you that runs ahead and fools bots).</p>`],
+      <p>In matches, the crowd's power-ups are rocket boots, ultimate charges and fake whistles (see <b>Sand, items and the crowd</b>).</p>
+      <h4>Playground extras</h4>
+      <p>The Playground's admin panel can still hand out the older items (bats, bananas, glue, smoke bombs, decoys, slingshots and more) for testing; they no longer appear in matches.</p>`],
     ['g-classes', 'Classes, skills and aiming', `
       <p>Every player has one of 12 classes (see <b>Classes &amp; skills</b> in the menu). Each has a passive, three skills and an ultimate, shown on the hotbar at the bottom of the screen.</p>
       <ul><li><b>Skills:</b> ${k('skill1')} ${k('skill2')} ${k('skill3')}. Each has a cooldown shown on its slot.</li>
@@ -5325,7 +5405,7 @@ function sendSnap(force) {
     tc: S.teamCd ? S.teamCd.map(o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, r1(v - S.time)]))) : 0,
     de: S.decoys.map(d => [r1(d.x), r1(d.y), d.team, r1(d.run), d.src]), mb: r1(S.megaBall),
     p: S.players.map(p => [r1(p.x), r1(p.y), r2(p.face), Math.round(p.vx), Math.round(p.vy), Math.round(p.hp), r1(p.stun), r1(p.ko), Math.ceil(p.sentOff), p.yellows, p.pop, p.hype,
-      p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT), r1(p.charge), Math.round(p.karma), p.sprinting ? 1 : 0, p.stats.caught, p.dive > 0 || p.diveDown > 0 ? (p.diveDir || 1) : 0, r1(p.stamina), Math.round(p.staminaMax), Math.round(p.mood), animIdx(p.anim), r1(p.animT), [p.fx.rocket || 0, r1(p.fx.magnet || 0), r1(p.fx.shield || 0), r1(p.fx.megaphone || 0)], p.items.glue, p.items.smoke, p.items.whistle, p.items.decoy, THROWABLES.indexOf(p.throwSel), r1(p.slowT || 0), r1(p.freezeT || 0), Math.round(p.injury), p.skinOwner || '', p.goneWhy || '', r1(p.iceT || 0), r1(p.heatT || 0), r1(p.z || 0), p.carry == null ? -1 : p.carry, r2(p.slide || 0), r2(p.slideA || 0), CLASS_IDS.indexOf(p.cls), (p.cd || [0, 0, 0]).map(r1), Math.floor(p.ult || 0), Object.fromEntries(Object.entries(p.bf || {}).map(([k, v]) => [k, r1(v)])), p.stk || 0, p.items.sling || 0, p.items.blaster || 0]),
+      p.items.bat, p.items.flash, p.items.banana, p.blind, r1(p.blindT), r1(p.foulCd), p.target ? p.target.id : -1, p.human ? p.human.id : '', r1(p.hitT), r1(p.charge), Math.round(p.karma), p.sprinting ? 1 : 0, p.stats.caught, p.dive > 0 || p.diveDown > 0 ? (p.diveDir || 1) : 0, r1(p.stamina), Math.round(p.staminaMax), Math.round(p.mood), animIdx(p.anim), r1(p.animT), [p.fx.rocket || 0, r1(p.fx.magnet || 0), r1(p.fx.shield || 0), r1(p.fx.megaphone || 0)], p.items.glue, p.items.smoke, p.items.whistle, p.items.decoy, THROWABLES.indexOf(p.throwSel), r1(p.slowT || 0), r1(p.freezeT || 0), Math.round(p.injury), p.skinOwner || '', p.goneWhy || '', r1(p.iceT || 0), r1(p.heatT || 0), r1(p.z || 0), p.carry == null ? -1 : p.carry, r2(p.slide || 0), r2(p.slideA || 0), CLASS_IDS.indexOf(p.cls), (p.cd || [0, 0, 0]).map(r1), Math.floor(p.ult || 0), Object.fromEntries(Object.entries(p.bf || {}).map(([k, v]) => [k, r1(v)])), p.stk || 0, p.items.sling || 0, p.items.blaster || 0, p.items.sword || 0, FIELD_ITEMS.indexOf(p.benchItem)]),
     r: S.refs.map(r => [r1(r.x), r1(r.y), r2(r.face), r1(r.blind), r.card ? (r.card.red ? 2 : 1) : 0, r1(r.run), r1(r.gone || 0), r1(r.z || 0), r.carriedBy == null ? -1 : r.carriedBy, r.fly ? 1 : 0, Math.round(r.range), r2(r.fov)]),
     b: [r1(b.x), r1(b.y), r1(b.z), b.owner ? b.owner.id : -1, r1(b.spin), Math.round(b.vx || 0), Math.round(b.vy || 0), Math.round(b.vz || 0), b.trail || ''],
     it: S.items.map(i => [i.type, r1(i.x), r1(i.y), r1(i.z), i.landed ? 1 : 0, r1(i.age), i.for ? i.for.id : -1]),
@@ -5382,7 +5462,7 @@ function applySnap(s) {
     p.items.glue = a[32] || 0; p.items.smoke = a[33] || 0; p.items.whistle = a[34] || 0; p.items.decoy = a[35] || 0; p.throwSel = THROWABLES[a[36]] || 'banana';
     p.slowT = +a[37] || 0; p.freezeT = +a[38] || 0; p.injury = +a[39] || 0; p.goneWhy = a[41] || ''; p.iceT = +a[42] || 0; p.heatT = +a[43] || 0; p.z = +a[44] || 0; p.carry = a[45] >= 0 ? a[45] : null; p.slide = +a[46] || 0; p.slideA = +a[47] || 0;
     const ci = a[48]; if (ci >= 0 && CLASS_IDS[ci] && CLASS_IDS[ci] !== p.cls) { p.cls = CLASS_IDS[ci]; applyClassLook(p); p.skinKey = null; }
-    p.cd = a[49] || [0, 0, 0]; p.ult = +a[50] || 0; p.bf = a[51] || {}; p.stk = +a[52] || 0; p.items.sling = +a[53] || 0; p.items.blaster = +a[54] || 0;
+    p.cd = a[49] || [0, 0, 0]; p.ult = +a[50] || 0; p.bf = a[51] || {}; p.stk = +a[52] || 0; p.items.sling = +a[53] || 0; p.items.blaster = +a[54] || 0; p.items.sword = +a[55] || 0; p.benchItem = FIELD_ITEMS[a[56]] || null;
     const so = a[40], rsk = so && NET.roster[so] && NET.roster[so].useSkin && NET.roster[so].skin;
     if (rsk) { const key = JSON.stringify(rsk); if (p.skinKey !== key) { p.skinKey = key; applySkin(p, sanitizeSkin(rsk)); } }
   });
@@ -5476,6 +5556,8 @@ $('on-copy').onclick = () => {
 function admin(act) {
   const h = S.humans[0], p = h && S.players[h.pid]; if (!p || !S.admin) return;
   if (act.startsWith('pu:')) { applyPowerup(p, act.slice(3)); return; }
+  if (act.startsWith('give:')) { pickup(p, { type: act.slice(5), for: p }); return; }
+  if (act === 'bench') { if (S.ball.owner === p) S.ball.owner = null; sendToBench(p); return; }
   if (act.startsWith('an:')) { if (!startAnomaly(act.slice(3))) feed('That anomaly is already happening', '#c8c8c8'); return; }
   if (act === 'injure') { injure(p, 20, null); return; }
   if (act === 'ult') { p.ult = 100; return; }
@@ -5657,7 +5739,7 @@ $('spec').addEventListener('click', e => {
 setInterval(updateSpecBar, 400);
 
 // Debug hook for testing: only exposed when the URL contains ?debug
-if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET, applyPowerup, useThrowable, doTaunt, goal, clockExpired, REPLAY, CAMFX, MUT: () => MUT, setMut: m => { MUT = m; }, startAnomaly, castSkill, fireWeapon, whack, passPreview };
+if (/[?&]debug\b/.test(location.search)) window.__fpfc = { S, admin, refOpinion, buildReport, reportHTML, reportCSV, net: () => NET, applyPowerup, useThrowable, doTaunt, goal, clockExpired, REPLAY, CAMFX, MUT: () => MUT, setMut: m => { MUT = m; }, startAnomaly, castSkill, fireWeapon, whack, passPreview, setPiece, isLocalHuman };
 if (store.get('fpfc-gfx') !== '2d') setGraphics(true);
 let last = performance.now();
 function loop(now) {
