@@ -31,11 +31,11 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 | Q | Punch · jump kick in the air · fires a slingshot or blaster if you have one |
 | E | Item: lift or throw the referee when next to them, otherwise your throwable |
 | R | Sand at the referee |
-| 1 2 3 | Class skills |
-| F | Ultimate |
+| U I O | Class skills |
+| P | Ultimate |
 | T | Taunt (hold and pick a direction) |
 
-Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `P`, 8 9 0, `-` and `]`. Only the keys for the current mode are shown under the game.
+Player 2 uses the arrows, Right Shift, `/` `.` `,` `N` `;` `'` `[`, 8 9 0, `-` and `]`. Only the keys for the current mode are shown under the game.
 
 Change them in **Pace and controls → Controls**; changes are saved in the browser. This layout replaces older custom keys once (a copy is kept in `fpfc-binds-old`).
 

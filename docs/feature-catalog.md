@@ -249,7 +249,7 @@ Size: L overall (M for the model and meter, M for banners and chants). Fun ★�
 
 ## 8. Classes (in the game, v1.0)
 
-Twelve classes in four roles, from the class catalog art. Every player has one; bots use the line-ups below and people pick theirs in **Classes & skills**, **Pace and controls → Game**, or the online lobby. Skills are on `1 2 3` and the ultimate on `F`, aimed along the player's (smoothed) movement direction. The ultimate charges over time and with good play. Skills that hit players (Heavy Punch, Grab & Throw, Bull Rush, Dash Burst, Quake Tackle, Ground Slam, Blink Strike on someone without the ball) count as fouls if the referee sees them.
+Twelve classes in four roles, from the class catalog art. Every player has one; bots use the line-ups below and people pick theirs in **Classes & skills**, **Pace and controls → Game**, or the online lobby. Skills are on `U I O` and the ultimate on `P`, aimed along the player's (smoothed) movement direction. The ultimate charges over time and with good play. Skills that hit players (Heavy Punch, Grab & Throw, Bull Rush, Dash Burst, Quake Tackle, Ground Slam, Blink Strike on someone without the ball) count as fouls if the referee sees them.
 
 ### Offense · Goal scorers, high damage, break formations
 
