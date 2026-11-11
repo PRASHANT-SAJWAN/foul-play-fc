@@ -158,7 +158,7 @@ beat**, and a **sound and crowd** response. Each beat is short (≤ 1.2 s) so it
 crowd (gives the opposing crowd a boo), and "cup to ear" (doubles your crowd-meter bonus for the goal if your team is behind).
 
 Implementation: the rig already has jointed arms and legs; add a small keyframe player (pose name → per-limb rotations over
-time) in `render3d.js`, triggered by events the host already broadcasts (feed, chants, set pieces). Size M for the
+time) in `js/render3d.js`, triggered by events the host already broadcasts (feed, chants, set pieces). Size M for the
 player plus S per animation. Fun ★★★.
 
 ## 6. Taunts

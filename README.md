@@ -1,7 +1,7 @@
 # Foul Play FC
 
 A 2.5D five-a-side football game in the browser: foul anyone in reach, blind the referee, and earn gifts from the crowd.
-Plain HTML and JavaScript: no build step and no backend. The game lives in `index.html`; the 3D view is in `render3d.js` and uses [three.js](https://threejs.org) from a CDN.
+Plain HTML and JavaScript: no build step and no backend. `index.html` holds the page; the game code is split into small files in [`js/`](js/README.md) (see that README for the module map and how to add items, anomalies, classes and settings), the styles are in `css/game.css`, and the 3D view is `js/render3d.js`, using [three.js](https://threejs.org) from a CDN.
 
 - **Graphics:** 3D (default) or Classic 2.5D, under **Pace and controls → Game**. The 3D view draws the same match with low-poly player models, a floodlit stadium, shadows and a broadcast camera that follows the ball. If WebGL isn't available, the game falls back to Classic automatically.
 
@@ -11,15 +11,16 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 - **Offline modes:** solo vs bots, 2 players on one keyboard (versus or co-op), watch the bots.
 - **Online:** one person hosts and friends join with a 5-letter room code. Up to 10 people; bots fill the empty spots and both goalkeepers.
 - **Players:** each has health, a rechargeable **stamina** bar (sprinting and shot power), and a **mood** (in the zone, tilted, meltdown). Hard fouls can **injure**, which caps stamina until a med kit heals it.
-- **Party features:** crowd opinion meter with chants and banners, taunt wheel, 10 power-ups and throwables, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.
+- **Party features:** crowd opinion meter with chants and banners, taunt wheel, crowd gifts, goal replays, golden goal and penalty shoot-outs, bounties, grudges, post-match awards, party mutators, spectator cheers and gifts, lobby ready-up and rematch votes.
 - **Your character:** a character creator with a 3D preview; your look is shared with everyone in the online lobby, or as a skin code.
 - **Anomalies:** at random intervals, crowd fights, UFO abductions (players or the referee), pirates, pitch invasions, heatwaves and ice ages. Set how often with the anomaly meter (Off to Chaos) and pick which can happen in **Pace and controls → Game**, or change the meter from the pause menu.
-- **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D, bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
+- **Field items:** only five items reach the pitch, from the crowd or a team's bench: med kits, ultimate charges, swords (a stronger, longer-reaching melee weapon), rocket boots and fake whistles.
+- **The bench:** a red card sends a player to their team's dugout by the near touchline for 25 seconds, with a countdown over their head. From the bench they can taunt, and they're handed a random field item every few seconds to throw in to a team-mate (bots do this by themselves).
+- **Free kicks and penalties:** 15 seconds to set up under the real rules (9.15 m for defenders, attackers onside, everyone out of the box for penalties), a camera behind the ball in 3D for the taker only (everyone else keeps the normal view), bot walls that jump, and an aim-assisted curling shot with a power sweet spot.
 - **Physics:** curl and spin on the ball, bounces and rolling resistance, posts and crossbar, blocks off bodies and heads, and player momentum.
 - **Classes:** 12 classes (Striker, Assassin, Speedster, Tank, Defender, Goalkeeper, Playmaker, Healer, Aura, Brawler, Trickster, Ranger), each with a passive, three skills and an ultimate on a hotbar, plus synergies and bot line-ups. Blocky characters with faces wear their class look by default. Full list in **Classes & skills** in the game and in [docs/feature-catalog.md](docs/feature-catalog.md).
-- **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. Holding shoot or a pass key draws a direction line; pass assist only picks a team-mate you're facing (about 30°), and through balls have none.
-- **Effects:** power shots leave a trail of fire on the grass, and hits land with animated comic-book "WHACK!" bursts. You can lock yourself to one character instead of switching team-mates.
-- **Ranged weapons:** slingshots and foam blasters from the crowd.
+- **Keyboard aiming:** everything aims along your movement direction, which turns smoothly instead of snapping, for steady passes and shots. Holding shoot or a pass key draws a direction line; pass assist only picks a team-mate you're facing (about 30°), and through balls have none. You can lock yourself to one character instead of switching team-mates.
+- **Effects:** power shots leave a trail of fire on the grass, and hits land with animated comic-book "WHACK!" bursts.
 
 ### Default keys (player 1)
 
@@ -31,7 +32,7 @@ Plain HTML and JavaScript: no build step and no backend. The game lives in `inde
 | L | Short pass (hold to power) · switch player without the ball |
 | J | Long pass (hold to power) · sliding tackle |
 | K | Through ball along the ground (hold to power, no assist) · tackle |
-| Q | Punch · jump kick in the air · fires a slingshot or blaster if you have one |
+| Q | Punch (a sword slash if you have one) · jump kick in the air |
 | E | Item: lift or throw the referee when next to them, otherwise your throwable |
 | R | Sand at the referee |
 | U I O | Class skills |

@@ -1,0 +1,320 @@
+/* Foul Play FC · ui.js
+   Window sizing, menus and overlays, settings, key rebinding and How to play.
+   Classic script: shares one global scope with the other files in js/, loaded in the order listed in index.html. */
+'use strict';
+
+/* ---------------- shell ---------------- */
+function resize() {   // fill the window at its native resolution; letterbox only beyond 4:3 or 3.6:1
+  const st = document.getElementById('stage'), vw = Math.max(1, innerWidth), vh = Math.max(1, innerHeight), ar = clamp(vw / vh, MIN_AR, MAX_AR);
+  const w = Math.min(vw, vh * ar), h = Math.min(vh, w / ar);
+  st.style.width = w + 'px'; st.style.height = h + 'px';
+  LW = Math.round(LH * w / h);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.max(320, Math.round(w * dpr)); cv.height = Math.max(190, Math.round(h * dpr));
+  if (R3) R3.resize(w, h, dpr, LW);
+}
+addEventListener('resize', resize);
+if (window.visualViewport) visualViewport.addEventListener('resize', resize);
+const overlays = ['menu', 'paused', 'over', 'settings', 'online', 'guide', 'creator', 'roles'];
+let settingsFrom = 'menu';
+function renderPace() {
+  const el = document.getElementById('pace');
+  el.innerHTML = PACES.map(([n, v]) => `<button id="pace-${Math.round(v * 100)}" aria-pressed="${v === PACE}" data-v="${v}">${n} · ${Math.round(v * 100)}%</button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { PACE = +b.dataset.v; store.set('fpfc-pace', PACE); renderPace(); document.getElementById(b.id).focus(); });
+}
+const BIND_GROUPS = [['Movement', ['up', 'down', 'left', 'right', 'sprint']], ['Ball', ['shoot', 'pass', 'lpass', 'through']], ['Fouls and tricks', ['foul', 'item', 'blind', 'taunt']], ['Class skills', ['skill1', 'skill2', 'skill3', 'ult']]];
+function renderBinds() {
+  const t = document.getElementById('binds'), label = Object.fromEntries(ACTIONS);
+  const cell = (pi, a) => {
+    const w = rebinding && rebinding.p === pi && rebinding.a === a;
+    return `<td><button class="bind${w ? ' wait' : ''}" id="bind-${pi}-${a}" data-p="${pi}" data-a="${a}" aria-label="${esc(label[a])}, player ${pi + 1}: ${esc(keyLabel(BINDS[pi][a]))}">${w ? 'Press a key…' : esc(keyLabel(BINDS[pi][a]))}</button></td>`;
+  };
+  t.innerHTML = '<thead><tr><th>Action</th><th>Player 1</th><th>Player 2</th></tr></thead><tbody>' +
+    BIND_GROUPS.map(([g, acts]) => `<tr class="grp"><td colspan="3">${g}</td></tr>` + acts.map(a => `<tr><td>${esc(label[a])}</td>${cell(0, a)}${cell(1, a)}</tr>`).join('')).join('') + '</tbody>';
+  t.querySelectorAll('.bind').forEach(b => b.onclick = () => {
+    rebinding = { p: +b.dataset.p, a: b.dataset.a }; renderBinds();
+    const nb = document.getElementById(`bind-${b.dataset.p}-${b.dataset.a}`); if (nb) nb.focus();
+  });
+}
+// Accessible tabs: click or arrow keys switch panels; returns a function to select a tab by id.
+function setupTabs(list, body) {
+  const tabs = () => [...list.querySelectorAll('[role="tab"]')];
+  const show = tab => {
+    tabs().forEach(x => { const on = x === tab; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; const pnl = document.getElementById(x.getAttribute('aria-controls')); if (pnl) pnl.hidden = !on; });
+    if (body) body.scrollTop = 0;
+  };
+  list.addEventListener('click', e => { const t = e.target.closest('[role="tab"]'); if (t) show(t); });
+  list.addEventListener('keydown', e => {
+    const all = tabs(), i = all.indexOf(document.activeElement); if (i < 0) return;
+    const next = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!next) return;
+    e.preventDefault(); e.stopPropagation(); const t = all[(i + next + all.length) % all.length]; show(t); t.focus();
+  });
+  return id => { const t = document.getElementById(id); if (t) show(t); };
+}
+const showSettingsTab = setupTabs(document.querySelector('#settings [role="tablist"]'), document.getElementById('settings-body'));
+
+/* ---------------- How to play ---------------- */
+let guideFrom = 'menu', guideTab = 'g-basics', showGuideTab = null;
+function guideSections() {
+  const b = BINDS[0], k = a => `<kbd>${esc(keyLabel(b[a]))}</kbd>`, label = Object.fromEntries(ACTIONS);
+  const keyRows = ACTIONS.map(([a]) => `<tr><td>${esc(label[a])}</td><td><kbd>${esc(keyLabel(BINDS[0][a]))}</kbd></td><td><kbd>${esc(keyLabel(BINDS[1][a]))}</kbd></td></tr>`).join('');
+  return [
+    ['g-basics', 'The basics', `
+      <p>Foul Play FC is small-sided football where fouls are part of the game. Score more goals than the other team before the clock runs out. Play 5v5 on a full-size pitch or 3v3 on a small one (Pace and controls → Game), and bots play every spot a person isn't playing.</p>
+      <p>You can foul anyone you can reach, on either team. One referee is watching, but only sees what's inside the yellow vision cone. Get caught and you get a card. Stay out of sight and the crowd loves you for it.</p>
+      <h4>Reading the screen</h4>
+      <ul>
+        <li><b>Your player</b> has a dashed ring, an arrow showing which way you face, and a name tag (P1, P2 or YOU).</li>
+        <li><b>The yellow cone</b> shows what the referee can see. It turns red while it covers you.</li>
+        <li><b>The camera</b> keeps the ball in the middle of the screen. The mini-map at the bottom shows everyone, and an arrow at the edge of the screen points to your player when they're out of view, with their distance from the ball.</li>
+        <li><b>Your panel</b> at the top left shows health, the crowd meter, charge, karma, the referee's opinion of you and your items, each with the key that uses it.</li>
+        <li><b>A red ring</b> marks the player you would foul. A green ring means that player is down and you would help them up instead.</li>
+      </ul>`],
+    ['g-controls', 'Controls', `
+      <div class="tablewrap"><table><thead><tr><th>Action</th><th>Player 1</th><th>Player 2</th></tr></thead><tbody>${keyRows}</tbody></table></div>
+      <p>In solo play either column works${MAPSOLO.shoot.includes('Space') ? ', and <kbd>Space</kbd> also shoots' : ''}. <kbd>Esc</kbd> pauses and <kbd>M</kbd> mutes. Change any key in <b>Pace and controls → Controls</b>.</p>
+      <p class="note">On a phone or tablet, drag anywhere on the left side to move and use the buttons on the right.</p>`],
+    ['g-ball', 'Playing the ball', `
+      <ul>
+        <li><b>Move</b> with ${k('up')} ${k('left')} ${k('down')} ${k('right')}.</li>
+        <li><b>Every pass has power:</b> hold the key and release. A line shows where it's going while you hold: a ring on the team-mate who'll get it, or an arrow to where the ball ends up. A tap plays a soft, short ball; a full hold plays it hard and far.</li>
+        <li><b>Short pass</b> with ${k('pass')}: along the ground. Pass assist finds a team-mate only if you're facing them (within about 30°); more power prefers ones further away. Nobody there, and the ball goes into space where you aim.</li>
+        <li><b>Long pass</b> with ${k('lpass')}: in the air, to a team-mate you're facing with space around them, or into space.</li>
+        <li><b>Through ball</b> with ${k('through')}: kicked forward along the ground exactly where you aim, with no assist, rolling out to a distance set by the power. Play it into space for a runner.</li>
+        <li><b>Switch player:</b> press ${k('pass')} when you don't have the ball to take over the team-mate nearest the ball.</li>
+        <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
+        <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
+        <li><b>Effects:</b> power shots leave a trail of fire on the grass, and every hit lands with a comic-book "WHACK!".</li>
+        <li><b>Ball physics:</b> shooting while running across the ball puts a little curl on it, the ball bounces and rolls to a stop, shots can come back off the post or the bar, and a hard shot that hits someone's body or head is blocked.</li>
+        <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
+        <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
+        <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
+        <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass. Punching in the air (${k('foul')}) becomes a jump kick.</li>
+        <li><b>Sprint:</b> hold ${k('sprint')}. Sprinting uses stamina.</li>
+      </ul>`],
+    ['g-fouls', 'Fouls and referees', `
+      <ul>
+        <li><b>Punch</b> with ${k('foul')}: quick and short-range. <b>Jump kick:</b> jump with ${k('shoot')}, then punch in the air. It reaches further and hurts more, but costs 15 stamina and makes the referee look your way. The red ring shows who you'd hit; the target is picked for you: whoever in reach is most in front of you, including your own team-mates.</li>
+        <li>Hard fouls can <b>injure</b>: an injured player's stamina is capped until a med kit heals them, and their mood drops.</li>
+        <li><b>Carry the referee:</b> stand next to them and press ${k('item')} to hoist them onto your shoulders. They keep watching wherever you face, so point them at the other team's dirty work, or away from your own. Press ${k('item')} again to throw them across the pitch in the direction you're facing. They wriggle free after 8 seconds, and you can't play the ball while carrying.</li>
+        <li>A foul knocks the player down, takes the ball off them and costs them health. At zero health they are knocked out for 6 seconds.</li>
+        <li>The referee works inside the pitch, behind and to the far side of play. They see everything inside their cone and anything right next to them. They turn toward commotion, so a foul can still be spotted a moment after it happens.</li>
+        <li><b>Caught:</b> a yellow card and a free kick to the other team, or a penalty if it happened in your own box. A second yellow, any bat foul or a knockout is a red card: off the pitch for 25 seconds.</li>
+        <li><b>Not caught:</b> the crowd cheers and your popularity goes up.</li>
+      </ul>`],
+    ['g-tricks', 'Sand, items and the crowd', `
+      <ul>
+        <li><b>Sand</b> (${k('blind')}) blinds the referee for 4.5 seconds if they're in reach. You carry up to 2, and one refills every 22 seconds. While the referee is blinded nobody calls fouls, but if they see you throw it, that's a card.</li>
+        <li><b>The crowd meter</b> fills with goals, assists, tackles, saves and fouls nobody saw. When it is full the crowd throws you a gift. Anyone can grab it after a moment, so be quick.</li>
+      </ul>
+      <h4>Items on the pitch</h4>
+      <p>Only five items ever land on the pitch, thrown by the crowd or from a team's bench:</p>
+      <ul>
+        <li><b>Med kit:</b> 45 health back and heals injuries.</li>
+        <li><b>Ultimate charge:</b> fills half of your ultimate.</li>
+        <li><b>Sword:</b> your next 3 fouls (${k('foul')}) slash harder and reach further. A sword foul seen by a referee is always a red card.</li>
+        <li><b>Rocket boots:</b> your next 3 shots fly 35% faster with a fire trail.</li>
+        <li><b>Fake whistle:</b> blow it with ${k('item')} and nearby opponents stop for a moment.</li>
+      </ul>
+      <h4>The bench</h4>
+      <p>A red card sends you to your team's bench beside the near touchline for 25 seconds; the timer shows over your head and you walk back on when it runs out. On the bench you can still taunt (${k('taunt')}), and every few seconds you're handed a random item: press ${k('item')} to throw it in to a team-mate (med kits go to whoever is most hurt). If you play as one character you stay on the bench yourself; otherwise you take over a team-mate and the bench throws its items in by itself.</p>`],
+    ['g-charge', 'Charge, karma, reputation', `
+      <h4>Charge</h4>
+      <p>The blue bar. It fills while you have the ball and when you tackle, complete passes, make saves, score or assist. It powers:</p>
+      <ul>
+        <li><b>Power shots:</b> any shot with 25% or more charge spends 25 and becomes far more accurate. The tick on the bar marks 25%.</li>
+      </ul>
+      <p>Being caught fouling costs 30 charge. A red card empties it.</p>
+      <h4>Karma</h4>
+      <p>Every foul lowers your karma, seen or not. Clean tackles, 30 seconds without a foul and helping players up raise it. To help a downed player up, press ${k('foul')} when the ring around them is green. Bots go after low-karma players, and the whole match gets angrier as fouls pile up.</p>
+      <h4>Referee opinion</h4>
+      <p>Built mostly from your charge, plus your karma, minus every foul you've been caught for. A referee who <b>trusts you</b> sometimes waves your foul away, which costs you 20 charge. If a referee <b>has you marked</b>, fouls against you may be ignored.</p>`],
+    ['g-stamina', 'Stamina, mood and injuries', `
+      <h4>Stamina</h4>
+      <p>The green bar. Sprinting (${k('sprint')}) drains it, and every shot costs some: a tired player's shots are weaker. It refills on its own, fastest when you stand still.</p>
+      <h4>Injuries</h4>
+      <p>Jump kicks, bat hits and knockouts can injure. The striped part of the stamina bar is lost until a med kit heals the injury, and a bandage shows over the player's head.</p>
+      <h4>Mood</h4>
+      <p>Every player has one. Goals, saves, tackles and helping people up lift it; being fouled, injured, caught or conceding lowers it.</p>
+      <ul><li><b>In the zone</b> (+40): sharper shots and faster charge. A gold sparkle shows over the player.</li>
+        <li><b>Tilted</b> (−40): wilder shots, wandering passes, weaker tackles. A grey cloud shows.</li>
+        <li><b>Meltdown</b> (−70): as tilted, and their fouls are easier for the referee to spot.</li></ul>`],
+    ['g-crowd', 'Crowd, taunts and power-ups', `
+      <h4>The crowd's opinion</h4>
+      <p>The crowd rates each team on Fun, Performance, Noobie-ness, Sympathy, Villainy and Drama. The bar under the score shows who they back; hold <kbd>Tab</kbd> for the breakdown. They chant and unfurl banners to match their mood, send more gifts to the team they back, and when one team has 75% support the other team's shots get shakier for a while.</p>
+      <h4>Taunts</h4>
+      <p>Hold ${k('taunt')}, pick a direction, and let go: Too easy!, Nice try!, Sorry!, Ref! REF!, Come at me, GG. Taunting fires up the nearest opponent (their tackles on you get better), "Ref! REF!" makes the referee look at you, and "Sorry!" right after a foul wins back a little karma. Three seconds between taunts.</p>
+      <h4>Power-ups</h4>
+      <p>In matches, the crowd's power-ups are rocket boots, ultimate charges and fake whistles (see <b>Sand, items and the crowd</b>).</p>
+      <h4>Playground extras</h4>
+      <p>The Playground's admin panel can still hand out the older items (bats, bananas, glue, smoke bombs, decoys, slingshots and more) for testing; they no longer appear in matches.</p>`],
+    ['g-classes', 'Classes, skills and aiming', `
+      <p>Every player has one of 12 classes (see <b>Classes &amp; skills</b> in the menu). Each has a passive, three skills and an ultimate, shown on the hotbar at the bottom of the screen.</p>
+      <ul><li><b>Skills:</b> ${k('skill1')} ${k('skill2')} ${k('skill3')}. Each has a cooldown shown on its slot.</li>
+        <li><b>Ultimate:</b> ${k('ult')}. It charges over time and faster with good play; the slot glows when it's ready.</li>
+        <li><b>Aiming:</b> passes, shots, skills, fouls and weapons all go the way the arrow under your player points. It turns smoothly rather than snapping, so hold a direction to line up and tap a key to nudge it a few degrees.</li>
+        <li><b>Sword:</b> pick one up from the crowd or a bench and ${k('foul')} slashes instead of punching, harder and from further away. A sword foul the referee sees is a straight red. (Slingshots and foam blasters are Playground-only now.)</li>
+        <li><b>Play as one character:</b> in Pace and controls → Game you can stop switching between team-mates and stay as your chosen class all match.</li>
+        <li><b>Dirty skills</b> like Heavy Punch, Grab &amp; Throw or Bull Rush count as fouls when they hit someone. Cloak, stealth and Team Awakening hide your fouls from the referee.</li></ul>`],
+    ['g-anomalies', 'Anomalies', `
+      <p>Every so often something strange happens mid-match. The bar under the crowd meter fills up until the next one and flashes "Something's coming" just before; while one is on, it names it.</p>
+      <ul>${ANOM_LIST.map(([k, n, d]) => `<li><b>${n}:</b> ${d}</li>`).join('')}</ul>
+      <p>Set how often they happen (Off, Rare, Normal, Frequent or Chaos) and which ones are allowed in <b>Pace and controls → Game</b>. You can also change the meter from the pause menu mid-match. Online, the host's settings are used. Abducted and kidnapped players come back on their own.</p>`],
+    ['g-party', 'Party features', `
+      <ul><li><b>Golden goal and penalties:</b> a draw at full time plays 60 s of golden goal, then a penalty shoot-out.</li>
+        <li><b>Goal replays:</b> after each goal, a slow replay of the build-up. The host can skip it with shoot or pass.</li>
+        <li><b>Grudges:</b> your panel shows who has fouled you most. Paying them back is a crowd-pleasing "Revenge!".</li>
+        <li><b>Bounties:</b> every 45 s the crowd puts a price on the dirtiest player or their favourite. Win the ball off them, or foul them unseen, for a gift.</li>
+        <li><b>Spectators:</b> online, anyone watching can cheer for a team every 15 s and send one gift per half.</li>
+        <li><b>Your character:</b> build a look in the menu. Online, everyone sees it in the lobby before kickoff. Share it with a skin code.</li>
+        <li><b>Online lobby:</b> guests press I'm ready; at full time everyone can vote for a rematch with sides swapped. Click a name to mute their taunts.</li>
+        <li><b>Party mutators:</b> big heads, banana rain, no referee, low gravity, super sprint or classic gifts only, in Pace and controls.</li></ul>`],
+    ['g-setpieces', 'Free kicks and penalties', `
+      <ul>
+        <li>When a foul is called the clock stops and everyone gets <b>15 seconds to set up</b> (10 for a penalty). In 3D the camera swings round behind the ball, facing the goal.</li>
+        <li><b>The laws apply while you set up:</b> defenders stay outside the dashed 9.15 m circle around the ball, and the attacking team stays behind the offside line (the dashed line in their colour). For a penalty, everyone but the taker and the goalkeeper stays outside the box, and the keeper stays on the line.</li>
+        <li><b>The wall:</b> defending bots line up between the ball and the near post and jump as the kick is taken. People on the defending team can join it or mark someone.</li>
+        <li><b>Taking it:</b> move the yellow target across the goal with left and right, and up and down for height. The dotted line shows the flight: the shot curls round the wall by itself. After the whistle, hold ${k('shoot')} and release inside the green band on the power bar to hit your target; too much power flies high, too little drops short. With 25 charge the green band is wider. You can also pass with ${k('pass')}, ${k('lpass')} or ${k('through')}.</li>
+        <li>If the time runs out, the kick is taken for you.</li>
+      </ul>`],
+    ['g-modes', 'Game modes', `
+      <ul>
+        <li><b>Solo vs bots:</b> you lead the Harbor Hounds.</li>
+        <li><b>2 players:</b> on one keyboard, as rivals or as teammates.</li>
+        <li><b>Watch the bots:</b> bots only, with one referee.</li>
+        <li><b>Play online:</b> create a room and share the 5-letter code. Friends open the same game link and join with it. The host's browser runs the match, so the host keeps that tab open and visible. If a friend's network blocks direct connections, a host running the game on their computer with a Cloudflare link gets a <b>backup link</b> in the lobby; friends who open it join the same room.</li>
+        <li><b>Playground:</b> free play with an admin panel to hand out items, switch referees and bots between modes, set up penalties and end the match for a report. Press <kbd>\`</kbd> to hide the panel.</li>
+        <li><b>Be the referee:</b> you control the referee. Press ${k('foul')} when you see a foul happen. ${k('pass')} turns ball tracking on and off, ${k('lpass')} and ${k('item')} turn your view, and holding ${k('shoot')} sprints. Correct, missed and wrong calls make up your rating.</li>
+      </ul>`],
+    ['g-tips', 'Stats and tips', `
+      <h4>After the match</h4>
+      <p>The full-time screen shows everyone's rating and the player of the match. Each match also produces a full report: ratings, discipline, sportsmanship, a timeline and balance notes. When the game runs on <code>server.py</code> it is saved to the <code>data-metric</code> folder automatically. Otherwise use the save buttons.</p>
+      <h4>Tips</h4>
+      <ul>
+        <li>Check the cones before you foul. If one is red, you are being watched.</li>
+        <li>Sand first, foul second: a blinded referee can't call anything.</li>
+        <li>Save some charge for a power shot near goal.</li>
+        <li>Helping players up builds trust, and a trusted player gets away with more.</li>
+        <li>Low karma makes you a target. Expect revenge.</li>
+      </ul>`]
+  ];
+}
+function renderGuide() {
+  const secs = guideSections(), nav = document.getElementById('guide-tabs'), body = document.getElementById('guide-body');
+  nav.innerHTML = secs.map(([id, title]) => `<button role="tab" id="${id}" aria-controls="${id}-p" aria-selected="false" tabindex="-1">${title}</button>`).join('');
+  body.innerHTML = secs.map(([id, title, html], i) => `<section class="guide-sec" id="${id}-p" role="tabpanel" aria-labelledby="${id}" hidden><h3>${title}</h3>${html}
+    <div class="guide-nav">${i > 0 ? `<button class="btn ghost sm" data-go="${secs[i - 1][0]}">← ${secs[i - 1][1]}</button>` : '<span></span>'}${i < secs.length - 1 ? `<button class="btn ghost sm" data-go="${secs[i + 1][0]}">${secs[i + 1][1]} →</button>` : '<button class="btn sm" data-go="close">Start playing</button>'}</div></section>`).join('');
+  if (!showGuideTab) showGuideTab = setupTabs(nav, body);
+  body.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { if (b.dataset.go === 'close') closeGuide(); else { guideTab = b.dataset.go; showGuideTab(guideTab); } });
+  nav.addEventListener('click', e => { const t = e.target.closest('[role="tab"]'); if (t) guideTab = t.id; });
+  showGuideTab(guideTab);
+}
+function openGuide(from) { guideFrom = from; renderGuide(); showOverlay('guide'); }
+function closeGuide() { showOverlay(guideFrom); }
+
+function renderRefVis(distId, widthId) {
+  const put = (id, list, k) => { const el = id && document.getElementById(id); if (!el) return;
+    el.innerHTML = list.map(([v, n], i) => `<button id="${id}-${i}" aria-pressed="${REF_VIS[k] === v}" data-i="${i}">${n}</button>`).join('');
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { setRefVis(k, list[+b.dataset.i][0]); renderRefVis(distId, widthId); const nb = document.getElementById(b.id); if (nb) nb.focus(); }); };
+  put(distId, REF_DISTS, 'dist'); put(widthId, REF_WIDTHS, 'width');
+}
+function renderAnomOpts(lvlId, optId) {
+  const lv = document.getElementById(lvlId);
+  if (lv) {
+    lv.innerHTML = ANOM_LEVELS.map(([n], i) => `<button id="${lvlId}-${i}" aria-pressed="${ANOM_PREF.level === i}" data-i="${i}">${n}</button>`).join('');
+    lv.querySelectorAll('button').forEach(b => b.onclick = () => { setAnomPref(+b.dataset.i); renderAnomOpts(lvlId, optId); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
+  }
+  const op = optId && document.getElementById(optId);
+  if (op) {
+    op.innerHTML = ANOM_LIST.map(([k, n, d]) => `<button id="${optId}-${k}" aria-pressed="${!!ANOM_PREF.on[k]}" data-k="${k}" title="${d}">${n}</button>`).join('');
+    op.querySelectorAll('button').forEach(b => {
+      b.onclick = () => { const on = Object.assign({}, ANOM_PREF.on); on[b.dataset.k] = !on[b.dataset.k]; setAnomPref(null, on); renderAnomOpts(lvlId, optId); const nb = document.getElementById(b.id); if (nb) nb.focus(); };
+      const say = () => { const d = document.getElementById('anomdesc'); if (d) d.textContent = ANOM_LIST.find(a => a[0] === b.dataset.k)[2]; };
+      b.onmouseenter = say; b.onfocus = say;
+    });
+  }
+}
+function fillClassSelect(sel) {
+  sel.innerHTML = Object.entries(ROLE_INFO).map(([r, R]) => `<optgroup label="${R.name}">${CLASSES.filter(c => c.role === r).map(c => `<option value="${c.id}">${c.name} · ${c.title}</option>`).join('')}</optgroup>`).join('');
+  sel.value = MY_CLASS;
+}
+function setMyClass(id) {
+  if (!CLS[id]) return; MY_CLASS = id; store.set('fpfc-class', id);
+  if (NET && NET.meta && NET.meta.status === 'lobby') {
+    if (NET.isHost) { NET.roster[NET.uid].cls = id; NET.roster[NET.uid].lock = LOCK_PLAYER; NET.roster[NET.uid].useSkin = USE_MY_LOOK; rosterChanged(); }
+    else if (NET.conn) NET.conn.send({ t: 'cls', cls: id, lock: LOCK_PLAYER, useSkin: USE_MY_LOOK });
+  }
+  for (const id2 of ['opt-class', 'on-class']) { const el = document.getElementById(id2); if (el) el.value = id; }
+}
+function renderOpts() {
+  renderAnomOpts('anomlvl', 'anomopt'); renderRefVis('refdist', 'refwidth');
+  const seg = (id, items, cur, set) => { const el = document.getElementById(id); el.innerHTML = items.map(([v, n]) => `<button id="${id}-${v}" aria-pressed="${cur === v}" data-v="${v}">${n}</button>`).join(''); el.querySelectorAll('button').forEach(b => b.onclick = () => { set(b.dataset.v); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); }); };
+  fillClassSelect(document.getElementById('opt-class'));
+  document.getElementById('opt-class').onchange = e => setMyClass(e.target.value);
+  document.getElementById('opt-classcat').onclick = () => openRoles('settings');
+  seg('lockopt', [['switch', 'Switch team-mates'], ['lock', 'Play as one character']], LOCK_PLAYER ? 'lock' : 'switch', v => { LOCK_PLAYER = v === 'lock'; store.set('fpfc-lock', LOCK_PLAYER); setMyClass(MY_CLASS); });
+  seg('lineopt', LINEUP_NAMES, LINEUP_PREF, v => { LINEUP_PREF = v; store.set('fpfc-lineup', v); });
+  seg('lookopt', [['class', 'Class look'], ['mine', 'My custom look']], USE_MY_LOOK ? 'mine' : 'class', v => { USE_MY_LOOK = v === 'mine'; store.set('fpfc-mylook', USE_MY_LOOK); setMyClass(MY_CLASS); });
+  const mo = document.getElementById('mutopt');
+  mo.innerHTML = MUT_LIST.map(([k, n]) => `<button id="mut-${k}" aria-pressed="${!!MUT_PREF[k]}" data-k="${k}">${n}</button>`).join('');
+  mo.querySelectorAll('button').forEach(b => b.onclick = () => { MUT_PREF[b.dataset.k] = !MUT_PREF[b.dataset.k]; store.set('fpfc-mut', MUT_PREF); if (S.phase === 'menu') newMatch('watch'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
+  const fm = document.getElementById('fmtopt');
+  fm.innerHTML = Object.entries(FORMATS).map(([k, f]) => `<button id="fmt-${k}" aria-pressed="${k === FORMAT_PREF}" data-v="${k}">${f.label}</button>`).join('');
+  fm.querySelectorAll('button').forEach(b => b.onclick = () => { FORMAT_PREF = b.dataset.v; store.set('fpfc-format', FORMAT_PREF); if (S.phase === 'menu') newMatch('watch'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
+  const gx = document.getElementById('gfxopt');
+  gx.innerHTML = [['3D', true], ['Classic 2.5D', false]].map(([n, v]) => `<button id="gfx-${v}" aria-pressed="${v === GFX3D}" data-v="${v}">${n}</button>`).join('');
+  gx.querySelectorAll('button').forEach(b => b.onclick = async () => { b.textContent = b.dataset.v === 'true' && !R3 ? 'Loading…' : b.textContent; await setGraphics(b.dataset.v === 'true'); renderOpts(); const nb = document.getElementById(b.id); if (nb) nb.focus(); });
+  document.getElementById('gfx-note').textContent = gfxNote || '3D uses WebGL and loads three.js the first time. Classic is the original 2.5D view and runs anywhere.';
+  const len = document.getElementById('len');
+  len.innerHTML = LENS.map(([n, v]) => `<button id="len-${v}" aria-pressed="${v === MATCH_LEN}" data-v="${v}">${n}</button>`).join('');
+  len.querySelectorAll('button').forEach(b => b.onclick = () => { MATCH_LEN = +b.dataset.v; store.set('fpfc-len', MATCH_LEN); renderOpts(); document.getElementById(b.id).focus(); });
+  const pg = document.getElementById('pingopt');
+  pg.innerHTML = [['Show ping', true], ['Hide ping', false]].map(([n, v]) => `<button id="ping-${v}" aria-pressed="${v === SHOW_PING}" data-v="${v}">${n}</button>`).join('');
+  pg.querySelectorAll('button').forEach(b => b.onclick = () => { SHOW_PING = b.dataset.v === 'true'; store.set('fpfc-ping', SHOW_PING); renderOpts(); renderRoster(); document.getElementById(b.id).focus(); });
+}
+function openSettings(from) { settingsFrom = from; rebinding = null; renderPace(); renderOpts(); renderFileOpts(); renderBinds(); showSettingsTab('st-game'); showOverlay('settings'); }
+function closeSettings() { rebinding = null; showOverlay(settingsFrom); }
+function showOverlay(id) { overlays.forEach(o => document.getElementById(o).hidden = o !== id); updateTouch(); }
+function updateTouch() {
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  document.getElementById('touch').hidden = !(coarse && S.phase === 'play' && (S.humans.length || S.net || S.refHuman) && !S.userPaused);
+}
+function start(mode) { initAudio(); if (AC && AC.state === 'suspended') AC.resume(); S.phase = 'play'; newMatch(mode); setupAdmin(mode === 'playground'); whistle(1); showOverlay(null); }
+function toMenu() { leaveRoom(); S.net = null; S.phase = 'menu'; newMatch('watch'); setupAdmin(false); showOverlay('menu'); }
+function togglePause() { S.userPaused = !S.userPaused; renderAnomOpts('p-anomlvl'); renderRefVis('p-refdist'); document.getElementById('p-anom').hidden = S.net === 'client' || S.mode === 'playground'; document.getElementById('p-ref').hidden = S.net === 'client'; document.getElementById('p-restart').hidden = S.net === 'client'; document.getElementById('p-menu').textContent = S.net ? 'Leave room' : 'Main menu'; showOverlay(S.userPaused ? 'paused' : null); }
+document.getElementById('m-1p').onclick = () => start('1p');
+document.getElementById('m-2pv').onclick = () => start('2pv');
+document.getElementById('m-2pc').onclick = () => start('2pc');
+document.getElementById('m-watch').onclick = () => start('watch');
+document.getElementById('m-play').onclick = () => start('playground');
+document.getElementById('m-ref').onclick = () => start('ref');
+document.getElementById('p-resume').onclick = togglePause;
+document.getElementById('p-restart').onclick = () => start(S.mode);
+document.getElementById('p-menu').onclick = toMenu;
+document.getElementById('o-again').onclick = () => {
+  if (S.net === 'client') { if (NET && NET.conn) NET.conn.send({ t: 'rematch' }); document.getElementById('o-again').textContent = 'Voted ✓'; return; }
+  if (S.net === 'host') { S.rematch[NET.uid] = true; NET.meta.votes = Object.keys(S.rematch).length; rosterChanged(); checkRematch(); return; }
+  start(S.mode);
+};
+document.getElementById('o-menu').onclick = toMenu;
+document.getElementById('m-settings').onclick = () => openSettings('menu');
+document.getElementById('m-guide').onclick = () => openGuide('menu');
+document.getElementById('p-guide').onclick = () => openGuide('paused');
+document.getElementById('g-close').onclick = closeGuide;
+document.getElementById('p-settings').onclick = () => openSettings('paused');
+document.getElementById('s-back').onclick = closeSettings;
+document.getElementById('s-reset').onclick = () => { BINDS = DEFAULT_BINDS.map(d => ({ ...d })); store.set('fpfc-binds', BINDS); rebinding = null; rebuildMaps(); renderBinds(); };
+
+// touch controls
+const stick = document.getElementById('stick'), knob = document.getElementById('knob');
+let stickId = null, ox = 0, oy = 0;
+stick.addEventListener('pointerdown', e => { stickId = e.pointerId; ox = e.clientX; oy = e.clientY; stick.setPointerCapture(e.pointerId); const r = stick.getBoundingClientRect(); knob.hidden = false; knob.style.left = (ox - r.left) + 'px'; knob.style.top = (oy - r.top) + 'px'; });
+stick.addEventListener('pointermove', e => { if (e.pointerId !== stickId) return; let dx = e.clientX - ox, dy = e.clientY - oy; const l = Math.hypot(dx, dy); if (l > 46) { dx *= 46 / l; dy *= 46 / l; } virt.jx = dx / 46; virt.jy = dy / 46; if (Math.hypot(virt.jx, virt.jy) < 0.15) virt.jx = virt.jy = 0; });
+const endStick = e => { if (e.pointerId !== stickId) return; stickId = null; virt.jx = virt.jy = 0; knob.hidden = true; };
+stick.addEventListener('pointerup', endStick); stick.addEventListener('pointercancel', endStick);
+document.querySelectorAll('.tb').forEach(b => {
+  const a = b.dataset.act;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); virt[a] = true; b.setPointerCapture(e.pointerId); });
+  const off = () => { virt[a] = false; };
+  b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
+});
