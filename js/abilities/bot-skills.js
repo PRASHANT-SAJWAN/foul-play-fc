@@ -27,7 +27,7 @@ function botSkills(p) {
   const order = [3, 0, 1, 2];
   for (const slot of order) {
     const def = slot === 3 ? C.ult : C.skills[slot];
-    if (!want[def.id]) continue;
+    if (!want[def.id] && !(def.bot && def.bot(p, { own, carrier, enemyBall, dg, enemyNear }))) continue;   // abilities from js/player/ bring their own bot rule
     if (slot === 3 ? (p.ult || 0) < 100 : p.cd[slot] > 0) continue;
     if (Math.random() < 0.55) continue;   // bots don't fire everything the instant it's ready
     const saved = p.human; p.human = null;

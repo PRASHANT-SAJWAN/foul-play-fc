@@ -58,7 +58,7 @@ function drawHotbar(h, right) {
     const cd = i === 3 ? 0 : Math.max(p.cd[i], def.shared && S.teamCd ? ((S.teamCd[p.team] || {})[def.id] || 0) - S.time : 0), ready = i === 3 ? p.ult >= 100 : cd <= 0;
     ctx.fillStyle = ready ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.04)'; rr(sx, sy, sz, sz, 7);
     ctx.strokeStyle = ready ? (i === 3 ? '#ffd23f' : C.col) : 'rgba(255,255,255,.18)'; ctx.lineWidth = i === 3 && ready ? 2 + Math.sin(S.time * 8) : 1.5; rrs(sx + 0.5, sy + 0.5, sz - 1, sz - 1, 7);
-    ctx.globalAlpha = ready ? 1 : 0.45; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.font = `600 20px ${UI}`; ctx.fillText(SKILL_GLYPH[def.id] || def.name[0], sx + sz / 2, sy + sz / 2 - 3); ctx.globalAlpha = 1;
+    ctx.globalAlpha = ready ? 1 : 0.45; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.font = `600 20px ${UI}`; ctx.fillText(SKILL_GLYPH[def.id] || def.glyph || def.name[0], sx + sz / 2, sy + sz / 2 - 3); ctx.globalAlpha = 1;
     if (i === 3) { const f = clamp((p.ult || 0) / 100, 0, 1); ctx.fillStyle = 'rgba(255,210,63,.25)'; ctx.fillRect(sx + 2, sy + sz - 2 - (sz - 4) * f, sz - 4, (sz - 4) * f); if (!ready) { ctx.fillStyle = '#ffd23f'; ctx.font = `700 11px ${UI}`; ctx.fillText(Math.floor(p.ult) + '%', sx + sz / 2, sy + sz - 9); } }
     else if (!ready) { const f = clamp(cd / def.cd, 0, 1); ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(sx + 1, sy + 1, sz - 2, (sz - 2) * f); ctx.fillStyle = '#ffffff'; ctx.font = `700 15px ${UI}`; ctx.fillText(Math.ceil(cd), sx + sz / 2, sy + sz / 2); }
     const key = (map[SKILL_KEYS[i]] || [])[0]; ctx.font = `700 10px ${UI}`; ctx.fillStyle = '#c9d3cb'; ctx.textAlign = 'left'; ctx.fillText(keyLabel(key), sx + 4, sy + 8);

@@ -17,7 +17,8 @@
              ballPush (how hard a hit knocks the ball on)
 
    ── Adding an ability ───────────────────────────────────────────────────────
-   defineAbility({ id, name, cd, aim: 'self' | 'point' | 'enemy' | 'ally', range, desc }, (p, pt, target) => { ... })
+   defineAbility({ id, name, cd, aim: 'self' | 'point' | 'enemy' | 'ally', range, desc, glyph, bot(p, ctx) }, (p, pt, target) => { ... })
+   glyph is the hotbar symbol; bot(p, { own, carrier, enemyBall, dg, enemyNear }) says when bots should cast it.
    registers the effect (return false to cancel the cast). Then either put it in a class
    with setClassAbility(classId, slot, id) (slot 0–2, or 3 for the ultimate), or give it to
    one player for the match with setPlayerAbility(p, slot, id). Every class skill is also
@@ -73,6 +74,14 @@ function defineAbility(def, effect) {
   ABILITIES[A.id] = A;
   if (effect) SKILL_FX[A.id] = effect;
   return A;
+}
+// Add a whole class: { id, name, title, role, col, num, look, passive: [name, text], skills: [3 ability defs], ult, mods }.
+// mods (all optional): speed(p) and dmgOut(p) multipliers, kbIn (knockback taken), tick(p, dt) every frame.
+function defineClass(def) {
+  if (CLS[def.id]) return CLS[def.id];
+  CLASSES.push(def); CLS[def.id] = def; CLASS_IDS.push(def.id);
+  for (const s of [...def.skills, def.ult]) if (!ABILITIES[s.id]) ABILITIES[s.id] = s;
+  return def;
 }
 function setClassAbility(classId, slot, id) {   // change a class's skill (slot 0–2) or ultimate (3) for everyone
   const C = CLS[classId], A = ABILITIES[id]; if (!C || !A) return false;

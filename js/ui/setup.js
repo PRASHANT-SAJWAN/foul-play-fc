@@ -12,7 +12,7 @@ const SETUP_MODES = {
   ref: { title: 'Be the referee', humans: 0 },
 };
 let setupMode = '1p';
-const ROLE_ORDER = ['offense', 'defense', 'support', 'disrupt'];
+const ROLE_ORDER = ['offense', 'allround', 'defense', 'support', 'disrupt'];
 function openSetup(mode) { setupMode = mode; renderSetup(); showOverlay('setup'); const ov = document.getElementById('setup'); ov.scrollTop = 0; const s = document.getElementById('su-start'); if (s) s.focus({ preventScroll: true }); }
 function closeSetup() { showOverlay('menu'); }
 

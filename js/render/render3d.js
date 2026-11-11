@@ -326,6 +326,37 @@ export function createRenderer3D(canvas, G) {
   }
 
   const playerRigs = [];
+  /* ---------- real models (js/player/models.js): loaded in the background, blocky until ready ---------- */
+  const MODELS = {}; let gltfKit = null;
+  function modelFor(MD) {
+    const c = MODELS[MD.file]; if (c) return c.ready ? c : null;
+    MODELS[MD.file] = { ready: false };
+    gltfKit = gltfKit || Promise.all([import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js'), import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/SkeletonUtils.js')]);
+    gltfKit.then(([L, SU]) => new L.GLTFLoader().loadAsync(MD.file).then(gl => {
+      const box = new THREE.Box3().setFromObject(gl.scene), h = Math.max(0.001, box.max.y - box.min.y);
+      Object.assign(MODELS[MD.file], { ready: true, gl, SU, scale: (MD.height || 42) / h, base: -box.min.y });
+    })).catch(e => { MODELS[MD.file].failed = true; console.warn('Model failed to load, keeping the blocky one:', MD.file, e); });
+    return null;
+  }
+  function attachModel(R, MD, M, L) {
+    const inst = M.SU.clone(M.gl.scene); inst.scale.setScalar(M.scale); inst.position.y = M.base * M.scale + (MD.y || 0); inst.rotation.y = MD.rotY || 0;
+    inst.traverse(o => { if (o.isMesh) { o.castShadow = true; if (MD.teamMaterial && o.material && o.material.name === MD.teamMaterial) { o.material = o.material.clone(); o.material.color.set(L.jersey); } } });
+    R.body.visible = false; R.g.add(inst); R.model = inst; R.MD = MD;
+    R.mixer = new THREE.AnimationMixer(inst); R.acts = {};
+    for (const clip of M.gl.animations) R.acts[clip.name] = R.mixer.clipAction(clip);
+    for (const n of MD.loops || []) if (R.acts[n]) R.acts[n].play();
+  }
+  const ANIM_FALLBACK = { sprint: 'run', attack: 'kick', slide: 'fall', fall: 'idle', sit: 'idle', celebrate: 'idle', jump: 'idle', kick: 'idle', run: 'idle' };
+  function animateModel(R, p, dt, benched) {
+    const down = p.stun > 0 || p.ko > 0, spd = Math.hypot(p.vx, p.vy), a = p.anim || '';
+    let st = benched ? 'sit' : down ? 'fall' : p.slide > 0 ? 'slide' : p.z > 0 ? 'jump' : a === 'shoot' || a === 'kick' ? 'kick' : a === 'punch' || a === 'swing' ? 'attack' : a.startsWith('cel') ? 'celebrate' : spd > 150 ? 'sprint' : spd > 20 ? 'run' : 'idle';
+    const anims = R.MD.anims || {}; let name = anims[st];
+    while (!name && ANIM_FALLBACK[st]) { st = ANIM_FALLBACK[st]; name = anims[st]; }
+    const act = name && R.acts[name];
+    if (act && R.cur !== act) { if (R.cur) R.cur.fadeOut(0.15); act.reset().fadeIn(0.15).play(); R.cur = act; }
+    if (act) act.timeScale = st === 'run' || st === 'sprint' ? clamp(spd / (st === 'sprint' ? 190 : 130), 0.6, 1.6) : 1;
+    R.mixer.update(dt);
+  }
   const playerLook = p => {
     const L = { jersey: p.gk ? (p.team === 0 ? '#c6f04a' : '#b57cff') : TEAM[p.team].col, shorts: TEAM[p.team].shorts, socks: TEAM[p.team].socks,
       skin: p.skin, hair: p.hair, num: p.num, numCol: p.team === 0 || p.gk ? '#0b1a2a' : '#fff4ee' };
@@ -496,10 +527,11 @@ export function createRenderer3D(canvas, G) {
 
     // players
     S.players.forEach((p, i) => {
-      const L = playerLook(p), key = JSON.stringify(L);
+      const L = playerLook(p), MD = G.classModel && G.classModel(p), M = MD ? modelFor(MD) : null, key = JSON.stringify(L) + (M ? '|' + MD.file : '');
       let R = playerRigs[i];
-      if (!R || R.key !== key) {   // rebuilt when the look or skin changes
+      if (!R || R.key !== key) {   // rebuilt when the look, skin or model changes
         if (R) scene.remove(R.g); R = playerRigs[i] = makeRig(L); R.key = key;
+        if (M) attachModel(R, MD, M, L);
         R.mats = []; R.g.traverse(o => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(mm => { if (!R.mats.includes(mm)) R.mats.push(mm); }); } });
         R.ring = new THREE.Mesh(new THREE.RingGeometry(9, 10.6, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })); R.ring.position.y = 0.6; R.g.add(R.ring);
       }
@@ -509,6 +541,7 @@ export function createRenderer3D(canvas, G) {
       const benched = G.onBench && G.onBench(p);
       R.g.visible = p.sentOff <= 0 || benched;
       if (!R.g.visible) return;
+      if (R.mixer) animateModel(R, p, dt, benched);
       if (benched) {   // sitting on the bench: legs forward, a slow fidget, arms up for a taunt or throw
         pose(R, p.x, p.y, p.face, 0, 0, false, 0); applyAnim(R, p.anim, time);
         R.body.position.y -= 7; R.legL.rotation.x = -1.45; R.legR.rotation.x = -1.45 + Math.sin(time * 2 + i) * 0.08;

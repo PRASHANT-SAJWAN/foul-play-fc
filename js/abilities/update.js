@@ -13,6 +13,7 @@ function updateClasses(dt) {
     for (let i = 0; i < 3; i++) if (p.cd[i] > 0) p.cd[i] = Math.max(0, p.cd[i] - dt);
     for (const k in p.bf) { p.bf[k] -= dt; if (p.bf[k] <= 0) delete p.bf[k]; }
     if (!onPitch(p)) continue;
+    const CM = CLS[p.cls].mods; if (CM && CM.tick) CM.tick(p, dt);   // per-frame passives of classes from js/player/
     p.ult = Math.min(100, (p.ult || 0) + dt * 1.1);
     const v = Math.hypot(p.vx, p.vy);
     if (p.cls === 'speedster') { if (v > 80) { p.mvT += dt; if (p.mvT > 1.4 && p.stk < 3) { p.stk++; p.mvT = 0; } } else { p.mvT = 0; if (v < 30) p.stk = 0; } }

@@ -22,6 +22,7 @@ function speedMul(p) {
   if (b.boost > 0) m *= 1.15; if (b.assist > 0) m *= 1.2; if (b.morale > 0) m *= 1.08; if (b.auraSpd > 0) m *= 1.12; if (b.rage > 0) m *= 1.1;
   if (b.marked > 0 && S.ball.owner === p) m *= 0.6;
   if (nearAura(p)) m *= 1.06;
+  const CM = CLS[p.cls] && CLS[p.cls].mods; if (CM && CM.speed) m *= CM.speed(p);   // passives of classes from js/player/
   if (inZone(p, 'tactical', true)) m *= 1.15;
   if (inZone(p, 'zoneLock') || inZone(p, 'gravity') || inZone(p, 'slowBomb')) m *= 0.6;
   if (S.players.some(q => q.team !== p.team && q.bf && q.bf.timeRush > 0 && dist(q, p) < 90)) m *= 0.7;
@@ -42,6 +43,7 @@ function dmgOut(a) {
   if (a.cls === 'brawler') m *= 1 + 0.1 * (a.stk || 0);
   if (hasBf(a, 'rage')) m *= 1.25;
   if (hasBf(a, 'cloakHit')) { m *= 1.4; a.bf.cloakHit = 0; }
+  const CM = CLS[a.cls] && CLS[a.cls].mods; if (CM && CM.dmgOut) m *= CM.dmgOut(a);
   return m;
 }
 function dmgIn(t) {
@@ -79,7 +81,8 @@ function knock(a, t, o) {
   if (dmg > 0 || o.stun) whack(t, 'skill');
   const imm = knockImmune(t);
   if (o.stun && !imm) { t.stun = Math.max(t.stun, o.stun); a0Anim(t, 'fall', 0.6); }
-  if (o.kb && !imm) { t.vx = Math.cos(ang) * o.kb; t.vy = Math.sin(ang) * o.kb; }
+  const kbIn = (CLS[t.cls] && CLS[t.cls].mods && CLS[t.cls].mods.kbIn) || 1;
+  if (o.kb && !imm) { t.vx = Math.cos(ang) * o.kb * kbIn; t.vy = Math.sin(ang) * o.kb * kbIn; }
   if (imm && (o.stun || o.kb)) floatText(t, 'UNSTOPPABLE', '#ffd23f');
   if (S.ball.owner === t && (o.stun || o.kb) && !imm) loseBall(t, ang);
   if (t.hp <= 0) { t.ko = 6; t.stun = 6; injure(t, 20, a); feed(`${a.name} knocked out ${t.name}!`, '#ff6b6b'); fxEvent('ko', t); if (a.cls === 'assassin') { BF(a, 'stealth', 1.5); BF(a, 'shadow', 1.5); } }
