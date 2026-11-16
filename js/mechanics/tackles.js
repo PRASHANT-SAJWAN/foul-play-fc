@@ -10,11 +10,11 @@ function jump(p, vz = 270) {
   if (p.stamina < 4) { if (p.human) floatText(p, 'Too tired to jump', '#c8c8c8'); return false; }
   p.vz = vz; p.z = 0.01; p.stamina -= 4; M(p, 'jumps'); return true;
 }
-function shortTackle(p) { if (p.lungeCd > 0 || p.stamina < 6 || p.z > 0 || p.carry != null) return; p.lunge = 0.22; p.lungeCd = 0.8; p.stamina -= 6; }
+function shortTackle(p) { if (p.lungeCd > 0 || p.z > 0 || p.carry != null) return; p.lunge = 0.22; p.lungeCd = 0.6; p.stamina = Math.max(0, p.stamina - 6); }   // works anywhere, ball carrier near or not
 function slideTackle(p) {
   if (p.slideCd > 0 || p.slide > 0 || p.z > 0 || p.carry != null) return;
-  if (p.stamina < 12) { if (p.human) floatText(p, 'Too tired to slide', '#c8c8c8'); return; }
-  p.slide = 0.5; p.slideA = passDir(p); p.face = p.slideA; p.slideCd = 1.6; p.stamina -= 12; p.slideHit = false; M(p, 'slides');
+  const tired = p.stamina < 12;   // still slides when tired, just shorter
+  p.slide = tired ? 0.32 : 0.5; p.slideA = passDir(p); p.face = p.slideA; p.slideCd = 1.0; p.stamina = Math.max(0, p.stamina - 12); p.slideHit = false; M(p, 'slides');
 }
 function slideContacts(p) {   // called every frame while sliding
   if (!(p.slide > 0) || p.slideHit) return;

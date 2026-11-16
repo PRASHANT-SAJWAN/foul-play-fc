@@ -76,10 +76,16 @@ function botAggro(p, dt) {
     if (canBlind && Math.random() < p.aggr * 1.6 * dt) { doBlind(p, false); return; }
     rate *= 0.04;
   }
-  if (Math.random() < rate * dt * (S.admin && S.admin.bots === 'savage' ? 6 : 1)) baseAttack(p, { target, reach: reachOf(p) });
+  if (Math.random() < rate * 0.5 * botDiff(p).foul * dt * (S.admin && S.admin.bots === 'savage' ? 12 : 1)) baseAttack(p, { target, reach: reachOf(p) });   // bots foul about half as often as they used to
 }
 function gkLogic(p) {
   const gx = p.team === 0 ? 18 : W - 18, b = S.ball;
+  // Facing a penalty: no time to read it. Commit to the guess (dive that way, or stand tall) and live with it.
+  const pk = S.penKick && S.penKick.team !== p.team && S.time - S.penKick.at < 1.1 ? S.penKick : null;
+  if (pk) {
+    if (pk.guess && !pk.dived && p.dive <= 0) { pk.dived = true; const s = pk.guess; p.dive = 0.42; p.diveVx = (gx - p.x) * 2; p.diveVy = s * 330; p.diveDir = s; M(p, 'dives'); }
+    p.dx = p.dy = 0; return;
+  }
   // Dive at a shot that will pass within reach but too wide to step across to.
   if (p.dive <= 0 && p.diveDown <= 0 && !b.owner && b.lastTouch && b.lastTouch.team !== p.team && Math.sign(b.vx) === (p.team === 0 ? -1 : 1) && Math.abs(b.vx) > 260) {
     const t = (p.x - b.x) / b.vx;
@@ -102,6 +108,16 @@ function gkLogic(p) {
     else steer(p, gx, ty, 0.9, 20);
   }
 }
+/* ---------- difficulty ---------- */
+// Applies to bots on a side with no person on it (your opponents); your CPU team-mates play at normal strength.
+const DIFFS = [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']];
+const DIFF = {
+  easy: { speed: 0.9, tackle: 0.65, foul: 0.6, aim: 1.6, skip: 0.75 },     // slower, weaker in the tackle, wilder shots, rarer skills
+  normal: { speed: 1, tackle: 1, foul: 1, aim: 1, skip: 0.55 },
+  hard: { speed: 1.07, tackle: 1.35, foul: 1.3, aim: 0.7, skip: 0.35 },
+};
+let DIFF_PREF = (() => { const v = store.get('fpfc-diff'); return DIFF[v] ? v : 'normal'; })();
+const botDiff = p => !p || p.human || !S.humans.length || S.humans.some(h => h.team === p.team) ? DIFF.normal : DIFF[DIFF_PREF];
 function botControl(p, dt, info) {
   p.dx = p.dy = 0; p.sprintWant = false;
   if (S.admin && S.admin.bots === 'frozen') return;

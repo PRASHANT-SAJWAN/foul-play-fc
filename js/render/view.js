@@ -89,7 +89,7 @@ async function setGraphics() {
   if (R3 || GFX3D === 'loading') return;
   GFX3D = 'loading'; gfxNote = '';
   try {
-    const mod = await import('./render3d.js');
+    const mod = await import('./render3d.js?v=' + ASSET_V);
     R3 = mod.createRenderer3D(cv3, { S, W, H, LW, LH, GOAL_HALF, GOAL_H, BOX_D, BOX_HALF, PEN_X, ARC_R, ARC_A, CIRCLE_R, GA_D, GA_HALF, TEAM, HUMAN_COL, SKIN_OPTS, ITEM_COL, cloakAlpha, classCol: p => (CLS[p.cls] || {}).col, weaponHand: p => (weaponOf(p, 'melee') || {}).hand || null, glow: p => glowing(p) ? TEAM[p.team].col : null, dizzy: isDizzy, classModel: p => CLASS_MODELS[p.cls] || null, modelLimits: MODEL_LIMITS, onBench, bench: { x: benchX, y: BENCH_Y }, view: view3d, coneHot, cam: () => CAM });
     resize();
   } catch (e) {

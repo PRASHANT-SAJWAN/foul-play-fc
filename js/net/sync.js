@@ -143,7 +143,7 @@ function sendInput(dt) {
   n.charge = h.charge; n.charging = h.charging;
   for (const a of ['pass', 'lpass', 'th', 'passR', 'lpassR', 'thR', 'view', 'foul', 'atk', 'blind', 'item', 'sp', 'sr', 's1', 's2', 'ul']) if (inp[a]) n.cnt[a] = (n.cnt[a] || 0) + 1;
   if (inp.taunt >= 0) { n.cnt.taunt = (n.cnt.taunt || 0) + 1; n.tw = inp.taunt; }
-  if (inp.sr || inp.passR || inp.lpassR || inp.thR) n.pw = r2(inp.power);
+  if (inp.sr) n.pw = r2(inp.power);
   n.chargeKind = h.chargeKind;
   const msg = { t: 'in', ix: r2(inp.ix), iy: r2(inp.iy), c: { ...n.cnt }, pw: n.pw, run: inp.sprint ? 1 : 0, tw: n.tw || 0 };
   const key = JSON.stringify(msg), now = performance.now();

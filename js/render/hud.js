@@ -24,7 +24,7 @@ function drawHUD() {
   ph.slice(0, 2).forEach((h, i) => { drawPanel(h, i === 0 ? 14 : LW - 344); drawHotbar(h, i === 1); });
   if (S.refHuman) drawRefPanel();
   // feed
-  const fx = 14, fy0 = ph.length ? 170 : S.refHuman ? 118 : 20, fx2 = ph.length > 1 ? LW - 344 : null;
+  const fx = 14, fy0 = ph.length ? 142 : S.refHuman ? 118 : 20, fx2 = ph.length > 1 ? LW - 344 : null;
   ctx.font = `500 15px ${UI}`; ctx.textAlign = 'left';
   S.feed.slice(0, 4).forEach((f, i) => {
     const a = Math.max(0, Math.min(1, (9 - f.t) / 1.5)); if (a <= 0) return;
@@ -107,7 +107,7 @@ function drawPlayerPointers() {   // edge arrow for each local player (or your r
 const BUFF_LABEL = { powerShot: ['POWER SHOT', '#ff4d4d'], curveDrive: ['CURVE', '#ff9a6b'], meteorShot: ['METEOR SHOT', '#ff7a2f'], cloak: ['CLOAKED', '#8a4dff'], stealth: ['STEALTH', '#8a4dff'], speedDribble: ['SPEED DRIBBLE', '#ffcc22'], timeRush: ['TIME RUSH', '#ffd23f'], boost: ['BOOST', '#7dff9b'], assist: ['ASSISTED', '#3a7bff'], perfect: ['PERFECT PLAY', '#3a7bff'], awaken: ['AWAKENED', '#ffb000'], rage: ['RAGE', '#ff4d4d'], marked: ['MARKED', '#f2c230'], confused: ['CONFUSED', '#c45cff'], wideGuard: ['WIDE GUARD', '#3fbf5f'], morale: ['MORALE', '#ffb000'], auraOff: ['OFF. AURA', '#ffb000'], auraDef: ['DEF. AURA', '#ffb000'], auraSpd: ['SPD. AURA', '#ffb000'] };
 function drawPanel(h, x) {
   const p = S.players[h.pid]; if (!p) return;
-  const col = HUMAN_COL[h.idx % HUMAN_COL.length], y = 10, w = 330, H2 = 152, bind = h.map || MAPSOLO;
+  const col = HUMAN_COL[h.idx % HUMAN_COL.length], y = 10, w = 330, H2 = 124, bind = h.map || MAPSOLO;
   ctx.fillStyle = 'rgba(6,11,10,.9)'; rr(x, y, w, H2, 10);
   ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; rrs(x + 0.5, y + 0.5, w - 1, H2 - 1, 10); ctx.globalAlpha = 1;
   ctx.textBaseline = 'middle';
@@ -138,26 +138,15 @@ function drawPanel(h, x) {
   bar(y + 48, 8, 'STAMINA', p.stamina / 100, p.stamina < 20 ? '#ff9f43' : '#7cf2c4', p.injury > 0 ? `${Math.round(p.stamina)} · INJURED` : `${Math.round(p.stamina)}%`, p.injury > 0 ? '#ff9a9a' : null, (bx, by, bw2, bh) => {
     if (p.staminaMax < 100) { const ix = bx + bw2 * p.staminaMax / 100; ctx.fillStyle = 'rgba(255,90,110,.35)'; ctx.fillRect(ix, by, bx + bw2 - ix, bh); ctx.strokeStyle = 'rgba(255,90,110,.8)'; ctx.lineWidth = 1; for (let k = ix; k < bx + bw2; k += 5) { ctx.beginPath(); ctx.moveTo(k, by + bh); ctx.lineTo(k + 4, by); ctx.stroke(); } }
   });
-  bar(y + 61, 6, 'CROWD', p.hype / 30, '#ffd23f', '★ ' + p.pop, '#ffd23f');
-  bar(y + 72, 8, 'CHARGE', p.charge / 100, p.sprinting ? '#b8faff' : '#4fd6ff', p.charge >= 25 ? 'POWER READY' : Math.round(p.charge) + '%', '#4fd6ff', (bx, by) => { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(bx + 196 * 0.25, by - 2, 1.5, 12); });
-  // karma, referee opinion, mood
-  const chip = (cx, text, c) => { ctx.font = `700 11px ${UI}`; const cw = ctx.measureText(text).width + 14; ctx.globalAlpha = 0.16; ctx.fillStyle = c; rr(cx, y + 86, cw, 15, 7.5); ctx.globalAlpha = 1; ctx.fillStyle = c; ctx.textAlign = 'left'; ctx.fillText(text, cx + 7, y + 94); return cw; };
-  const kc = p.karma >= 20 ? '#7dff9b' : p.karma <= -20 ? '#ff6b80' : '#c9d3cb', op = refOpinion(p), oc = op >= 30 ? '#7dff9b' : op <= -30 ? '#ff6b80' : '#c9d3cb';
-  const mc = p.mood >= MOOD_ZONE ? '#ffd23f' : p.mood <= MOOD_TILT ? '#ff6b80' : '#c9d3cb';
-  let cx2 = x + 12;
-  cx2 += chip(cx2, `KARMA ${p.karma > 0 ? '+' : ''}${Math.round(p.karma)}`, kc) + 5;
-  cx2 += chip(cx2, `REF ${op >= 30 ? 'TRUSTS' : op <= -30 ? 'MARKED' : 'NEUTRAL'} ${op > 0 ? '+' : ''}${op}`, oc) + 5;
-  chip(cx2, `MOOD ${moodName(p.mood)} ${p.mood > 0 ? '+' : ''}${Math.round(p.mood)}`, mc);
+  bar(y + 61, 8, 'CHARGE', p.charge / 100, p.sprinting ? '#b8faff' : '#4fd6ff', p.charge >= 25 ? 'POWER READY' : Math.round(p.charge) + '%', '#4fd6ff', (bx, by) => { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(bx + 196 * 0.25, by - 2, 1.5, 12); });
   // item slots: sand, flash powder, bat, and the selected throwable
   const thr = selectedThrowable(p);
   const slots = [
-    { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0, off: p.items.flash > 0 },
-    { icon: 'flash', n: p.items.flash, key: bind.blind[0], hot: p.items.flash > 0 },
-    (Wd => Wd ? { icon: Wd.id, n: p.items[Wd.id], key: bind.foul[0], hot: true } : { icon: 'sword', n: 0, key: bind.foul[0], hot: false })(weaponOf(p, 'ranged') || weaponOf(p, 'melee')),
-    { icon: thr, n: p.items[thr] || 0, key: bind.item[0], extra: throwCount(p) > (p.items[thr] || 0) ? '+' : '' }
+    p.items.flash > 0 ? { icon: 'flash', n: p.items.flash, key: bind.blind[0], hot: true } : { icon: 'sand', n: p.blind, key: bind.blind[0], prog: p.blind < 2 ? p.blindT / 22 : 0 },
+    { icon: thr, n: p.items[thr] || 0, key: bind.item[0], extra: throwCount(p) > (p.items[thr] || 0) ? '+' : '' }   // weapons show on the hotbar's attack slot
   ];
   slots.forEach((sl, i) => {
-    const sx = x + 10 + i * 78, sy = y + 106, sw3 = 72, sh = 26;
+    const sx = x + 10 + i * 78, sy = y + 76, sw3 = 72, sh = 26;
     ctx.fillStyle = sl.hot ? 'rgba(255,210,63,.14)' : 'rgba(255,255,255,.05)'; rr(sx, sy, sw3, sh, 5);
     if (sl.hot) { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 1.2; rrs(sx + 0.5, sy + 0.5, sw3 - 1, sh - 1, 5); }
     ctx.globalAlpha = sl.n > 0 && !sl.off ? 1 : 0.32; drawIcon(sl.icon, sx + 14, sy + 13, 1.1);
@@ -174,9 +163,9 @@ function drawPanel(h, x) {
   if (p.slowT > 0) act.push(['GLUED', ITEM_COL.glue]);
   for (const k in (p.bf || {})) if (BUFF_LABEL[k] && p.bf[k] > 0) act.push([`${BUFF_LABEL[k][0]} ${Math.ceil(p.bf[k])}s`, BUFF_LABEL[k][1]]);
   let ax = x + 12; ctx.textAlign = 'left'; ctx.font = `700 11px ${UI}`;
-  for (const [t, c] of act) { ctx.fillStyle = c; ctx.fillText(t, ax, y + 142); ax += ctx.measureText(t).width + 10; }
+  for (const [t, c] of act) { ctx.fillStyle = c; ctx.fillText(t, ax, y + 113); ax += ctx.measureText(t).width + 10; }
   const g = topGrudge(p);
-  if (g) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffb36b'; ctx.fillText(`GRUDGE: ${g.name.toUpperCase()} ×${g.n}`, x + w - 12, y + 142); }
+  if (g) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffb36b'; ctx.fillText(`GRUDGE: ${g.name.toUpperCase()} ×${g.n}`, x + w - 12, y + 113); }
   ctx.textBaseline = 'alphabetic';
 }
 // Crowd support tug-of-war under the scoreboard; hold Tab for every opinion category.
@@ -307,7 +296,7 @@ function drawAimGuides() {
     const A = proj(p.x, p.y), B = proj(tx, ty), col = AIM_COL[kind];
     ctx.globalAlpha = 0.85 * a; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 5 * A.s; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
-    ctx.strokeStyle = col; ctx.lineWidth = 2.4 * A.s; ctx.setLineDash(kind === 'lpass' ? [10 * A.s, 7 * A.s] : kind === 'through' ? [3 * A.s, 5 * A.s] : []);
+    ctx.strokeStyle = col; ctx.lineWidth = 2.4 * A.s; ctx.setLineDash(kind === 'lpass' ? [10 * A.s, 7 * A.s] : []);
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.setLineDash([]);
     const ang2 = Math.atan2(B.y - A.y, B.x - A.x), hs = 9 * B.s;   // arrow head, or a ring on the assisted team-mate
     ctx.fillStyle = col;

@@ -29,7 +29,7 @@ function botSkills(p) {
     const def = slot === 3 ? C.ult : C.skills[slot];
     if (!want[def.id] && !(def.bot && def.bot(p, { own, carrier, enemyBall, dg, enemyNear }))) continue;   // abilities from js/player/ bring their own bot rule
     if (slot === 3 ? (p.ult || 0) < 100 : p.cd[slot] > 0) continue;
-    if (Math.random() < 0.55) continue;   // bots don't fire everything the instant it's ready
+    if (Math.random() < botDiff(p).skip) continue;   // bots don't fire everything the instant it's ready
     const saved = p.human; p.human = null;
     const aimAt = enemyBall ? carrier : own ? { x: g.x, y: H / 2 + rand(-60, 60) } : b;
     const old = { dx: p.dx, dy: p.dy, face: p.face }; p.face = Math.atan2(aimAt.y - p.y, aimAt.x - p.x); p.dx = Math.cos(p.face); p.dy = Math.sin(p.face);

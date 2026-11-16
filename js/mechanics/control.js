@@ -16,7 +16,7 @@ function readInput(h, dt) {
   return localInput(h, dt);
 }
 const AIM_KEYS = [['foul', 'atk', -1], ['skill1', 's1', 0], ['skill2', 's2', 1], ['ult', 'ul', 3]];   // action, input field, slot (-1 = base attack)
-const CHARGE_KEYS = [['shoot', 'sp', 'sr'], ['pass', 'pass', 'passR'], ['lpass', 'lpass', 'lpassR'], ['through', 'th', 'thR']];
+const CHARGE_KEYS = [['shoot', 'sp', 'sr']];   // only shots charge; passes go on the press
 function localInput(h, dt) {
   const pr = a => (h.map[a] || []).some(c => keys.has(c)) || (h.touch && virt[a]);
   const edge = a => { const v = pr(a), e = v && !h.prev[a]; h.prev[a] = v; return e; };
@@ -25,6 +25,7 @@ function localInput(h, dt) {
   const l = Math.hypot(ix, iy); if (l > 1) { ix /= l; iy /= l; }
   const out = { ix, iy, sprint: pr('sprint'), pass: false, lpass: false, th: false, passR: false, lpassR: false, thR: false, foul: edge('foul'), blind: edge('blind'), item: edge('item'), sp: false, sr: false, power: 0.25, taunt: -1,
     view: edge('view'), atk: false, s1: false, s2: false, ul: false };
+  out.pass = edge('pass'); out.lpass = edge('lpass'); out.th = edge('through');
   // attack, spells and ultimate: hold to aim (the guide shows who or where), release to strike or cast
   let aiming = null;
   for (const [a, rk, slot] of AIM_KEYS) {
@@ -38,7 +39,7 @@ function localInput(h, dt) {
   // taunt wheel: hold the taunt key, pick a direction, release
   if (pr('taunt')) { h.tauntOpen = true; const d = tauntFromDir(ix, iy); if (d >= 0) h.tauntSel = d; out.ix = out.iy = 0; out.sprint = false; }
   else if (h.tauntOpen) { h.tauntOpen = false; out.taunt = h.tauntSel != null ? h.tauntSel : 0; h.tauntSel = null; }
-  // shoot and all three passes charge while held and fire on release; the press itself jumps, switches or tackles
+  // shoot charges while held and fires on release; the press itself jumps without the ball
   const chg = h.chg || (h.chg = {});
   let any = null;
   for (const [a, pk, rk] of CHARGE_KEYS) {
@@ -76,11 +77,12 @@ function humanControl(h, dt) {
   const canAct = p.stun <= 0 && p.ko <= 0 && !(p.slide > 0) && !(p.slideRec > 0);
   const [mx, my] = canAct ? steerAim(p, inp.ix, inp.iy, dt) : [0, 0];
   p.dx = mx; p.dy = my; p.sprintWant = canAct && !!inp.sprint;
-  if (inp.pass && !own0(p) && p.z <= 0) { h.arm = null; switchToBest(h); return; }
+  const mate = S.ball.owner && S.ball.owner !== p && S.ball.owner.team === p.team ? S.ball.owner : null;
+  if (mate && (inp.pass || inp.lpass) && p.z <= 0) { askForPass(p, mate, inp.lpass ? 'long' : 'short'); h.arm = null; inp.lpass = false; }   // a team-mate has it: call for it (L short, J long)
+  else if (inp.pass && !own0(p) && p.z <= 0) { h.arm = null; switchToBest(h); return; }
   if (!canAct) return;
   const own = S.ball.owner === p, air = p.z > 0;
-  // a pass fires on release, and only if the key went down while you had the ball (so a switch never turns into a pass)
-  for (const k of ['pass', 'lpass', 'th', 'sp']) if (inp[k]) h.arm = own ? k : null;
+  if (inp.sp) h.arm = own ? 'sp' : null;
   if (air) {   // in the air: volley or head the ball
     if (inp.sp) p.airAct = { k: 'shoot', t: 0.4 };
     if (inp.pass || inp.th) p.airAct = { k: 'pass', t: 0.4 };
@@ -88,9 +90,8 @@ function humanControl(h, dt) {
   } else {
     if (inp.lpass && !own) tackleMove(p);   // each character's own tackle (js/mechanics/combat.js)
     if (inp.th && !own) shortTackle(p);
-    if (own && inp.passR && h.arm === 'pass') { humanPass(p, inp.power); h.arm = null; }
-    if (own && inp.lpassR && h.arm === 'lpass') { humanLongPass(p, inp.power); h.arm = null; }
-    if (own && inp.thR && h.arm === 'th') { throughBall(p, inp.power); h.arm = null; }
+    if (own && inp.pass) humanPass(p, PASS_POWER.short);   // passes go straight away at a set strength
+    else if (own && inp.lpass) humanLongPass(p, PASS_POWER.long);
     if (inp.sr && own) { if (p.aimA != null) p.face = p.aimA; shoot(p, inp.power); }
     if (inp.sp && !own) jump(p);
   }

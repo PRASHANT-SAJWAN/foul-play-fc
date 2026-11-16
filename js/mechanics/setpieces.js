@@ -4,7 +4,7 @@
 'use strict';
 
 /* ---------------- free kicks and penalties ----------------
-   15 seconds to set up (penalties 10, shoot-out 6): everyone can move within the rules, bots build a wall,
+   8 seconds to set up (penalties and shoot-out 6): everyone can move within the rules, bots build a wall,
    and the taker aims at a point on the goal. The shot curls around the wall on its own (aim assist);
    holding shoot sets the power, and releasing inside the green band hits the target. */
 const FK_DIST = () => W * 0.0872;   // 9.15 m on a 105 m pitch
@@ -17,8 +17,9 @@ function setPiece(team, type, x, y, label) {
   b.x = x; b.y = y; b.z = 0; b.vx = b.vy = b.vz = 0; b.owner = null; b.curve = null; b.trail = null;
   const cands = S.players.filter(p => p.team === team && onPitch(p) && p.ko <= 0 && !p.gk);
   const taker = cands.find(p => p.human) || cands.sort((p, q) => dist(p, b) - dist(q, b))[0];
-  for (const p of S.players) {   // everyone lands, stops sliding and lets go of the referee
-    p.z = 0; p.vz = 0; p.airAct = null; p.slide = 0; p.slideRec = 0; p.lunge = 0;
+  for (const p of S.players) {   // everyone lands, stops sliding, gets up (unless knocked out) and lets go of the referee
+    p.z = 0; p.vz = 0; p.airAct = null; p.slide = 0; p.slideRec = 0; p.lunge = 0; p.pounding = false; p.skidT = 0; p.dash = null;
+    if (p.ko <= 0) { p.stun = 0; p.dizzy = 0; p.dive = 0; p.diveDown = 0; p.thrown = null; if (p.anim === 'fall' || p.anim === 'plead') { p.anim = ''; p.animT = 0; } }
     if (p.carry != null) { const r = S.refs[p.carry]; if (r) { r.carriedBy = null; r.z = 0; } p.carry = null; }
   }
   for (const r of S.refs) { r.fly = null; r.z = 0; r.downT = 0; if (!r.human && !(r.gone > 0)) { r.x = clamp(x + dir * FK_DIST() * 0.55, 25, W - 25); r.y = clamp(y + (y < H / 2 ? 1 : -1) * 150, 25, H - 25); r.face = Math.atan2(y - r.y, x - r.x); } }
@@ -26,8 +27,9 @@ function setPiece(team, type, x, y, label) {
   taker.stun = 0; taker.vx = taker.vy = 0; taker.hold = 0;
   b.owner = taker; b.lastTouch = taker;
   const d = Math.hypot(gx - x, H / 2 - y), shootout = !!S.shoot;
-  const sp = S.setPiece = { team, type, taker, t: 0, prep: pen ? (shootout ? 6 : 10) : 15, minT: pen ? 1.2 : 3, wait: pen ? rand(2, 3.5) : rand(5, 8.5),
-    aim: { y: H / 2 + rand(-0.4, 0.4) * GOAL_HALF, z: 12 }, wall: [], gkSide: -(Math.sign(y - H / 2) || 1), offX: x, whistled: false };
+  S.lastStop = S.time;   // ordinary fouls just after a restart don't stop play again (js/match/fouls.js playOn)
+  const sp = S.setPiece = { team, type, taker, t: 0, prep: pen ? (shootout ? 6 : 6) : 8, minT: pen ? 1 : 1.5, wait: pen ? rand(1.5, 2.5) : rand(2, 3.5),
+    aim: { y: H / 2 + (pen ? (Math.random() < 0.5 ? -1 : 1) * rand(0.55, 0.85) : rand(-0.4, 0.4)) * GOAL_HALF, z: pen ? rand(6, 22) : 12 }, wall: [], gkSide: -(Math.sign(y - H / 2) || 1), offX: x, whistled: false };   // penalties go for a corner
   // the wall: bots from the defending team, more of them the closer the kick is to goal
   if (!pen && d < W * 0.45) {
     const defs = S.players.filter(p => p.team !== team && onPitch(p) && !p.gk && !p.human && p.ko <= 0).sort((p, q) => dist(p, b) - dist(q, b));
@@ -40,6 +42,15 @@ function setPiece(team, type, x, y, label) {
   fkWallSpots(sp);
   for (const p of S.players) if (onPitch(p) && p !== taker) fkLegal(p, sp, true);   // start everyone somewhere legal
   fkPlaceTaker(sp);
+  for (const h of S.humans) {   // people start somewhere useful: defending in front of the ball, or in the box to attack
+    const p = S.players[h.pid]; if (!p || p === taker || !onPitch(p) || p.ko > 0 || p.gk || sp.wall.some(s => s.pid === p.id)) continue;
+    if (p.team !== team) {
+      const own = team === 0 ? W : 0, a = Math.atan2(H / 2 - y, own - x), side = ((h.idx || 0) % 2 ? 1 : -1) * 26;
+      const r = FK_DIST() + (pen ? 0 : 22);
+      p.x = clamp(x + Math.cos(a) * r - Math.sin(a) * side, 8, W - 8); p.y = clamp(y + Math.sin(a) * r + Math.cos(a) * side, 8, H - 8);
+    } else { const s = fkTarget(p, sp); p.x = clamp(s.x, 8, W - 8); p.y = clamp(s.y, 8, H - 8); }
+    p.vx = p.vy = 0; p.face = Math.atan2(y - p.y, x - p.x); p.aimA = p.face; fkLegal(p, sp, true);
+  }
   S.pend = [];
   M(taker, 'setPiecesTaken'); EV('setPiece', taker, { kick: type }); if (S.metrics) S.metrics.lastSetPiece = { team, t: S.metrics.t };
   pauseFor(1.2, label, (pen ? 'Penalty to ' : 'Free kick to ') + TEAM[team].name, null);
@@ -172,10 +183,9 @@ function setPieceUpdate(dt) {
       // aim: in the 3D front view left/right moves across the goal and up/down sets the height
       else { sp.aim.y += inp.ix * dir * 150 * dt; sp.aim.z -= inp.iy * 55 * dt; }
       sp.aim.y = clamp(sp.aim.y, H / 2 - GOAL_HALF + 4, H / 2 + GOAL_HALF - 4); sp.aim.z = clamp(sp.aim.z, 3, GOAL_H - 5);
-      if (early) { if (inp.sr || inp.passR || inp.lpassR || inp.thR) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
-      if (inp.passR) humanPass(t, inp.power);
-      else if (inp.lpassR) humanLongPass(t, inp.power);
-      else if (inp.thR) throughBall(t, inp.power);
+      if (early) { if (inp.sr || inp.pass || inp.lpass) floatText(t, 'Wait for the whistle', '#c8c8c8'); continue; }
+      if (inp.pass) humanPass(t, PASS_POWER.short);
+      else if (inp.lpass) humanLongPass(t, PASS_POWER.long);
       else if (inp.sr) { if (sp.view === 'side') sideShot = inp.power; else shot = inp.power; }
     } else {
       p.dx = inp.ix; p.dy = inp.iy; p.sprintWant = !!inp.sprint;
@@ -213,5 +223,8 @@ function setPieceUpdate(dt) {
   if (b.owner === t) fkPlaceTaker(sp);
   if (sideShot != null && b.owner === t) { t.face = t.aimA != null ? t.aimA : t.face; shoot(t, sideShot); }   // side view: an ordinary shot along your aim
   else if (shot != null && b.owner === t) fkShoot(t, sp, shot);
-  if (b.owner !== t) { S.setPiece = null; t.dx = t.dy = 0; }
+  if (b.owner !== t) {
+    if (sp.type === 'penalty') S.penKick = { team: t.team, at: S.time, guess: [-1, -1, 0, 1, 1][Math.floor(Math.random() * 5)] };   // the keeper has to guess: left, right or stay
+    S.setPiece = null; t.dx = t.dy = 0;
+  }
 }

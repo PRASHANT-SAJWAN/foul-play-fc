@@ -4,6 +4,7 @@
 'use strict';
 
 // The base attack landing (js/abilities/weapons.js aims it), with a melee weapon if one is held.
+const BASIC_SLOW = { t: 0.6, k: 0.85 };   // a basic hit slows the target to 85% speed for 0.6 s
 function doFoul(a, t) {
   if (a.foulCd > 0 || !t || t.ko > 0 || !onPitch(t)) return false;
   const d = dist(a, t);
@@ -21,10 +22,12 @@ function doFoul(a, t) {
   if (t.gk) { const gx = t.team === 0 ? 0 : W_(); ang = Math.atan2(H / 2 - t.y, gx - t.x) * 0.6 + ang * 0.4; }   // a weakened keeper gets knocked back toward their own net
   const dmg = Math.round((W ? W.dmg : 16) * odK * dmgOut(a) * dmgIn(t));
   t.hp = Math.max(0, t.hp - dmg); t.hitT = 2;
-  const imm = knockImmune(t) && t.hp > 0;   // a keeper still standing firm (HP not yet low) shrugs it off; a knockout always lands
-  if (!imm) { t.vx = Math.cos(ang) * kb; t.vy = Math.sin(ang) * kb; t.stun = Math.max(t.stun, W ? W.stun : 1.3); t.anim = 'fall'; t.animT = 0.6; } else floatText(t, firmText(t), '#ffd23f');
+  // Basic attacks only wear players down: HP, a knockout at zero, and a brief slight slow. No stun, no knock-down,
+  // no knocking the ball loose. Stuns come from special abilities (and an Overdrive's shockwave).
+  const imm = knockImmune(t) && t.hp > 0;
+  if (!imm) { t.vx += Math.cos(ang) * kb * 0.15; t.vy += Math.sin(ang) * kb * 0.15; t.hitSlowT = BASIC_SLOW.t; } else floatText(t, firmText(t), '#ffd23f');
   addMood(t, -10);
-  if (!imm) { loseBall(t, ang); if (t.gk && S.ball.lastTouch === t) { S.ball.vx = Math.cos(ang) * 230; S.ball.vy = Math.sin(ang) * 230; } }   // the keeper's ball spills toward goal
+  if (t.hp <= 0) { loseBall(t, ang); if (t.gk && S.ball.lastTouch === t) { S.ball.vx = Math.cos(ang) * 230; S.ball.vy = Math.sin(ang) * 230; } }   // only a knockout frees the ball
   t.lastHitBy = a.id; t.lastHitT = S.time;
   if (!imm) afterHit(a, t, { foul: true, heavy: !!W || od || dmg >= 20 || t.gk, rage: od ? 0 : RAGE.foul });
   onFoulLanded(a, t);
@@ -119,8 +122,28 @@ function sees(r, x, y) {
 }
 const watched = p => !refIgnores(p) && S.refs.some(r => sees(r, p.x, p.y));
 
+// Keeping the game flowing: a first ordinary foul is a warning, and while the fouled team keeps the ball
+// (advantage) or play only just restarted, a card is shown without stopping the match. Reds, penalties
+// and second yellows always stop play.
+const PLAY_ON_GAP = 25;   // seconds after a restart during which ordinary fouls don't stop play again
+function playOn(f, r) {
+  const a = f.a, t = f.t, b = S.ball;
+  if (S.refHuman || f.inBox || wouldBeRed(f)) return false;
+  if (!a.warned) {
+    a.warned = true; addKarma(a, -4); M(a, 'warnings'); EV('warning', a, { by: r.name });
+    floatText(a, 'WARNING', '#ffd23f'); feed(`The ${r.name.toLowerCase()} warns ${a.name}. Next time it's a card`, '#ffd23f'); whistle(1, 0.2, 0.08);
+    r.att = { x: a.x, y: a.y }; r.attT = 1; return true;
+  }
+  const adv = t && t.team !== a.team && (b.owner ? b.owner.team === t.team : !!(b.lastTouch && b.lastTouch.team === t.team));
+  if (!adv && S.time - (S.lastStop || -99) >= PLAY_ON_GAP) return false;
+  a.yellows++; a.stats.caught++; M(a, 'yellows'); EV('card', a, { card: 'yellow', kind: f.kind, by: r.name, playOn: true });
+  addPop(a, -5); addCharge(a, -20); addKarma(a, -8); r.card = { red: false, t: 1.8 }; whistle(1, 0.25, 0.1);
+  floatText(a, adv ? 'ADVANTAGE' : 'PLAY ON', '#ffd23f'); feed(`Yellow card: ${a.name}. ${adv ? 'Advantage played' : 'Play on'}`, '#ffd23f');
+  return true;
+}
 function callFoul(f, r) {
   const a = f.a;
+  if (!f.varDone && playOn(f, r)) return;
   if (!f.varDone && wouldBeRed(f) && varStart(f, r)) return;   // the offender can contest a red card (js/match/var.js)
   whistle(wouldBeRed(f) ? 3 : 2, 0.3, wouldBeRed(f) ? 0.2 : 0.15); a.stats.caught++; if (a.cls === 'brawler') a.stk = 0; addPop(a, -8); addCharge(a, -30); addKarma(a, -10); cheer('boo', a.x, 'BOOO!');
   let red = f.heavy;

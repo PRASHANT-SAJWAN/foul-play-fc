@@ -88,14 +88,13 @@ function tackleMove(p) {
 }
 function groundPound(p) {
   if (p.slideCd > 0 || p.z > 0 || p.carry != null || p.pounding) return;
-  if (p.stamina < 14) { if (p.human) floatText(p, 'Too tired to pound', '#c8c8c8'); return; }
-  p.slideCd = 2.4; p.stamina -= 14; p.pounding = true; p.vz = 200; p.z = 0.01; p.vx *= 0.4; p.vy *= 0.4; a0Anim(p, 'swing', 0.5); M(p, 'pounds');
+  p.slideCd = 1.8; p.stamina = Math.max(0, p.stamina - 14); p.pounding = true; p.vz = 200; p.z = 0.01; p.vx *= 0.4; p.vy *= 0.4; a0Anim(p, 'swing', 0.5); M(p, 'pounds');
 }
 function lassoTrip(p) {
   if (p.slideCd > 0 || p.z > 0 || p.carry != null) return;
   const cand = enemiesOf(p).filter(q => q.ko <= 0 && (q.z || 0) < 10 && dist(q, p) < 135);
   const t = assistPick(p, cand, 135, 0.8) || (S.ball.owner && cand.includes(S.ball.owner) ? S.ball.owner : null);
-  if (!t) { if (p.human) floatText(p, 'No one to trip', '#c8c8c8'); p.slideCd = 0.4; return; }
+  if (!t) { slideTackle(p); return; }   // no one in range to lasso: a normal slide instead
   p.slideCd = 2.2; p.stamina = Math.max(0, p.stamina - 10); a0Anim(p, 'swing', 0.4); p.face = Math.atan2(t.y - p.y, t.x - p.x);
   (S.lassos || (S.lassos = [])).push({ a: p.id, t: t.id, life: 0.45 }); thump(320, 0.08, 0.05);
   const behind = Math.abs(angDiff(t.face, Math.atan2(t.y - p.y, t.x - p.x))) < 1.2;   // tripping from behind

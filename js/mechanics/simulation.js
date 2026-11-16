@@ -36,8 +36,8 @@ function update(dt) {
   S.heat = Math.max(0, S.heat - dt * 0.01);
   if (S.metrics) S.metrics.t += dt / PACE;
   for (const p of S.players) {
-    for (const k of ['stun', 'foulCd', 'blindCd', 'pickCd', 'lunge', 'lungeCd', 'expect', 'hitT', 'diveDown', 'slideCd', 'slideRec', 'fireCd']) p[k] = Math.max(0, (p[k] || 0) - dt);
-    if (p.slide > 0) { p.slide -= dt; if (p.slide <= 0) { p.slide = 0; p.slideRec = 0.35; } }
+    for (const k of ['hitSlowT', 'stun', 'foulCd', 'blindCd', 'pickCd', 'lunge', 'lungeCd', 'expect', 'hitT', 'diveDown', 'slideCd', 'slideRec', 'fireCd']) p[k] = Math.max(0, (p[k] || 0) - dt);
+    if (p.slide > 0) { p.slide -= dt; if (p.slide <= 0) { p.slide = 0; p.slideRec = 0.2; } }
     if (p.airAct) { p.airAct.t -= dt; if (p.airAct.t <= 0 || p.z <= 0) p.airAct = null; }
     if (p.carry != null) { p.carryT += dt; if (S.ball.owner === p) loseBall(p, p.face); }
     if (p.dive > 0) { p.dive -= dt; if (p.dive <= 0) { p.dive = 0; p.diveDown = 0.6; } }
@@ -55,7 +55,7 @@ function update(dt) {
     if (S.admin && S.admin.inf && p.human) { p.items.bat = Math.max(p.items.bat, 3); p.items.banana = Math.max(p.items.banana, 2); p.blind = 2; }
   }
 
-  updatePowerups(dt); updateCrowdOpinion(dt); updateBounty(dt); updateAnomalies(dt); updateClasses(dt); updateCombat(dt); updateArena(dt); updateBallMods(dt);
+  updatePowerups(dt); updateCrowdOpinion(dt); updateBounty(dt); updateAnomalies(dt); updateClasses(dt); updateCombat(dt); updateArena(dt); updateBallMods(dt); updatePassAsk(dt);
   const b = S.ball, info = [];
   for (let t = 0; t < 2; t++) {
     const attacking = !!(b.owner && b.owner.team === t);
@@ -73,6 +73,7 @@ function update(dt) {
     let spd = 155 * (0.72 + 0.28 * p.hp / 100) * speedMul(p);
     if (b.owner === p) spd *= 0.9;
     if (p.slowT > 0) spd *= 0.4;
+    if (p.hitSlowT > 0) spd *= BASIC_SLOW.k;   // just hit by a basic attack
     const wk = wxKind();
     if (wk) spd *= 0.92;
     if (inInvasion(p)) spd *= 0.6;

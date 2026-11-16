@@ -5,7 +5,7 @@
 
 /* ---------------- input ---------------- */
 const ACTIONS = [['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'], ['sprint', 'Sprint'],
-  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass (hold for power) · switch player without the ball'], ['lpass', 'Long pass (hold for power) · sliding tackle'], ['through', 'Through ball along the ground (hold for power) · tackle'], ['view', 'Free kicks: switch between the view behind the ball and the side view'],
+  ['shoot', 'Shoot (hold) · jump without the ball · volley or header in the air'], ['pass', 'Short pass · call for the ball · switch player'], ['lpass', 'Long pass · call for a long ball · slide tackle'], ['through', 'Tackle'], ['view', 'Free kicks: switch between the view behind the ball and the side view'],
   ['foul', 'Base attack (hold to aim, release to strike) · fires a held weapon'], ['item', 'Item: lift or throw the referee when next to them, otherwise throwables'], ['blind', 'Sand at the referee'],
   ['skill1', 'Spell 1 (hold to aim, release to cast)'], ['skill2', 'Spell 2 (hold to aim, release to cast)'], ['ult', 'Ultimate (hold to aim, release to cast)'], ['taunt', 'Taunt (hold + direction)']];
 const BINDS_VERSION = 8;

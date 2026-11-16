@@ -10,10 +10,10 @@ const LH = 760, GOAL_H = 48, MIN_AR = 4 / 3, MAX_AR = 3.6;
 // Match formats. 5v5 plays on a pitch with four times the area of 3v3 (twice as long and wide), marked like a FIFA pitch.
 const FORMATS = {
   '5v5': { label: '5v5 · full pitch', W: 2000, H: 1240, size: 5, goalHalf: 68, boxD: 300, boxHalf: 366, pen: 200, arc: 166, circle: 166, gaD: 100, gaHalf: 166,
-    refRange: 560, refSpeed: 118, refDist: 240, shootRange: 420, gkRush: 210, dive: 95,
+    refRange: 100, refSpeed: 118, refDist: 240, shootRange: 420, gkRush: 210, dive: 95,
     roles: [null, [0.2, 0.27], [0.2, 0.73], [0.44, 0.5], [0.68, 0.42]], roleNames: ['Goalkeeper', 'Defender', 'Defender', 'Midfielder', 'Forward'], names: [0, 1, 2, 3, 4], slots: [4, 3, 1, 2] },
   '3v3': { label: '3v3 · small pitch', W: 1000, H: 620, size: 3, goalHalf: 62, boxD: 150, boxHalf: 140, pen: 110, arc: 70, circle: 70, gaD: 50, gaHalf: 85,
-    refRange: 380, refSpeed: 92, refDist: 170, shootRange: 300, gkRush: 130, dive: 75,
+    refRange: 290, refSpeed: 92, refDist: 170, shootRange: 300, gkRush: 130, dive: 75,
     roles: [null, [0.26, 0.5], [0.62, 0.5]], roleNames: ['Goalkeeper', 'Defender', 'Forward'], names: [0, 1, 4], slots: [2, 1] }
 };
 let FORMAT = null, W = 2000, H = 1240, TEAM_SIZE = 5, GOAL_HALF = 68, BOX_D = 300, BOX_HALF = 366, PEN_X = 200, ARC_R = 166, CIRCLE_R = 166, GA_D = 100, GA_HALF = 166;
@@ -23,7 +23,7 @@ const REF_WIDTHS = [[0.7, 'Narrow'], [1, 'Normal'], [1.35, 'Wide'], [1.8, 'Very 
 let REF_VIS = (() => { let v = null; try { v = JSON.parse(localStorage.getItem('fpfc-refvis')); } catch (e) {} v = v && typeof v === 'object' ? v : {};
   return { dist: REF_DISTS.some(d => d[0] === v.dist) ? v.dist : 1, width: REF_WIDTHS.some(d => d[0] === v.width) ? v.width : 1 }; })();
 function setRefVis(k, val) { REF_VIS[k] = val; try { localStorage.setItem('fpfc-refvis', JSON.stringify(REF_VIS)); } catch (e) {} applyRefVis(); }
-function applyRefVis() { if (S.mode === 'client') return; for (const r of S.refs || []) { r.range = REF_RANGE * REF_VIS.dist; r.fov = 1.3 * REF_VIS.width; } }
+function applyRefVis() { if (S.mode === 'client') return; for (const r of S.refs || []) { r.range = REF_RANGE * REF_VIS.dist; r.fov = 1.0 * REF_VIS.width; } }
 let ROLES = FORMATS['5v5'].roles, ROLE_NAMES = FORMATS['5v5'].roleNames, NAME_IDX = FORMATS['5v5'].names, HUMAN_SLOTS = FORMATS['5v5'].slots;
 let FORMAT_PREF = (() => { try { const v = JSON.parse(localStorage.getItem('fpfc-format')); return FORMATS[v] ? v : '5v5'; } catch (e) { return '5v5'; } })();
 function applyFormat(key) {

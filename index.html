@@ -7,7 +7,7 @@
 <style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="css/game.css">
+<link rel="stylesheet" href="css/game.css?v=20261116">
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 
 </head>
@@ -21,7 +21,7 @@
     <div id="tbtns">
       <button class="tb" data-act="blind">SAND</button>
       <button class="tb hot" data-act="foul">ATTACK</button>
-      <button class="tb" data-act="through">THROUGH</button>
+      <button class="tb" data-act="through">TACKLE</button>
       <button class="tb" data-act="view">FK VIEW</button>
       <button class="tb hot" data-act="skill1">SPELL 1</button>
       <button class="tb hot" data-act="skill2">SPELL 2</button>
@@ -93,7 +93,7 @@
       <h1>FOUL PLAY <span>FC</span></h1>
       <p class="lede">Score goals or win the crowd. Foul anyone you can reach, on your team or theirs. The referee only sees what's inside the yellow cone, so throw sand in their eyes first. Play well and the crowd throws you med kits, swords, rocket boots, ultimate charges and fake whistles.</p>
       <div class="modes">
-        <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">Pick your team and player</span></button>
+        <button class="mode" id="m-1p"><span class="t">Solo vs bots</span><span class="d">Match settings, then pick your player</span></button>
         <button class="mode" id="m-2pv"><span class="t">2 players · versus</span><span class="d">Same keyboard, rival teams</span></button>
         <button class="mode" id="m-2pc"><span class="t">2 players · co-op</span><span class="d">Both on one team vs bots</span></button>
         <button class="mode" id="m-watch"><span class="t">Watch the bots</span><span class="d">Bots only, one referee</span></button>
@@ -101,14 +101,6 @@
         <button class="mode" id="m-play"><span class="t">Playground</span><span class="d">Admin panel: test every ability</span></button>
         <button class="mode" id="m-ref"><span class="t">Be the referee</span><span class="d">Spot fouls, give cards, dodge sand</span></button>
       </div>
-      <ul class="rules">
-        <li><b>Foul:</b> hits the nearest player in reach (red ring). Cycle to choose another.</li>
-        <li><b>Caught?</b> Yellow card and a free kick. Second yellow or a bat foul: red, off for 25s.</li>
-        <li><b>Sand:</b> blinds the referee for 4.5s if they're in reach. Recharges every 22s. Nobody calls fouls while they're blinded.</li>
-        <li><b>Crowd meter:</b> goals, tackles, saves and unseen fouls fill it. Full meter = a gift from the stands.</li>
-        <li><b>Charge:</b> fills with possession and good play. Spend it to sprint; any shot at 25% or more becomes an accurate power shot.</li>
-        <li><b>Karma:</b> fouls lower it and make bots come after you. Help a downed player up to raise it. The referee lets trusted players off and ignores fouls on serial offenders.</li>
-      </ul>
       <div class="row"><button class="btn" id="m-guide">How to play</button><button class="btn ghost" id="m-creator">Your character</button><button class="btn ghost" id="m-roles">Classes &amp; skills</button><button class="btn ghost" id="m-settings">Pace and controls</button></div>
     </div>
   </div>
@@ -131,6 +123,7 @@
         <button class="btn ghost" id="p-guide">How to play</button>
         <button class="btn ghost" id="p-settings">Pace and controls</button>
         <button class="btn ghost" id="p-restart">Restart match</button>
+        <button class="btn ghost" id="p-setup">Change settings &amp; players</button>
         <button class="btn ghost" id="p-menu">Main menu</button>
       </div>
     </div>
@@ -339,6 +332,7 @@
       <p class="hint" id="o-rematch"></p>
       <div class="row">
         <button class="btn" id="o-again">Play again</button>
+        <button class="btn ghost" id="o-setup">Change settings &amp; players</button>
         <button class="btn ghost" id="o-menu">Main menu</button>
       </div>
     </div>
@@ -346,75 +340,77 @@
 </div>
 
 
-<!-- Game code: classic scripts sharing one scope, in load order. See js/README.md. -->
-<script src="js/core/config.js"></script>
-<script src="js/core/input.js"></script>
-<script src="js/core/audio.js"></script>
-<script src="js/match/state.js"></script>
-<script src="js/match/teams.js"></script>
-<script src="js/match/feedback.js"></script>
-<script src="js/mechanics/passing.js"></script>
-<script src="js/mechanics/shooting.js"></script>
-<script src="js/mechanics/tackles.js"></script>
-<script src="js/mechanics/referee-carry.js"></script>
-<script src="js/match/fouls.js"></script>
-<script src="js/match/var.js"></script>
-<script src="js/items/field-items.js"></script>
-<script src="js/match/scoring.js"></script>
-<script src="js/match/report.js"></script>
-<script src="js/party/mutators.js"></script>
-<script src="js/party/effects.js"></script>
-<script src="js/party/replay.js"></script>
-<script src="js/party/crowd.js"></script>
-<script src="js/party/bounties.js"></script>
-<script src="js/items/bench.js"></script>
-<script src="js/party/taunts.js"></script>
-<script src="js/match/shootout.js"></script>
-<script src="js/party/spectators.js"></script>
-<script src="js/match/awards.js"></script>
-<script src="js/party/skins.js"></script>
-<script src="js/anomalies/anomalies.js"></script>
-<script src="js/anomalies/draw.js"></script>
-<script src="js/party/arenas.js"></script>
-<script src="js/party/ball-mods.js"></script>
-<script src="js/mechanics/setpieces.js"></script>
-<script src="js/mechanics/ball-extras.js"></script>
-<script src="js/render/setpieces-draw.js"></script>
-<script src="js/abilities/classes.js"></script>
-<script src="js/abilities/buffs.js"></script>
-<script src="js/abilities/aiming.js"></script>
-<script src="js/abilities/skills.js"></script>
-<script src="js/abilities/weapons.js"></script>
-<script src="js/abilities/update.js"></script>
-<script src="js/abilities/bot-skills.js"></script>
-<script src="js/player/player.js"></script>
-<script src="js/player/creatures.js"></script>
-<script src="js/player/models.js"></script>
-<script src="js/render/abilities-draw.js"></script>
-<script src="js/mechanics/ai.js"></script>
-<script src="js/mechanics/control.js"></script>
-<script src="js/mechanics/referee-mode.js"></script>
-<script src="js/mechanics/dribbling.js"></script>
-<script src="js/mechanics/combat.js"></script>
-<script src="js/mechanics/simulation.js"></script>
-<script src="js/render/canvas.js"></script>
-<script src="js/render/hud.js"></script>
-<script src="js/render/view.js"></script>
-<script src="js/ui/shell.js"></script>
-<script src="js/ui/guide.js"></script>
-<script src="js/ui/settings.js"></script>
-<script src="js/ui/menus.js"></script>
-<script src="js/net/peer.js"></script>
-<script src="js/net/relay.js"></script>
-<script src="js/net/host.js"></script>
-<script src="js/net/join.js"></script>
-<script src="js/net/roster.js"></script>
-<script src="js/net/sync.js"></script>
-<script src="js/ui/admin.js"></script>
-<script src="js/ui/creator.js"></script>
-<script src="js/ui/catalog.js"></script>
-<script src="js/ui/lobby.js"></script>
-<script src="js/ui/setup.js"></script>
-<script src="js/main.js"></script>
+<!-- Game code: classic scripts sharing one scope, in load order. See js/README.md.
+     ?v= on every file makes browsers fetch new code after an update: change it (and ASSET_V) when releasing. -->
+<script>const ASSET_V = '20261116';</script>
+<script src="js/core/config.js?v=20261116"></script>
+<script src="js/core/input.js?v=20261116"></script>
+<script src="js/core/audio.js?v=20261116"></script>
+<script src="js/match/state.js?v=20261116"></script>
+<script src="js/match/teams.js?v=20261116"></script>
+<script src="js/match/feedback.js?v=20261116"></script>
+<script src="js/mechanics/passing.js?v=20261116"></script>
+<script src="js/mechanics/shooting.js?v=20261116"></script>
+<script src="js/mechanics/tackles.js?v=20261116"></script>
+<script src="js/mechanics/referee-carry.js?v=20261116"></script>
+<script src="js/match/fouls.js?v=20261116"></script>
+<script src="js/match/var.js?v=20261116"></script>
+<script src="js/items/field-items.js?v=20261116"></script>
+<script src="js/match/scoring.js?v=20261116"></script>
+<script src="js/match/report.js?v=20261116"></script>
+<script src="js/party/mutators.js?v=20261116"></script>
+<script src="js/party/effects.js?v=20261116"></script>
+<script src="js/party/replay.js?v=20261116"></script>
+<script src="js/party/crowd.js?v=20261116"></script>
+<script src="js/party/bounties.js?v=20261116"></script>
+<script src="js/items/bench.js?v=20261116"></script>
+<script src="js/party/taunts.js?v=20261116"></script>
+<script src="js/match/shootout.js?v=20261116"></script>
+<script src="js/party/spectators.js?v=20261116"></script>
+<script src="js/match/awards.js?v=20261116"></script>
+<script src="js/party/skins.js?v=20261116"></script>
+<script src="js/anomalies/anomalies.js?v=20261116"></script>
+<script src="js/anomalies/draw.js?v=20261116"></script>
+<script src="js/party/arenas.js?v=20261116"></script>
+<script src="js/party/ball-mods.js?v=20261116"></script>
+<script src="js/mechanics/setpieces.js?v=20261116"></script>
+<script src="js/mechanics/ball-extras.js?v=20261116"></script>
+<script src="js/render/setpieces-draw.js?v=20261116"></script>
+<script src="js/abilities/classes.js?v=20261116"></script>
+<script src="js/abilities/buffs.js?v=20261116"></script>
+<script src="js/abilities/aiming.js?v=20261116"></script>
+<script src="js/abilities/skills.js?v=20261116"></script>
+<script src="js/abilities/weapons.js?v=20261116"></script>
+<script src="js/abilities/update.js?v=20261116"></script>
+<script src="js/abilities/bot-skills.js?v=20261116"></script>
+<script src="js/player/player.js?v=20261116"></script>
+<script src="js/player/creatures.js?v=20261116"></script>
+<script src="js/player/models.js?v=20261116"></script>
+<script src="js/render/abilities-draw.js?v=20261116"></script>
+<script src="js/mechanics/ai.js?v=20261116"></script>
+<script src="js/mechanics/control.js?v=20261116"></script>
+<script src="js/mechanics/referee-mode.js?v=20261116"></script>
+<script src="js/mechanics/dribbling.js?v=20261116"></script>
+<script src="js/mechanics/combat.js?v=20261116"></script>
+<script src="js/mechanics/simulation.js?v=20261116"></script>
+<script src="js/render/canvas.js?v=20261116"></script>
+<script src="js/render/hud.js?v=20261116"></script>
+<script src="js/render/view.js?v=20261116"></script>
+<script src="js/ui/shell.js?v=20261116"></script>
+<script src="js/ui/guide.js?v=20261116"></script>
+<script src="js/ui/settings.js?v=20261116"></script>
+<script src="js/ui/menus.js?v=20261116"></script>
+<script src="js/net/peer.js?v=20261116"></script>
+<script src="js/net/relay.js?v=20261116"></script>
+<script src="js/net/host.js?v=20261116"></script>
+<script src="js/net/join.js?v=20261116"></script>
+<script src="js/net/roster.js?v=20261116"></script>
+<script src="js/net/sync.js?v=20261116"></script>
+<script src="js/ui/admin.js?v=20261116"></script>
+<script src="js/ui/creator.js?v=20261116"></script>
+<script src="js/ui/catalog.js?v=20261116"></script>
+<script src="js/ui/lobby.js?v=20261116"></script>
+<script src="js/ui/setup.js?v=20261116"></script>
+<script src="js/main.js?v=20261116"></script>
 </body>
 </html>

@@ -8,6 +8,26 @@ function loseBall(p, ang) {
   const b = S.ball; if (b.owner !== p || gkFirm(p)) return;   // ball in a firm keeper's hands stays there
   b.owner = null; b.curve = null; b.trail = null; b.vx = Math.cos(ang) * 120 + rand(-50, 50); b.vy = Math.sin(ang) * 120 + rand(-50, 50); b.vz = 90; p.pickCd = 0.8;
 }
+// Calling for the ball: a CPU team-mate with the ball plays it to you a moment later (short along the ground, long in the air).
+// A person on your team (co-op) just sees you calling.
+function askForPass(p, mate, kind) {
+  if (S.passAsk && S.passAsk.to === p.id && S.time - S.passAsk.at < 0.6) return;
+  S.passAsk = { to: p.id, from: mate.id, kind, at: S.time, t: mate.human ? 0 : rand(0.15, 0.35) };
+  (S.bubbles || (S.bubbles = [])).push({ pid: p.id, text: kind === 'long' ? 'LONG BALL!' : 'PASS!', life: 1.2 });
+  thump(520, 0.05, 0.04);
+}
+function updatePassAsk(dt) {
+  const A = S.passAsk; if (!A) return;
+  const to = S.players[A.to], from = S.players[A.from], b = S.ball;
+  if (!to || !from || b.owner !== from || !able(to) || !onPitch(to) || S.time - A.at > 2) { S.passAsk = null; return; }
+  if (from.human) return;   // a person decides for themselves
+  A.t -= dt; if (A.t > 0) return;
+  S.passAsk = null;
+  if (from.stun > 0 || from.z > 0) return;
+  from.face = Math.atan2(to.y - from.y, to.x - from.x);
+  passTo(from, to, A.kind === 'long' ? 'air' : 'ground', A.kind === 'long' ? 0.75 : 0.55);
+  if (b.owner !== from) { floatText(from, A.kind === 'long' ? 'LONG BALL' : 'PASSED', '#9fe8ff'); b.lastPasser = from; b.passTime = S.time; }
+}
 function switchHuman(h, q) { if (!q || q.human) return; const cur = S.players[h.pid]; if (cur) cur.human = null; h.pid = q.id; q.human = h; }
 function switchToBest(h) {
   if (h.lock) return;
@@ -67,16 +87,10 @@ function humanLongPass(p, power = 0.5) {
   if (q) passTo(p, q, 'air', power);
   else passTo(p, spotAhead(p, ang, PASS_LEN.lpass(power)), 'air', power);   // ball into space
 }
-// Through ball: no assist. Played along the ground exactly where you aim, rolling out to a distance set by the power.
-function throughBall(p, power = 0.5) {
-  const ang = passDir(p); p.face = ang;
-  passTo(p, spotAhead(p, ang, PASS_LEN.through(power)), 'ground', power, true);
-  M(p, 'throughBalls'); floatText(p, 'THROUGH BALL', '#7df0ff');
-}
+const PASS_POWER = { short: 0.55, long: 0.65 };   // passes have one strength: no holding to power them up
 // What a pass would do right now: the assisted team-mate if there is one, else the spot it rolls or drops to.
 function passPreview(p, kind, power) {
   const ang = passDir(p);
-  if (kind === 'through') return { ...spotAhead(p, ang, PASS_LEN.through(power)), q: null };
   const q = kind === 'lpass' ? pickLongTarget(p, ang, PASS_LEN.lpass(power)) : pickPassTarget(p, ang, PASS_LEN.pass(power));
   return q ? { x: q.x, y: q.y, q } : { ...spotAhead(p, ang, PASS_LEN[kind](power)), q: null };
 }

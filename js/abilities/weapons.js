@@ -40,7 +40,7 @@ function slashArc(p, ang, W, o = {}) {
     if (q.ko > 0 || (q.z || 0) > 40) continue;
     const d = dist(p, q); if (d > range + 8) continue;
     if (d > 14 && Math.abs(angDiff(ang, Math.atan2(q.y - p.y, q.x - p.x))) > arc / 2) continue;
-    weaponHit(p, q, { x: p.x, y: p.y, vx: 0, vy: 0, w: W.id }); hits++;
+    weaponHit(p, q, { x: p.x, y: p.y, vx: 0, vy: 0, w: W.id }, !!o.basic); hits++;
   }
   const b = S.ball;
   if (!b.owner && dist(p, b) < range && (b.z || 0) < 30 && Math.abs(angDiff(ang, Math.atan2(b.y - p.y, b.x - p.x))) < arc / 2) {
@@ -53,6 +53,6 @@ function fireWeapon(p, ang) {   // swings the best ranged weapon held (js/player
   if (p.fireCd > 0) return;
   const a = ang != null ? ang : passDir(p);
   p.items[W.id]--; p.fireCd = W.cd;
-  slashArc(p, a, W); M(p, 'shotsFired');
+  slashArc(p, a, W, { basic: true }); M(p, 'shotsFired');
   if (watched(p)) { const r0 = S.refs[0]; if (r0) { r0.att = { x: p.x, y: p.y }; r0.attT = 1; } }
 }

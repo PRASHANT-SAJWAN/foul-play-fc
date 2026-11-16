@@ -27,24 +27,24 @@ function guideSections() {
     ['g-ball', 'Playing the ball', `
       <ul>
         <li><b>Move</b> with ${k('up')} ${k('left')} ${k('down')} ${k('right')}.</li>
-        <li><b>Every pass has power:</b> hold the key and release. A line shows where it's going while you hold: a ring on the team-mate who'll get it, or an arrow to where the ball ends up. A tap plays a soft, short ball; a full hold plays it hard and far.</li>
-        <li><b>Short pass</b> with ${k('pass')}: along the ground. Pass assist finds a team-mate only if you're facing them (within about 30°); more power prefers ones further away. Nobody there, and the ball goes into space where you aim.</li>
+        <li><b>Short pass</b> with ${k('pass')}: along the ground, straight away. Pass assist finds a team-mate you're facing (within about 30°); nobody there, and the ball goes into space where you aim.</li>
         <li><b>Long pass</b> with ${k('lpass')}: in the air, to a team-mate you're facing with space around them, or into space.</li>
-        <li><b>Through ball</b> with ${k('through')}: kicked forward along the ground exactly where you aim, with no assist, rolling out to a distance set by the power. Play it into space for a runner.</li>
         <li><b>Switch player:</b> press ${k('pass')} when you don't have the ball to take over the team-mate nearest the ball.</li>
         <li><b>Shoot:</b> hold ${k('shoot')} to build power, then release. A full-power shot can fly over the bar. Strikers shoot about 20% harder than everyone else.</li>
         <li><b>Goalkeepers</b> dive for shots that pass within reach, so aim for the corners.</li>
         <li><b>Effects:</b> only powerful strikes (a hard charged shot, rocket boots or a power-shot skill) get a ball trail and leave fire on the grass, and every hit lands with a comic-book "WHACK!".</li>
         <li><b>Ball physics:</b> shooting while running across the ball puts a little curl on it, the ball bounces and rolls to a stop, shots can come back off the post or the bar, and a hard shot that hits someone's body or head is blocked.</li>
         <li><b>Momentum:</b> players speed up a little slower than they stop, and turning sharply at full pace takes longer.</li>
-        <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge at the ball carrier. Cheap, safe and never a foul.</li>
+        <li><b>Tackle:</b> press ${k('through')} without the ball for a quick lunge, anywhere. Cheap, safe and never a foul.</li>
+        <li><b>Call for the ball:</b> when a CPU team-mate has it, press ${k('pass')} to ask for a short pass or ${k('lpass')} for a long ball.</li>
+        <li><b>Keeping it flowing:</b> a first ordinary foul gets a warning. After that, if the fouled team keeps the ball, or play restarted under 25 seconds ago, the card is shown and play carries on. Reds, penalties and second yellows always stop play.</li>
         <li><b>Sliding tackle:</b> press ${k('lpass')} without the ball to slide in the direction you're pressing. From the front it usually wins the ball cleanly; from behind, or into a player without the ball, it trips them, and that's a foul the referee can see. Costs 12 stamina, and you need a moment to get up.</li>
         <li><b>Jump:</b> press ${k('shoot')} without the ball. In the air, press ${k('shoot')} again to volley or head the ball at goal as it reaches you, or ${k('pass')} / ${k('lpass')} for a headed pass.</li>
         <li><b>Sprint:</b> hold ${k('sprint')}. Sprinting uses stamina.</li>
       </ul>`],
     ['g-fouls', 'Fouls and referees', `
       <ul>
-        <li><b>Base attack:</b> hold ${k('foul')} to aim and let go to strike. While you hold it, the guide shows your reach and rings the player you'd hit: aim assist picks whoever is closest to your aim, opponents first. If they're just out of reach you lunge in. With no one there you swing at thin air. Hitting your own team-mates still counts.</li>
+        <li><b>Base attack:</b> hold ${k('foul')} to aim and let go to strike. It only lowers HP (a knockout at zero) and briefly slows the target a little: it never stuns or knocks the ball loose. Stuns come from special abilities, marked <b>Stuns</b> on the setup screen and in the class catalog. While you hold it, the guide shows your reach and rings the player you'd hit: aim assist picks whoever is closest to your aim, opponents first. If they're just out of reach you lunge in. With no one there you swing at thin air. Hitting your own team-mates still counts.</li>
         <li>Hard fouls can <b>injure</b>: an injured player's stamina is capped until a med kit heals them, and their mood drops.</li>
         <li><b>Carry the referee:</b> stand next to them and press ${k('item')} to hoist them onto your shoulders. They keep watching wherever you face, so point them at the other team's dirty work, or away from your own. Press ${k('item')} again to throw them across the pitch in the direction you're facing. They wriggle free after 8 seconds, and you can't play the ball while carrying.</li>
         <li>A foul knocks the player down, takes the ball off them and costs them health. At zero health they are knocked out for 6 seconds.</li>

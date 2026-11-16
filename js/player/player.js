@@ -56,11 +56,12 @@ defineWeapon({ id: 'sling', name: 'Slingshot', kind: 'ranged', uses: 5, priority
 defineWeapon({ id: 'blaster', name: 'Foam blaster', kind: 'ranged', uses: 10, priority: 1, col: '#ff9f43', proj: 'dart', speed: 580, cd: 0.2, ttl: 0.6, anim: 'punch', sound: 600, hit: { dmg: 4, slow: 1 }, ballPush: 0.15 });
 
 // A ranged weapon's shot landing on a player.
-function weaponHit(owner, target, pr) {
+function weaponHit(owner, target, pr, basic) {   // basic: swung with the attack key, so damage and a slight slow only (no stun or knockback)
   const W = WEAPONS[pr.w] || WEAPONS.sling;
-  if (W.onHit) { W.onHit(owner, target, pr); return; }
+  if (W.onHit && !basic) { W.onHit(owner, target, pr); return; }
   const h = W.hit || {};
-  knock(owner, target, { dmg: h.dmg || 0, stun: h.stun || 0, kb: h.kb || 0, from: { x: pr.x - pr.vx, y: pr.y - pr.vy }, foul: true, kind: 'ranged', col: W.col });
+  knock(owner, target, { dmg: h.dmg || 0, stun: basic ? 0 : h.stun || 0, kb: basic ? 0 : h.kb || 0, from: { x: pr.x - pr.vx, y: pr.y - pr.vy }, foul: true, kind: 'ranged', col: W.col });
+  if (basic) { target.hitSlowT = BASIC_SLOW.t; return; }
   if (h.slow) target.slowT = Math.max(target.slowT || 0, h.slow);
 }
 
@@ -80,6 +81,19 @@ function defineClass(def) {
   CLASSES.push(def); CLS[def.id] = def; CLASS_IDS.push(def.id);
   for (const s of [...def.skills, def.ult]) if (!ABILITIES[s.id]) ABILITIES[s.id] = s;
   return def;
+}
+// Whether an ability can stun (knock down or daze) anyone. Set stuns: true / false on its definition to say so;
+// otherwise it's read from what the effect does. Shown on the setup screen and in the class catalog.
+const STUN_OVERRIDES = { cleanse: false, revive: false, healBurst: false, lifeweaver: false, timeRush: false, aerialGrab: false, jammer: false,
+  grabThrow: true, powerShot: true, meteor: true, trap: true, orbital: true, brTitan: true, sgCounter: true };   // stuns that happen in a zone or a follow-up, not in the cast itself
+function abilityStuns(def) {
+  if (!def) return false;
+  if (def.stuns != null) return !!def.stuns;
+  if (STUN_OVERRIDES[def.id] != null) return STUN_OVERRIDES[def.id];
+  const fn = SKILL_FX[def.id]; if (!fn) return false;
+  const src = String(fn), shot = src.match(/skillShot\([^,]+,[^,]+,\s*'(\w+)'/);
+  if (shot && WEAPONS[shot[1]]) return !!(WEAPONS[shot[1]].hit && WEAPONS[shot[1]].hit.stun);
+  return /stun\s*:\s*[1-9.]|stun\s*:\s*0\.[1-9]|\.stun\s*=\s*Math\.max|freezeT\s*=|\bko\s*=\s*[1-9]/.test(src);
 }
 function setClassAbility(classId, slot, id) {   // change a class's skill (slot 0–2) or ultimate (3) for everyone
   const C = CLS[classId], A = ABILITIES[id]; if (!C || !A) return false;

@@ -60,6 +60,7 @@ function showResults() {
   og.hidden = false; og.textContent = S.net === 'client' ? 'Vote rematch' : S.net === 'host' ? 'Rematch (swap sides)' : 'Play again';
   updateRematchNote();
   document.getElementById('o-menu').textContent = S.net ? 'Leave room' : 'Main menu';
+  document.getElementById('o-setup').hidden = !!S.net;   // online, the lobby is where settings change
   showOverlay('over');
   maybeAutosave();
 }

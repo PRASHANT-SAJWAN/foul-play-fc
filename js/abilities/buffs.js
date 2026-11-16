@@ -23,7 +23,7 @@ function speedMul(p) {
   if (b.marked > 0 && S.ball.owner === p) m *= 0.6;
   if (nearAura(p)) m *= 1.06;
   const CM = CLS[p.cls] && CLS[p.cls].mods; if (CM && CM.speed) m *= CM.speed(p);   // passives of classes from js/player/
-  m *= traitSpeed(p) * groundSpeed(p) * ballModSpeed(p);   // roles, mud, the iron ball (combat.js, arenas.js, ball-mods.js)
+  m *= traitSpeed(p) * groundSpeed(p) * ballModSpeed(p) * botDiff(p).speed;   // ...and the difficulty (js/mechanics/ai.js)   // roles, mud, the iron ball (combat.js, arenas.js, ball-mods.js)
   if (inZone(p, 'tactical', true)) m *= 1.15;
   if (inZone(p, 'zoneLock') || inZone(p, 'gravity') || inZone(p, 'slowBomb')) m *= 0.6;
   if (S.players.some(q => q.team !== p.team && q.bf && q.bf.timeRush > 0 && dist(q, p) < 90)) m *= 0.7;
@@ -64,7 +64,7 @@ const refIgnores = p => !!p && (hasBf(p, 'cloak') || hasBf(p, 'stealth') || hasB
 function tackleMul(stealer, carrier) {
   let m = 1;
   if (stealer.cls === 'defender') m *= 1.15;
-  m *= traitTackle(stealer);   // enforcers and enraged teams win more tackles
+  m *= traitTackle(stealer) * botDiff(stealer).tackle;   // enforcers and enraged teams win more tackles
   if (carrier.cls === 'speedster' && carrier.stk >= 3) m *= 0.85;
   if (inZone(carrier, 'zoneLock')) m *= 1.3;
   return m;

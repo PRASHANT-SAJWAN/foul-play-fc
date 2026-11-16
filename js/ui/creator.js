@@ -36,7 +36,7 @@ async function openCreator(from) {
   if (!showCreatorTab) showCreatorTab = setupTabs(document.querySelector('#creator [role="tablist"]'), $('cr-body'));
   showCreatorTab('ct-body');
   if (!PREVIEW) {
-    try { const mod = await import('../render/render3d.js'); PREVIEW = mod.createPreview($('cr-canvas'), { modelLimits: MODEL_LIMITS }); } catch (e) { PREVIEW = null; $('cr-note').textContent = '3D preview unavailable here; showing a simple badge instead.'; }
+    try { const mod = await import('../render/render3d.js?v=' + ASSET_V); PREVIEW = mod.createPreview($('cr-canvas'), { modelLimits: MODEL_LIMITS }); } catch (e) { PREVIEW = null; $('cr-note').textContent = '3D preview unavailable here; showing a simple badge instead.'; }
   }
   if (PREVIEW) PREVIEW.start();
   renderCreator();

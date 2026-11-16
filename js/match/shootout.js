@@ -41,8 +41,10 @@ function shootoutKickDone(scored) {
   let winner = null;
   if (ta <= 3 || tb <= 3) { if (a > b + left(1)) winner = 0; else if (b > a + left(0)) winner = 1; }
   if (ta >= 3 && tb >= 3 && ta === tb && a !== b) winner = a > b ? 0 : 1;
+  let toss = false;
+  if (winner === null && ta >= 8 && tb >= 8 && ta === tb) { winner = Math.random() < 0.5 ? 0 : 1; toss = true; feed(`Still level after ${ta} kicks each: decided on a coin toss`, '#ffd23f'); }   // never an endless shoot-out
   feed(`${TEAM[L.team].name} ${scored ? 'score' : 'miss'} · shoot-out ${a}–${b}`, scored ? TEAM[L.team].col : '#c8c8c8');
-  if (winner !== null) { sh.done = true; sh.winner = winner; pauseFor(2.4, scored ? 'GOAL!' : 'SAVED!', `${TEAM[winner].name} win the shoot-out ${Math.max(a, b)}–${Math.min(a, b)}`, () => endMatch()); return; }
+  if (winner !== null) { sh.done = true; sh.winner = winner; pauseFor(2.4, toss ? 'COIN TOSS' : scored ? 'GOAL!' : 'SAVED!', `${TEAM[winner].name} win the shoot-out${toss ? ' on a coin toss' : ` ${Math.max(a, b)}–${Math.min(a, b)}`}`, () => endMatch()); return; }
   sh.next = 1 - L.team;
   pauseFor(1.8, scored ? 'GOAL!' : 'MISS!', `Shoot-out ${a}–${b}`, () => nextShootoutKick());
 }

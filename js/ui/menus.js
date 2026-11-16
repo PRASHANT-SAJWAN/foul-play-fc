@@ -10,15 +10,12 @@ function updateTouch() {
 }
 function start(mode) { initAudio(); if (AC && AC.state === 'suspended') AC.resume(); S.phase = 'play'; newMatch(mode); setupAdmin(mode === 'playground'); whistle(1); showOverlay(null); }
 function toMenu() { leaveRoom(); S.net = null; applyTeams(SETUP.teams); S.phase = 'menu'; newMatch('watch'); setupAdmin(false); showOverlay('menu'); }
-function togglePause() { S.userPaused = !S.userPaused; renderAnomOpts('p-anomlvl'); renderRefVis('p-refdist'); document.getElementById('p-anom').hidden = S.net === 'client' || S.mode === 'playground'; document.getElementById('p-ref').hidden = S.net === 'client'; document.getElementById('p-restart').hidden = S.net === 'client'; document.getElementById('p-menu').textContent = S.net ? 'Leave room' : 'Main menu'; showOverlay(S.userPaused ? 'paused' : null); }
-document.getElementById('m-1p').onclick = () => start('1p');
-document.getElementById('m-2pv').onclick = () => start('2pv');
-document.getElementById('m-2pc').onclick = () => start('2pc');
-document.getElementById('m-watch').onclick = () => start('watch');
-document.getElementById('m-play').onclick = () => start('playground');
-document.getElementById('m-ref').onclick = () => start('ref');
+function togglePause() { S.userPaused = !S.userPaused; if (typeof syncPauseButtons === 'function') syncPauseButtons(); renderAnomOpts('p-anomlvl'); renderRefVis('p-refdist'); document.getElementById('p-anom').hidden = S.net === 'client' || S.mode === 'playground'; document.getElementById('p-ref').hidden = S.net === 'client'; document.getElementById('p-restart').hidden = S.net === 'client'; document.getElementById('p-menu').textContent = S.net ? 'Leave room' : 'Main menu'; showOverlay(S.userPaused ? 'paused' : null); }
+// Each mode opens the match setup first (js/ui/setup.js): match settings, then character select.
+for (const [id, mode] of [['m-1p', '1p'], ['m-2pv', '2pv'], ['m-2pc', '2pc'], ['m-watch', 'watch'], ['m-play', 'playground'], ['m-ref', 'ref']]) document.getElementById(id).onclick = () => openSetup(mode);
 document.getElementById('p-resume').onclick = togglePause;
 document.getElementById('p-restart').onclick = () => start(S.mode);
+const syncPauseButtons = () => { const b = document.getElementById('p-setup'); if (b) b.hidden = !!S.net; };
 document.getElementById('p-menu').onclick = toMenu;
 document.getElementById('o-again').onclick = () => {
   if (S.net === 'client') { if (NET && NET.conn) NET.conn.send({ t: 'rematch' }); document.getElementById('o-again').textContent = 'Voted ✓'; return; }
@@ -26,6 +23,9 @@ document.getElementById('o-again').onclick = () => {
   start(S.mode);
 };
 document.getElementById('o-menu').onclick = toMenu;
+// Back to the match settings (step 1) for the same mode, to change the rules or pick other players.
+document.getElementById('o-setup').onclick = () => { const mode = S.mode; S.phase = 'menu'; newMatch('watch'); setupAdmin(false); openSetup(mode === 'menu' ? '1p' : mode); };
+document.getElementById('p-setup').onclick = () => { const mode = S.mode; S.userPaused = false; S.phase = 'menu'; newMatch('watch'); setupAdmin(false); openSetup(mode); };
 document.getElementById('m-settings').onclick = () => openSettings('menu');
 document.getElementById('m-guide').onclick = () => openGuide('menu');
 document.getElementById('p-guide').onclick = () => openGuide('paused');
