@@ -33,7 +33,7 @@ async function startSetupPreview() {
   if (SU_PREVIEW) { updateSetupPreview(); SU_PREVIEW.start(); }
 }
 function stopSetupPreview() { if (SU_PREVIEW) SU_PREVIEW.stop(); }
-function setupPicked(who) { return who === 1 ? (CLS[SETUP.p2] ? SETUP.p2 : 'striker') : MY_CLASS; }
+function setupPicked(who) { return who === 1 ? (CLS[SETUP.p2] ? SETUP.p2 : DEFAULT_CLASS) : MY_CLASS; }
 function setupTeamOf(who) { const M = SETUP_MODES[setupMode] || {}; return who === 1 && M.versus ? 1 - SETUP.side : M.side ? SETUP.side : 0; }
 function updateSetupPreview() {
   if (!SU_PREVIEW) return;
@@ -55,7 +55,7 @@ function setupPreviewPanel(who) {
 }
 
 function setupClassGrid(who, cur) {
-  const classes = CLASSES.slice().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
+  const classes = PICKABLE().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
   return `<div class="su-classes" role="group" aria-label="${who === 1 ? 'Player 2' : 'Your'} player">${classes.map(C => `<button class="su-cls" data-who="${who}" data-c="${C.id}" aria-pressed="${cur === C.id}" style="--cc:${C.col}" title="${esc(C.title || '')}"><img src="${classPortrait(C)}" alt=""><span class="n">${esc(C.name)}</span><span class="r">${esc((ROLE_INFO[C.role] || {}).name || C.role)}</span></button>`).join('')}</div>`;
 }
 // Step 1's options: [key, title, hint, items [[value, label]], current value, set(value)]. Hidden where a mode has no use for them.
@@ -107,7 +107,7 @@ function renderSetup() {
     html += setupPreviewPanel(setupWho);
     html += `<h3 class="su-h">${M.humans === 2 ? 'Player 1' : 'Your player'} <span class="hint">${esc(CLS[MY_CLASS].name)}, ${esc(CLS[MY_CLASS].title || '')}</span></h3>${setupClassGrid(0, MY_CLASS)}`;
     html += `<label class="adm-t su-lock"><input type="checkbox" id="su-lock" ${LOCK_PLAYER ? 'checked' : ''}> Play as this one character all match (no switching)</label>`;
-    if (M.humans === 2) { const c2 = CLS[SETUP.p2] ? SETUP.p2 : 'striker'; html += `<h3 class="su-h">Player 2 <span class="hint">${esc(CLS[c2].name)}, ${esc(CLS[c2].title || '')}</span></h3>${setupClassGrid(1, c2)}`; }
+    if (M.humans === 2) { const c2 = CLS[SETUP.p2] ? SETUP.p2 : DEFAULT_CLASS; html += `<h3 class="su-h">Player 2 <span class="hint">${esc(CLS[c2].name)}, ${esc(CLS[c2].title || '')}</span></h3>${setupClassGrid(1, c2)}`; }
   }
   el.innerHTML = html;
   const startB = document.getElementById('su-start'), backB = document.getElementById('su-back');

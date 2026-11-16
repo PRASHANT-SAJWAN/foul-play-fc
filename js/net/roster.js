@@ -38,7 +38,7 @@ function updateRematchNote() {
   el.textContent = `Rematch votes: ${votes} of ${humans}. A rematch starts once at least half the players and the host vote, with sides swapped.`;
 }
 function rosterList() {
-  return Object.entries(NET ? NET.roster : {}).map(([uid, v]) => ({ uid, name: String((v && v.name) || 'Player').slice(0, 14), team: v && v.team === 1 ? 1 : 0, joined: (v && v.joined) || 0, cls: v && CLS[v.cls] ? v.cls : 'striker', lock: !!(v && v.lock), useSkin: !!(v && v.useSkin), skin: v && v.skin, ready: !!(v && v.ready) }))
+  return Object.entries(NET ? NET.roster : {}).map(([uid, v]) => ({ uid, name: String((v && v.name) || 'Player').slice(0, 14), team: v && v.team === 1 ? 1 : 0, joined: (v && v.joined) || 0, cls: v && CLS[v.cls] ? v.cls : DEFAULT_CLASS, lock: !!(v && v.lock), useSkin: !!(v && v.useSkin), skin: v && v.skin, ready: !!(v && v.ready) }))
     .sort((a, b) => a.joined - b.joined || (a.uid < b.uid ? -1 : 1));
 }
 function colorOf(uid) { const i = rosterList().findIndex(r => r.uid === uid); return i < 0 ? 0 : i; }
@@ -118,7 +118,7 @@ function syncHumans() {
     const h = { id: r.uid, idx: colorOf(r.uid), label: local ? 'YOU' : r.name, team: r.team, map: local ? MAPSOLO : null, remote: !local, touch: local, pid: p.id, prev: {}, charge: 0, charging: false, lc: null };
     if (!local) h.lc = { ...(((NET.inputs[r.uid] || {}).c) || {}) };
     h.lock = !!r.lock;
-    p.human = h; S.humans.push(h); setClass(p, CLS[r.cls] ? r.cls : 'striker'); refreshSynergies();
+    p.human = h; S.humans.push(h); setClass(p, CLS[r.cls] ? r.cls : DEFAULT_CLASS); refreshSynergies();
     p.skinOwner = r.uid; const rsk = r.useSkin && NET.roster[r.uid] && NET.roster[r.uid].skin; applySkin(p, rsk ? sanitizeSkin(rsk) : null);
     if (S.phase === 'play' && S.clock < 178) feed(`${r.name} joined the ${TEAM[r.team].name}`);
   }

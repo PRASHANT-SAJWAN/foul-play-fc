@@ -24,7 +24,7 @@ function dribble(o, b, dt) {
     if (dist(o, b) > 18) { b.x = clamp(o.x + fx * DRIBBLE.feet, 2, W - 2); b.y = clamp(o.y + fy * DRIBBLE.feet, 2, H - 2); }
     b.vx = o.vx; b.vy = o.vy;
   }
-  const close = (hasBf(o, 'speedDribble') ? 0.75 : 1) * (o.cls === 'speedster' || o.cls === 'playmaker' ? 0.88 : 1);   // tighter control
+  const close = (hasBf(o, 'speedDribble') ? 0.75 : 1) * (o.cls === 'envy' || o.cls === 'greed' ? 0.88 : 1);   // tighter control
   const moving = sp >= 25 && (o.dx || o.dy);
   // how far ahead the ball runs: a little ahead jogging, a touch further when sprinting
   const ahead = moving ? (10 + sp * (o.sprinting ? 0.026 : 0.012)) * close : DRIBBLE.feet;

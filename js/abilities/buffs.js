@@ -13,7 +13,7 @@ function nearAura(p) { return S.players.some(q => q !== p && q.team === p.team &
 function inZone(p, type, friendly) { return (S.zones || []).some(z => z.type === type && (friendly ? z.team === p.team : z.team !== p.team) && Math.hypot(p.x - z.x, p.y - z.y) < z.r); }
 function speedMul(p) {
   const b = p.bf || {}; let m = 1;
-  if (p.cls === 'striker' && inAttackThird(p)) m *= 1.1;
+  if (p.cls === 'pride' && inAttackThird(p)) m *= 1.1;
   if (p.cls === 'speedster') m *= 1 + 0.07 * (p.stk || 0);
   if (b.shadow > 0) m *= 1.15;
   if (b.speedDribble > 0 && S.ball.owner === p) m *= 1.35;
@@ -31,7 +31,7 @@ function speedMul(p) {
 }
 function shotMul(p) {
   const b = p.bf || {}; let m = 1;
-  if (p.cls === 'striker' && inAttackThird(p)) m *= 1.2;
+  if (p.cls === 'pride' && inAttackThird(p)) m *= 1.2;
   if (b.perfect > 0) m *= 1.25; if (b.awaken > 0) m *= 1.3; if (b.assist > 0) m *= 1.3; if (b.auraOff > 0) m *= 1.15; if (b.morale > 0) m *= 1.08;
   if (nearAura(p)) m *= 1.05;
   if (inZone(p, 'tactical', true)) m *= 1.15;

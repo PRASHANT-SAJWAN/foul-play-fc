@@ -26,7 +26,7 @@ function renderAnomOpts(lvlId, optId) {
   }
 }
 function fillClassSelect(sel) {
-  sel.innerHTML = Object.entries(ROLE_INFO).map(([r, R]) => `<optgroup label="${R.name}">${CLASSES.filter(c => c.role === r).map(c => `<option value="${c.id}">${c.name} · ${c.title}</option>`).join('')}</optgroup>`).join('');
+  sel.innerHTML = Object.entries(ROLE_INFO).map(([r, R]) => `<optgroup label="${R.name}">${CLASSES.filter(c => c.role === r && !c.hidden).map(c => `<option value="${c.id}">${c.name} · ${c.title}</option>`).join('')}</optgroup>`).join('');
   sel.value = MY_CLASS;
 }
 function setMyClass(id) {

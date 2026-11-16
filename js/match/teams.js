@@ -16,7 +16,7 @@ function shadeHex(hex, k) {   // k < 0 darkens, k > 0 lightens
 // The saved setup screen choices: team names and colours, which side player 1 plays for, and player 2's class.
 let SETUP = (() => {
   const v = store.get('fpfc-setup') || {}, t = Array.isArray(v.teams) ? v.teams : [];
-  return { teams: [0, 1].map(i => ({ name: cleanTeamName(t[i] && t[i].name, i), col: cleanTeamCol(t[i] && t[i].col, i) })), side: v.side === 1 ? 1 : 0, p2: typeof v.p2 === 'string' ? v.p2 : 'striker' };
+  return { teams: [0, 1].map(i => ({ name: cleanTeamName(t[i] && t[i].name, i), col: cleanTeamCol(t[i] && t[i].col, i) })), side: v.side === 1 ? 1 : 0, p2: typeof v.p2 === 'string' ? v.p2 : 'pride' };
 })();
 if (SETUP.teams[0].col === SETUP.teams[1].col) SETUP.teams[1].col = SETUP.teams[0].col === TEAM_DEFAULT[1].col ? TEAM_DEFAULT[0].col : TEAM_DEFAULT[1].col;
 function saveSetup() { store.set('fpfc-setup', SETUP); }

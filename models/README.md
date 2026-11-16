@@ -14,6 +14,6 @@ Put one `.glb` file per character here, then add a line for it in `js/player/mod
 
 **Budget:** about 5,000–15,000 triangles and 1–2 textures of 1024 px per character keeps 12+ players smooth. Draco or meshopt compression shrinks downloads.
 
-**Credits:** `peasant_character.glb` (used for the Brawler) is "Peasant Character" by Inuciian, https://sketchfab.com/3d-models/peasant-character-df91025680a5433eb5917a466211dba1, licensed CC BY 4.0. Put a `credit` on each model's line in `js/player/models.js`; the game lists them under How to play → Credits.
+**Credits:** put a `credit` on each model's line in `js/player/models.js`; the game lists them under How to play → Credits.
 
 **Licences:** only use models you made, commissioned, or whose licence allows use in your game (and, if the repo is public, allows sharing the files).

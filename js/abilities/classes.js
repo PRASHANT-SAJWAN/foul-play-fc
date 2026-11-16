@@ -1,5 +1,5 @@
 /* Foul Play FC · js/abilities/classes.js
-   The 12 classes, roles, synergies and line-ups, and assigning classes and looks to players.
+   The seven Sins (the playable characters), the bots' Goalkeeper, roles, synergies and line-ups, and assigning classes and looks.
    Classic script sharing one global scope with the rest of js/; index.html loads them in order. */
 'use strict';
 
@@ -11,93 +11,66 @@ const ROLE_INFO = {
   support: { name: 'Support', col: '#5ccf6a', blurb: 'Team sustain, buffs, healing, utility' },
   disrupt: { name: 'Disrupt', col: '#c45cff', blurb: 'Chaos control, mind games, field manipulation' }
 };
-// look: hair style index, hair colour, skin, accessory, facial hair, build, eye colour (matches the class art)
+// The seven Sins (the characters you can pick), plus the Goalkeeper that bots use in goal (hidden from selection).
+// look: hair style index, hair colour, skin, accessory, build, eye colour. Skill effects: js/abilities/sins.js.
+// Every ability says whether it stuns (stuns: true/false) and when bots use it (bot).
+const DEFAULT_CLASS = 'pride';
 const CLASSES = [
-  { id: 'striker', name: 'Striker', title: 'The Finisher', role: 'offense', col: '#ff4d4d', num: 10, look: { hair: 8, hairCol: '#1b120c', skin: '#f1c9a5', acc: 0, build: 1, eyes: '#3a2416' },
-    passive: ['Goal Instinct', '+20% shot power and +10% speed in the opponent\'s third of the pitch.'],
-    skills: [{ id: 'powerShot', name: 'Power Shot', cd: 8, aim: 'self', desc: 'Your next shot within 4 s flies 40% faster and knocks down anyone in its path.' },
-      { id: 'curveDrive', name: 'Curve Drive', cd: 10, aim: 'self', desc: 'Your next shot within 4 s bends hard in mid-air, making it harder to block or save.' },
-      { id: 'aerial', name: 'Aerial Strike', cd: 12, aim: 'point', range: 150, desc: 'Leap toward the aim and volley anything in reach; landing stuns nearby enemies for 2 s.' }],
-    ult: { id: 'meteor', name: 'Meteor Volley', desc: 'Meteors rain on the target goal area for 5 s, stunning every enemy there except the keeper, and your next shot can\'t be caught.' } },
-  { id: 'assassin', name: 'Assassin', title: 'The Shadow Scorer', role: 'offense', col: '#8a4dff', num: 7, look: { hair: 1, hairCol: '#14101c', skin: '#d9a477', acc: 5, build: 0, eyes: '#b98cff' },
-    passive: ['Shadow Step', 'Gain +15% speed and stealth for 1.5 s after a successful foul or knockout. The referee can\'t see you in stealth.'],
-    skills: [{ id: 'cloak', name: 'Cloak', cd: 14, aim: 'self', desc: 'Turn completely invisible to opponents and the referee for 4 s. Your next foul or tackle deals 40% more damage.' },
-      { id: 'blink', name: 'Blink Strike', cd: 10, aim: 'enemy', range: 220, desc: 'Teleport to an enemy in range, steal the ball if they have it and knock them down.' },
-      { id: 'phantom', name: 'Phantom Dribble', cd: 12, aim: 'point', range: 300, desc: 'Send an afterimage dribbling a fake ball toward the aim for 3 s, drawing tackles.' }],
-    ult: { id: 'dimension', name: 'Dimension Break', desc: 'With the ball (or near it), teleport it and yourself to the aim point; an illusion left behind explodes on enemies after 4 s.' } },
-  { id: 'speedster', name: 'Speedster', title: 'The Velocity Ace', role: 'offense', col: '#ffcc22', num: 11, look: { hair: 8, hairCol: '#ffd23f', skin: '#f1c9a5', acc: 0, build: 0, eyes: '#3a7bff' },
-    passive: ['Momentum', 'Build up to 3 speed stacks while moving (+7% speed each). At 3 stacks, tackles on you succeed 15% less.'],
-    skills: [{ id: 'dash', name: 'Dash Burst', cd: 6, aim: 'point', range: 200, desc: 'A high-speed dash that knocks enemies aside.' },
-      { id: 'afterimage', name: 'Afterimage', cd: 12, aim: 'self', desc: 'Leave a clone that copies your movement for 3 s; enemies can tackle it by mistake.' },
-      { id: 'speedDribble', name: 'Speed Dribble', cd: 14, aim: 'self', desc: '4 s of ultra-fast dribbling; anyone who tackles you is stunned for 1 s instead.' }],
-    ult: { id: 'timeRush', name: 'Time Rush', desc: '6 s of accelerated time: +40% speed, the ball can\'t be taken off you, immune to knockdowns, and enemies near you slow down.' } },
-  { id: 'tank', name: 'Tank', title: 'The Iron Wall', role: 'defense', col: '#2f6fff', num: 4, look: { hair: 0, hairCol: '#1b120c', skin: '#c58c5e', acc: 0, build: 2, eyes: '#2a1a10' },
-    passive: ['Unbreakable', 'Take 25% less damage and can\'t be knocked down during a tackle or slide.'],
-    skills: [{ id: 'bodyBlock', name: 'Body Block', cd: 10, aim: 'point', range: 60, desc: 'Raise a barrier in front of you that stops the ball and enemies for 2.5 s.' },
-      { id: 'bullRush', name: 'Bull Rush', cd: 9, aim: 'point', range: 220, desc: 'Charge forward, pushing enemies and the ball aside and knocking them down.' },
-      { id: 'quake', name: 'Quake Tackle', cd: 12, aim: 'self', desc: 'Slam the ground and trip every enemy close to you.' }],
-    ult: { id: 'titan', name: 'Titan\'s Guard', desc: 'A dome for 6 s that bounces shots away and halves damage to team-mates inside.' } },
-  { id: 'defender', name: 'Defender', title: 'The Interceptor', role: 'defense', col: '#f2c230', num: 3, look: { hair: 1, hairCol: '#0e0e0e', skin: '#d9a477', acc: 1, build: 1, eyes: '#2a1a10' },
-    passive: ['Field Control', '+20% interception range and +15% tackle success.'],
-    skills: [{ id: 'intervene', name: 'Intervene', cd: 8, aim: 'enemy', range: 240, desc: 'Dash straight to an opponent and make a clean tackle if they have the ball.' },
-      { id: 'zoneLock', name: 'Zone Lock', cd: 12, aim: 'point', range: 400, desc: 'A 4 s zone that slows enemies by 40% and makes them easier to tackle.' },
-      { id: 'tackleCharge', name: 'Tackle Charge', cd: 10, aim: 'enemy', range: 130, desc: 'A crunching tackle that knocks the ball far away and stuns the target for 1.5 s.' }],
-    ult: { id: 'absoluteMark', name: 'Absolute Mark', desc: 'Mark an enemy for 8 s: they slow down with the ball, can\'t use skills, and you get a speed boost.' } },
-  { id: 'goalkeeper', name: 'Goalkeeper', title: 'The Last Line', role: 'defense', col: '#3fbf5f', num: 1, look: { hair: 8, hairCol: '#2f9f4f', skin: '#f1c9a5', acc: 2, build: 1, eyes: '#2f9f4f' },
-    passive: ['Instinct Save', '+30% save range. Picking this class puts you in goal.'],
+  { id: 'wrath', name: 'Wrath', title: 'The Berserker', role: 'offense', col: '#e8392e', num: 9, look: { hair: 2, hairCol: '#3a0d08', skin: '#c58c5e', acc: 0, build: 2, eyes: '#ff4d2e' },
+    passive: ['Seething', 'Hits harder the more hurt you are: up to +25% damage at low HP.'],
+    skills: [{ id: 'sWrathCharge', glyph: '»', name: 'Rage Charge', cd: 9, aim: 'point', range: 220, stuns: true, desc: 'Charge toward the aim, bowling over anyone in the way and taking the ball if you run through the carrier.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 210 },
+      { id: 'sWrathSlam', glyph: '✹', name: 'Wrathful Slam', cd: 12, aim: 'self', stuns: true, desc: 'Smash the ground: every opponent within reach is knocked down for 1 s.', bot: (p, c) => enemiesOf(p).filter(q => dist(q, p) < 80).length >= 2 || (c.enemyBall && dist(p, c.carrier) < 70) }],
+    ult: { id: 'sWrathUlt', glyph: '♨', name: 'Unleashed Fury', stuns: false, desc: '7 s of fury: +25% damage, +10% speed, and nothing knocks you down.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 250 } },
+  { id: 'gluttony', name: 'Gluttony', title: 'The Bottomless', role: 'defense', col: '#d98c2b', num: 4, look: { hair: 6, hairCol: '#5a3412', skin: '#e0a878', acc: 0, build: 2, eyes: '#5a3412' },
+    passive: ['Second Helping', 'Heavy and hard to move (knockback halved, a little slower). Win the ball and regain 12 HP.'],
+    skills: [{ id: 'sGlutDevour', glyph: '◕', name: 'Devour', cd: 11, aim: 'enemy', range: 80, stuns: false, desc: 'Gobble the ball off an opponent next to you and slow them for a moment; without the ball, it bites for 12 damage.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 75 },
+      { id: 'sGlutWall', glyph: '▮', name: 'Belly Wall', cd: 10, aim: 'point', range: 120, stuns: false, desc: 'Plant a wall in front of you for 2.5 s that stops the ball and opponents.', bot: (p, c) => !c.own && S.ball.lastTouch && S.ball.lastTouch.team !== p.team && Math.hypot(S.ball.vx, S.ball.vy) > 300 && dist(p, S.ball) < 180 }],
+    ult: { id: 'sGlutUlt', glyph: '❂', name: 'Feast', stuns: true, desc: 'Drag every opponent within reach toward you, knock them down for 1.2 s and regain 30 HP.', bot: p => enemiesOf(p).filter(q => dist(q, p) < 150).length >= 2 } },
+  { id: 'greed', name: 'Greed', title: 'The Collector', role: 'support', col: '#f2c230', num: 8, look: { hair: 8, hairCol: '#c9a050', skin: '#f1c9a5', acc: 7, build: 1, eyes: '#f2c230' },
+    passive: ['Interest', 'Your charge fills on its own, 1.5% a second.'],
+    skills: [{ id: 'sGreedSteal', glyph: '✋', name: 'Pickpocket', cd: 10, aim: 'enemy', range: 160, stuns: false, desc: 'Blink behind an opponent and lift the ball off them. No foul, no stun: just gone.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 150 },
+      { id: 'sGreedPass', glyph: '➶', name: 'Golden Pass', cd: 9, aim: 'ally', range: 520, stuns: false, desc: 'With the ball: a fast pass to a team-mate that nobody can intercept.', bot: (p, c) => c.own && c.enemyNear(110) }],
+    ult: { id: 'sGreedUlt', glyph: '✦', name: 'Jackpot', stuns: false, desc: 'Your whole team gets +25 charge and 6 s of sharper shots and passes and extra speed.', bot: (p, c) => c.own || (c.carrier && c.carrier.team === p.team) } },
+  { id: 'envy', name: 'Envy', title: 'The Mimic', role: 'disrupt', col: '#3fbf6a', num: 7, look: { hair: 1, hairCol: '#16331f', skin: '#d9a477', acc: 5, build: 0, eyes: '#3fbf6a' },
+    passive: ['Covet', '+15% speed when chasing an opponent who has the ball.'],
+    skills: [{ id: 'sEnvyClone', glyph: '⧉', name: 'Doppelgänger', cd: 12, aim: 'point', range: 300, stuns: false, desc: 'An exact copy of you runs toward the aim (with a copy of the ball if you have it) to fool opponents.', bot: (p, c) => c.own && c.enemyNear(140) },
+      { id: 'sEnvyEye', glyph: '◎', name: 'Green Eye', cd: 12, aim: 'enemy', range: 400, stuns: false, desc: 'Mark an opponent for 5 s: they can\'t use skills and are slower with the ball.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 380 }],
+    ult: { id: 'sEnvyUlt', glyph: '⇄', name: 'Swap', aim: 'enemy', range: 400, stuns: true, desc: 'Trade places with an opponent in range, take the ball if they had it, and leave them dazed for 1 s.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 380 } },
+  { id: 'pride', name: 'Pride', title: 'The Champion', role: 'offense', col: '#9b5cff', num: 10, look: { hair: 8, hairCol: '#f2d16b', skin: '#f1c9a5', acc: 1, build: 1, eyes: '#9b5cff' },
+    passive: ['Showboat', '+20% shot power and +10% speed in the opponent\'s third of the pitch.'],
+    skills: [{ id: 'sPrideShot', glyph: '💥', name: 'Perfect Strike', cd: 8, aim: 'self', stuns: true, desc: 'Your next shot within 4 s flies 40% faster and knocks down anyone in its path.', bot: (p, c) => c.own && c.dg < SHOOT_RANGE * 1.2 },
+      { id: 'sPrideGuard', glyph: '⛉', name: 'Untouchable', cd: 14, aim: 'self', stuns: false, desc: 'For 3 s nobody can tackle you, and you run 40% faster.', bot: (p, c) => c.own && c.enemyNear(90) }],
+    ult: { id: 'sPrideUlt', glyph: '☄', name: 'Crowning Glory', stuns: true, desc: 'Meteors rain on the opponents\' goal area for 5 s, stunning everyone there except the keeper, and your next shot can\'t be caught.', bot: (p, c) => c.dg < W * 0.45 && (c.own || (c.carrier && c.carrier.team === p.team)) } },
+  { id: 'lust', name: 'Lust', title: 'The Charmer', role: 'support', col: '#ff5fa2', num: 11, look: { hair: 5, hairCol: '#8a1d4a', skin: '#f1c9a5', acc: 0, build: 0, eyes: '#ff5fa2' },
+    passive: ['Allure', 'Opponents close to you move slightly slower.'],
+    skills: [{ id: 'sLustCharm', glyph: '♥', name: 'Charm', cd: 11, aim: 'enemy', range: 260, stuns: false, desc: 'An opponent is charmed for 2.5 s: their controls are muddled and they wander toward you.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 250 },
+      { id: 'sLustHeal', glyph: '✚', name: 'Tender Care', cd: 9, aim: 'ally', range: 300, self: true, stuns: false, desc: 'Restore 30 HP to a team-mate (or yourself) and clear stuns, slows and marks.', bot: p => alliesOf(p).some(q => (q.hp < 55 || q.stun > 0.6 || q.slowT > 0) && dist(q, p) < 300) }],
+    ult: { id: 'sLustUlt', glyph: '💔', name: 'Heartbreak', stuns: true, desc: 'Every opponent within reach drops the ball, is dazed for 1 s and stays charmed for 2.5 s.', bot: p => enemiesOf(p).filter(q => dist(q, p) < 160).length >= 2 } },
+  { id: 'sloth', name: 'Sloth', title: 'The Immovable', role: 'defense', col: '#6f8fb0', num: 5, look: { hair: 4, hairCol: '#3b4a5a', skin: '#d9a477', acc: 0, build: 1, eyes: '#8fb0d0' },
+    passive: ['Conserve', 'A little slower, but stamina comes back 60% faster.'],
+    skills: [{ id: 'sSlothZone', glyph: '≋', name: 'Snooze Zone', cd: 12, aim: 'point', range: 300, stuns: false, desc: 'A drowsy patch for 4 s: opponents inside move 40% slower.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 300 },
+      { id: 'sSlothYawn', glyph: '☾', name: 'Big Yawn', cd: 13, aim: 'self', stuns: true, desc: 'A yawn so big that opponents within reach nod off for 1.5 s.', bot: (p, c) => enemiesOf(p).filter(q => dist(q, p) < 100).length >= 1 && (c.enemyBall || c.enemyNear(70)) }],
+    ult: { id: 'sSlothUlt', glyph: '⏸', name: 'Time Freeze', stuns: false, desc: 'Opponents across a wide area slow to a crawl for 3 s, and a loose ball there stops dead.', bot: (p, c) => c.enemyBall && dist(p, c.carrier) < 300 } },
+  { id: 'goalkeeper', name: 'Goalkeeper', title: 'The Last Line', role: 'defense', col: '#3fbf5f', num: 1, hidden: true, look: { hair: 8, hairCol: '#2f9f4f', skin: '#f1c9a5', acc: 2, build: 1, eyes: '#2f9f4f' },
+    passive: ['Instinct Save', '+30% save range.'],
     skills: [{ id: 'diveSave', name: 'Dive Save', cd: 4, aim: 'point', range: 170, desc: 'A long dive toward the aim that blocks the ball and knocks enemies away.' },
-      { id: 'wideGuard', name: 'Wide Guard', cd: 12, aim: 'self', desc: 'For 3 s your save area grows by 80%.' },
-      { id: 'aerialGrab', name: 'Aerial Grab', cd: 6, aim: 'self', desc: 'Leap to catch high balls, volleys and headers.' }],
-    ult: { id: 'infinity', name: 'Infinity Save', desc: 'A barrier over your goal for 5 s that blocks every shot and sends the ball back to midfield.' } },
-  { id: 'playmaker', name: 'Playmaker', title: 'The Game Maker', role: 'support', col: '#3a7bff', num: 8, look: { hair: 8, hairCol: '#e8e8f0', skin: '#f1c9a5', acc: 0, build: 0, eyes: '#4fd6ff' },
-    passive: ['Visionary', 'Your passes never wander and give the receiver a short speed boost.'],
-    skills: [{ id: 'precision', name: 'Precision Pass', cd: 6, aim: 'ally', range: 650, desc: 'A pinpoint pass that slips through opponents and can\'t be intercepted.' },
-      { id: 'tactical', name: 'Tactical Zone', cd: 14, aim: 'point', range: 400, desc: 'A 5 s zone where team-mates get +15% speed and shot power.' },
-      { id: 'assistMark', name: 'Assist Mark', cd: 12, aim: 'ally', range: 650, desc: 'Mark a team-mate: your next pass to them can\'t be intercepted, and they get +30% shot power and +20% speed for 3 s.' }],
-    ult: { id: 'perfect', name: 'Perfect Play', desc: 'The whole team gets +30% speed and +25% shot power for 8 s, and their passes can\'t be intercepted.' } },
-  { id: 'healer', name: 'Healer', title: 'The Team Mender', role: 'support', col: '#5ccf6a', num: 6, look: { hair: 9, hairCol: '#ff7ab8', skin: '#f6d2b4', acc: 0, build: 0, eyes: '#ff4d8a' },
-    passive: ['Regeneration Field', 'Team-mates near you recover 2 HP and 2 stamina per second.'],
-    skills: [{ id: 'healBurst', name: 'Heal Burst', cd: 10, aim: 'ally', range: 320, self: true, desc: 'Restore 35 HP to a team-mate (or yourself).' },
-      { id: 'cleanse', name: 'Cleanse', cd: 12, aim: 'ally', range: 320, self: true, desc: 'Remove stuns, slows, glue, freezes and marks from a team-mate.' },
-      { id: 'revive', name: 'Revive', cd: 25, aim: 'ally', range: 320, shared: true, desc: 'Get a knocked-out team-mate back up with 50% HP. The cooldown is shared by your team.' }],
-    ult: { id: 'lifeweaver', name: 'Lifeweaver', desc: 'A big healing field for 6 s: fast HP and stamina recovery, cleansed stuns, and no knockdowns inside.' } },
-  { id: 'aura', name: 'Aura', title: 'The Team Engine', role: 'support', col: '#ffb000', num: 5, look: { hair: 8, hairCol: '#ffcc33', skin: '#f1c9a5', acc: 0, build: 1, eyes: '#ff9f43' },
-    passive: ['Team Spirit', 'Team-mates near you get +6% speed, +6% stamina recovery and +5% shot power.'],
-    skills: [{ id: 'morale', name: 'Morale Boost', cd: 14, aim: 'self', desc: 'Swing the crowd your way, give every team-mate 15 charge and +8% performance for 4 s.' },
-      { id: 'statAura', name: 'Stat Aura', cd: 10, aim: 'self', desc: 'Each use cycles the aura: Offense (+15% shot power), Defense (−20% damage), Speed (+12%), for 6 s on nearby team-mates.' },
-      { id: 'surge', name: 'Stamina Surge', cd: 12, aim: 'self', desc: 'Restore 40 stamina to every team-mate near you.' }],
-    ult: { id: 'awaken', name: 'Team Awakening', desc: 'For 8 s the team gets +30% speed and shot power, takes 20% less damage, and their fouls go unseen.' } },
-  { id: 'brawler', name: 'Brawler', title: 'The Field Rioter', role: 'disrupt', col: '#e8392e', num: 2, look: { hair: 8, hairCol: '#d63030', skin: '#f1c9a5', acc: 2, build: 2, eyes: '#8e1f1f' },
-    passive: ['Adrenaline', '+10% damage for every successful foul, stacking 3 times.'],
-    skills: [{ id: 'heavyPunch', name: 'Heavy Punch', cd: 6, aim: 'enemy', range: 55, desc: 'A huge punch that sends the target flying and makes them drop the ball.' },
-      { id: 'grabThrow', name: 'Grab & Throw', cd: 12, aim: 'enemy', range: 50, desc: 'Grab an enemy and throw them toward the aim; they\'re stunned for 2 s on landing.' },
-      { id: 'groundSlam', name: 'Ground Slam', cd: 12, aim: 'self', desc: 'A shockwave that knocks down every enemy around you.' }],
-    ult: { id: 'rage', name: 'Rage Mode', desc: '7 s berserk: +25% damage, bigger, faster and immune to knockdowns.' } },
-  { id: 'trickster', name: 'Trickster', title: 'The Illusionist', role: 'disrupt', col: '#c45cff', num: 13, look: { hair: 5, hairCol: '#2a1f3a', skin: '#f6d2b4', acc: 6, build: 0, eyes: '#c45cff' },
-    passive: ['Mind Game', 'Anything you hit has a 15% chance to be confused for 1.5 s (controls reversed).'],
-    skills: [{ id: 'clone', name: 'Clone Decoy', cd: 10, aim: 'point', range: 320, desc: 'A clone runs toward the aim with a fake ball for 4 s, pulling defenders away.' },
-      { id: 'trap', name: 'Trap', cd: 8, aim: 'point', range: 300, desc: 'Plant a snare that trips the first enemy to step on it.' },
-      { id: 'jammer', name: 'Referee Jammer', cd: 20, aim: 'self', shared: true, desc: 'Scramble the referee\'s vision for 4 s. The cooldown is shared by your team.' }],
-    ult: { id: 'illusion', name: 'Grand Illusion', desc: 'Three clones with fake balls burst out around the ball for 6 s, hiding the real one.' } },
-  { id: 'ranger', name: 'Ranger', title: 'The Field Sniper', role: 'disrupt', col: '#6a5cff', num: 14, look: { hair: 1, hairCol: '#1b120c', skin: '#d9a477', acc: 7, build: 1, eyes: '#2a1a10' },
-    passive: ['Tactical Scope', '+15% ability range and +15% projectile speed, including weapons.'],
-    skills: [{ id: 'projPass', name: 'Projectile Pass', cd: 6, aim: 'ally', range: 800, desc: 'A rocket of a pass that flies straight through enemies.' },
-      { id: 'gravity', name: 'Gravity Mine', cd: 12, aim: 'point', range: 450, desc: 'A 3 s gravity field that slows enemies and drags them (and the ball) toward the middle.' },
-      { id: 'slowBomb', name: 'Slow Bomb', cd: 12, aim: 'point', range: 450, desc: 'Lob a bomb that leaves a wide 40% slow field for 4 s.' }],
-    ult: { id: 'orbital', name: 'Orbital Strike', desc: 'Call down a blast on the aim after 1.5 s: enemies there are stunned for 3 s and the ball is launched toward goal.' } }
+      { id: 'wideGuard', name: 'Wide Guard', cd: 12, aim: 'self', desc: 'For 3 s your save area grows by 80%.' }],
+    ult: { id: 'infinity', name: 'Infinity Save', desc: 'A barrier over your goal for 5 s that blocks every shot and sends the ball back to midfield.' } }
 ];
 const CLS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 const CLASS_IDS = CLASSES.map(c => c.id);
+const PICKABLE = () => CLASSES.filter(c => !c.hidden);   // the characters people can choose
+// A whole team with both of a pair gets the bonus (ids are what the game logic checks).
 const SYNERGIES = [
-  { id: 'push', name: 'Final Push', need: ['striker', 'playmaker', 'aura'], desc: 'Massive offensive pressure: the team shoots 5% harder.' },
-  { id: 'wall', name: 'Unbreakable Wall', need: ['tank', 'defender', 'goalkeeper'], desc: 'Extreme defence: the team takes 10% less damage.' },
-  { id: 'chaos', name: 'Chaos Engine', need: ['brawler', 'trickster', 'assassin'], desc: 'Confusion everywhere: the team\'s fouls take 20% longer to be spotted.' },
-  { id: 'sustain', name: 'Sustain Core', need: ['healer', 'aura'], desc: 'High survivability: the team recovers 1 HP per second.' }
+  { id: 'push', name: 'Vanity Fair', need: ['pride', 'greed'], desc: 'The team shoots 5% harder.' },
+  { id: 'wall', name: 'Dead Weight', need: ['gluttony', 'sloth'], desc: 'The team takes 10% less damage.' },
+  { id: 'chaos', name: 'Bad Blood', need: ['wrath', 'envy'], desc: 'The team\'s fouls take 20% longer to be spotted.' },
+  { id: 'sustain', name: 'Sweet Nothings', need: ['lust', 'gluttony'], desc: 'The team recovers 1 HP per second.' }
 ];
-// Bot line-ups: forward, midfielder, defender, defender (the goalkeeper slot is always a Goalkeeper)
-const LINEUPS = { balanced: ['striker', 'playmaker', 'defender', 'healer'], aggressive: ['assassin', 'speedster', 'brawler', 'aura'], control: ['ranger', 'playmaker', 'tank', 'trickster'] };
+// Bot line-ups: forward, midfielder, defender, defender (the goalkeeper slot is always the Goalkeeper)
+const LINEUPS = { balanced: ['pride', 'greed', 'gluttony', 'lust'], aggressive: ['wrath', 'envy', 'pride', 'gluttony'], control: ['envy', 'lust', 'sloth', 'greed'] };
 const LINEUP_NAMES = [['mixed', 'Mixed'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive'], ['control', 'Control']];
-let MY_CLASS = (() => { const v = store.get('fpfc-class'); return CLS[v] ? v : 'striker'; })();
+let MY_CLASS = (() => { const v = store.get('fpfc-class'); return CLS[v] && !CLS[v].hidden ? v : DEFAULT_CLASS; })();
 let LOCK_PLAYER = store.get('fpfc-lock') === true;
 let LINEUP_PREF = (() => { const v = store.get('fpfc-lineup'); return LINEUP_NAMES.some(l => l[0] === v) ? v : 'mixed'; })();
 let USE_MY_LOOK = store.get('fpfc-mylook') === true;

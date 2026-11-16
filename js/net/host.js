@@ -52,7 +52,7 @@ function hostData(conn, d) {
     const list = rosterList(), c0 = list.filter(r => r.team === 0).length, c1 = list.length - c0;
     n.conns[id] = conn;
     const team = c0 <= c1 ? 0 : 1;
-    n.roster[id] = { name: String(d.name || 'Player').slice(0, 14), team, joined: Date.now(), ready: false, skin: uniqueNumber(sanitizeSkin(d.skin), team, id), cls: CLS[d.cls] ? d.cls : 'striker', lock: !!d.lock, useSkin: !!d.useSkin };
+    n.roster[id] = { name: String(d.name || 'Player').slice(0, 14), team, joined: Date.now(), ready: false, skin: uniqueNumber(sanitizeSkin(d.skin), team, id), cls: CLS[d.cls] ? d.cls : DEFAULT_CLASS, lock: !!d.lock, useSkin: !!d.useSkin };
     conn.send({ t: 'welcome', uid: id });
     rosterChanged();
   } else if (d.t === 'in') {
@@ -62,7 +62,7 @@ function hostData(conn, d) {
   } else if (d.t === 'skin') {
     const r = n.roster[id]; if (r && n.meta.status === 'lobby') { r.skin = uniqueNumber(sanitizeSkin(d.skin), r.team, id); rosterChanged(); }
   } else if (d.t === 'cls') {
-    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { if (r.cls !== d.cls || r.lock !== !!d.lock) r.ready = false; r.cls = CLS[d.cls] ? d.cls : 'striker'; r.lock = !!d.lock; r.useSkin = !!d.useSkin; rosterChanged(); }
+    const r = n.roster[id]; if (r && n.meta.status === 'lobby') { if (r.cls !== d.cls || r.lock !== !!d.lock) r.ready = false; r.cls = CLS[d.cls] ? d.cls : DEFAULT_CLASS; r.lock = !!d.lock; r.useSkin = !!d.useSkin; rosterChanged(); }
   } else if (d.t === 'ready') {
     const r = n.roster[id]; if (r) { r.ready = !!d.ready; rosterChanged(); }
   } else if (d.t === 'rematch') {

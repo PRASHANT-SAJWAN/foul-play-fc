@@ -32,6 +32,5 @@
 const MODEL_LIMITS = { minHeight: 30, maxHeight: 56, maxWidth: 52 };
 
 const CLASS_MODELS = {
-  // cinderwyrm: { file: 'models/cinderwyrm.glb', height: 46, anims: { idle: 'Idle', run: 'Run', kick: 'Kick', attack: 'Attack' }, loops: ['WingFlap', 'TailSway'], teamMaterial: 'Scarf' },
-  brawler: { file: 'models/peasant_character.glb', height: 42, credit: '"Peasant Character" by Inuciian (sketchfab.com/Inuciian), CC BY 4.0' },
+  // example: wrath: { file: 'models/wrath.glb', height: 46, anims: { idle: 'Idle', run: 'Run', kick: 'Kick', attack: 'Attack' }, loops: ['CapeFlap'], teamMaterial: 'Sash', credit: 'Model by …' },
 };

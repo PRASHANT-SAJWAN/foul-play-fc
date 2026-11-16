@@ -67,7 +67,7 @@ function newMatch(mode) {
     S.players[h.pid].cls = MY_CLASS; h.lock = LOCK_PLAYER;
   }
   for (const h of S.humans) if (h.idx === 1 && mode !== 'online') {   // player 2's class from the setup screen
-    const c2 = CLS[SETUP.p2] ? SETUP.p2 : 'striker', taken = id => S.humans.some(o => o !== h && o.pid === id);
+    const c2 = CLS[SETUP.p2] ? SETUP.p2 : DEFAULT_CLASS, taken = id => S.humans.some(o => o !== h && o.pid === id);
     if (c2 === 'goalkeeper' && !taken(P(h.team, 0).id)) h.pid = P(h.team, 0).id;
     else if (taken(h.pid)) h.pid = P(h.team, MID).id;
     S.players[h.pid].cls = c2; h.lock = LOCK_PLAYER;

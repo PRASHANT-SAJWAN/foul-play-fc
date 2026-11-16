@@ -99,14 +99,14 @@ function guideSections() {
       <h4>Playground extras</h4>
       <p>The Playground's admin panel can still hand out the older items (bats, bananas, glue, smoke bombs, decoys, slingshots and more) for testing; they no longer appear in matches.</p>`],
     ['g-classes', 'Classes, skills and aiming', `
-      <p>Every player has one of 12 classes (see <b>Classes &amp; skills</b> in the menu). Each has a passive, a base attack, two spells and an ultimate, shown on the hotbar at the bottom of the screen.</p>
+      <p>Pick one of the seven Sins: Wrath, Gluttony, Greed, Envy, Pride, Lust and Sloth (see <b>Classes &amp; skills</b> in the menu). Each has a passive, a base attack, two spells and an ultimate, shown on the hotbar at the bottom of the screen. Bots in goal are Goalkeepers.</p>
       <ul><li><b>Hold to aim, release to cast:</b> ${k('foul')} attack, ${k('skill1')} spell 1, ${k('skill2')} spell 2, ${k('ult')} ultimate. While you hold the key, a guide shows the range, the player it would hit, or where it would land. Steer with the movement keys and let go to fire.</li>
         <li><b>Aim assist:</b> a targeted spell or attack locks onto the player closest to your aim (within about 35°). Spells that land on a spot snap onto an opponent you're aiming at.</li>
         <li><b>Spells</b> have a cooldown shown on their slot. The <b>ultimate</b> charges over time and faster with good play; the slot glows when it's ready.</li>
         <li><b>Aiming:</b> passes, shots, spells, attacks and weapons all go the way the arrow under your player points. It turns smoothly rather than snapping, so hold a direction to line up and tap a key to nudge it a few degrees.</li>
         <li><b>Sword:</b> pick one up from the crowd or a bench and your base attack (${k('foul')}) slashes instead, harder and from further away. A sword foul the referee sees is a straight red. (Slingshots and foam blasters are Playground-only now.)</li>
         <li><b>Play as one character:</b> in Pace and controls → Game you can stop switching between team-mates and stay as your chosen class all match.</li>
-        <li><b>Dirty skills</b> like Heavy Punch, Grab &amp; Throw or Bull Rush count as fouls when they hit someone. Cloak, stealth and Team Awakening hide your fouls from the referee.</li></ul>`],
+        <li><b>Dirty skills</b> like Wrathful Slam, Devour's bite or Big Yawn count as fouls when they hit someone. Dashes like Rage Charge never do.</li></ul>`],
     ['g-anomalies', 'Anomalies', `
       <p>Every so often something strange happens mid-match. The bar under the crowd meter fills up until the next one and flashes "Something's coming" just before; while one is on, it names it.</p>
       <ul>${ANOM_LIST.map(([k, n, d]) => `<li><b>${n}:</b> ${d}</li>`).join('')}</ul>
@@ -152,8 +152,8 @@ function guideSections() {
     ['g-rough', 'Rough play, hazards and crates', `
       <ul>
         <li><b>Rage meter:</b> the bars beside the scoreboard. Tackles, shoves and fouls fill your team's. When it's full your whole team glows and your next hit or tackle is an <b>Overdrive</b>: double power and a shockwave that flattens everyone nearby. The catch: glowing players are spotted by referees from much further away.</li>
-        <li><b>Character tackles</b> (${k('lpass')} without the ball): Brawler, Tank and Brawn <b>ground pound</b> (jump and slam: everyone close is knocked down). Hollow, Ranger and Trickster <b>lasso</b> someone from a short distance. Cinderwyrm and Striker slide on <b>fire</b>, leaving a scorch patch opponents hop off in panic. Bulwark slides on <b>ice</b>, leaving a slick that sends sprinters skidding. Everyone else slides as normal.</li>
-        <li><b>Enforcers</b> (Brawler, Tank, Brawn, Bulwark) win more tackles and shrug off light shoves, but run slower and shoot less accurately. <b>Speedsters</b> (Speedster, Ronin, Shogun, Assassin) are quicker flat out and keep the ball closer, but a heavy hit sends them flying and keeps them down longer.</li>
+        <li><b>Character tackles</b> (${k('lpass')} without the ball): Wrath and Gluttony <b>ground pound</b> (jump and slam: everyone close is knocked down). Envy and Lust <b>lasso</b> someone from a short distance. Pride slides on <b>fire</b>, leaving a scorch patch opponents hop off in panic. Sloth slides on <b>ice</b>, leaving a slick that sends sprinters skidding. Greed slides as normal.</li>
+        <li><b>Enforcers</b> (Wrath, Gluttony) win more tackles and shrug off light shoves, but run slower and shoot less accurately. <b>Quick hands</b> (Envy, Greed) are faster flat out and keep the ball closer, but a heavy hit sends them flying and keeps them down longer.</li>
         <li><b>Keepers</b> hold the ball in their hands: it can't be tackled, slid, dashed or tricked away. Only knocking the keeper down frees it, and keepers stand firm against every knock, foul and shockwave until their HP is low (35 or less) or they're knocked out. Then a foul knocks them back toward their own net and the ball spills. Fouling a keeper the referee sees is a straight red.</li>
         <li><b>VAR:</b> about to get a red? The match freezes for 3 seconds. Mash ${k('foul')} to argue it down to a yellow, or press ${k('item')} to bribe the referee with ${VAR.bribe} charge (a referee who likes you takes it more often).</li>
         <li><b>Dizzy:</b> players hit by a foul get up seeing stars and spin on the spot until they recover.</li>

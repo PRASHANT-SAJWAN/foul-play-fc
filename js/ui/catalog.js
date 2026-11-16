@@ -31,9 +31,9 @@ function classKeyLabels() { return SKILL_KEYS.map(k => k ? keyLabel(BINDS[0][k])
 function openRoles(from) {
   rolesFrom = from;
   const nav = $('rl-tabs'), body = $('rl-body'), keysL = classKeyLabels();
-  nav.innerHTML = Object.entries(ROLE_INFO).map(([r, R]) => `<div class="rl-group" style="color:${R.col}">${R.name}</div>` + CLASSES.filter(c => c.role === r).map(c => `<button role="tab" id="rt-${c.id}" aria-controls="rp-${c.id}" aria-selected="false" tabindex="-1"><span style="color:${c.col}">■</span> ${c.name}${c.id === MY_CLASS ? ' ✓' : ''}</button>`).join('')).join('') +
+  nav.innerHTML = Object.entries(ROLE_INFO).map(([r, R]) => `<div class="rl-group" style="color:${R.col}">${R.name}</div>` + CLASSES.filter(c => c.role === r && !c.hidden).map(c => `<button role="tab" id="rt-${c.id}" aria-controls="rp-${c.id}" aria-selected="false" tabindex="-1"><span style="color:${c.col}">■</span> ${c.name}${c.id === MY_CLASS ? ' ✓' : ''}</button>`).join('')).join('') +
     '<div class="rl-group">Teams</div><button role="tab" id="rt-syn" aria-controls="rp-syn" aria-selected="false" tabindex="-1">Synergies</button><button role="tab" id="rt-line" aria-controls="rp-line" aria-selected="false" tabindex="-1">Line-ups</button>';
-  body.innerHTML = CLASSES.map(c => { const R = ROLE_INFO[c.role]; return `<section class="guide-sec role-card" id="rp-${c.id}" role="tabpanel" aria-labelledby="rt-${c.id}" hidden>
+  body.innerHTML = PICKABLE().map(c => { const R = ROLE_INFO[c.role]; return `<section class="guide-sec role-card" id="rp-${c.id}" role="tabpanel" aria-labelledby="rt-${c.id}" hidden>
     <div class="cls-head"><img class="cls-portrait" alt="" src="${classPortrait(c)}">
       <div><h3 style="color:${c.col};margin:0">${c.name}</h3><p class="lede" style="margin:2px 0 8px">${c.title} · <span class="role-chip" style="color:${R.col}">${R.name}</span></p>
       ${c.id === MY_CLASS ? '<p class="hint">✓ This is your class</p>' : `<button class="btn sm" data-play="${c.id}">Play as ${c.name}</button>`}</div></div>

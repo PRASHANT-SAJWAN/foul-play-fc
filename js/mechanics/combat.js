@@ -67,7 +67,7 @@ const TRAITS = {
   enforcer: { speed: 0.92, tackle: 1.5, shove: 200, shotErr: 0.12 },   // strong in the tackle, shrug off light shoves; slower, wilder shots
   speedster: { sprint: 1.1, fragile: 1.7 },                             // quicker flat out, tighter control (js/mechanics/dribbling.js); fragile
 };
-const TRAIT_OF = { brawler: 'enforcer', tank: 'enforcer', brawn: 'enforcer', bulwark: 'enforcer', speedster: 'speedster', ronin: 'speedster', shogun: 'speedster', assassin: 'speedster' };
+const TRAIT_OF = { wrath: 'enforcer', gluttony: 'enforcer', envy: 'speedster', greed: 'speedster' };
 const traitOf = p => (p && TRAIT_OF[p.cls]) || null;
 function traitSpeed(p) { const t = traitOf(p); return t === 'enforcer' ? TRAITS.enforcer.speed : t === 'speedster' && p.sprinting ? TRAITS.speedster.sprint : 1; }
 function traitTackle(p) { return (traitOf(p) === 'enforcer' ? TRAITS.enforcer.tackle : 1) * (glowing(p) ? 1.4 : 1); }
@@ -77,7 +77,7 @@ const shotError = p => traitOf(p) === 'enforcer' ? rand(-1, 1) * TRAITS.enforcer
 /* ---------- each character's tackle (J without the ball) ---------- */
 // pound: jump and slam the ground; everyone close is knocked flat. lasso: trip someone from a short distance.
 // fire / ice: a normal slide that leaves a scorch patch (opponents bounce off it in panic) or a slick (sprinters skid helplessly).
-const TACKLE_STYLE = { brawler: 'pound', tank: 'pound', brawn: 'pound', bulwark: 'ice', cinderwyrm: 'fire', striker: 'fire', hollow: 'lasso', ranger: 'lasso', trickster: 'lasso' };
+const TACKLE_STYLE = { wrath: 'pound', gluttony: 'pound', pride: 'fire', sloth: 'ice', envy: 'lasso', lust: 'lasso' };
 const TACKLE_NAME = { pound: 'Ground pound', lasso: 'Lasso trip', fire: 'Fire slide', ice: 'Ice slide' };
 function tackleMove(p) {
   const st = TACKLE_STYLE[p.cls];
